@@ -1,0 +1,20 @@
+{
+  "name": "restaurant-management-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/backend",
+    "apps/web",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "build": "npm -ws run build",
+    "dev": "npm -ws run dev",
+    "start": "npm -ws run start",
+    "lint": "npm -ws run lint"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+
+
