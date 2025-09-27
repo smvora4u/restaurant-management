@@ -1,0 +1,634 @@
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@apollo/client';
+import { gql } from '@apollo/client';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Paper,
+  Typography,
+  Alert,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+} from '@mui/material';
+import {
+  MenuBook as MenuBookIcon,
+  Receipt as InvoiceIcon,
+} from '@mui/icons-material';
+import ConsumerLayout from '../components/ConsumerLayout';
+import MenuTab from '../components/consumer/MenuTab';
+import InvoiceTab from '../components/consumer/InvoiceTab';
+import UserRegistrationDialog from '../components/UserRegistrationDialog';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`consumer-tabpanel-${index}`}
+      aria-labelledby={`consumer-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, overflow: 'visible' }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `consumer-tab-${index}`,
+    'aria-controls': `consumer-tabpanel-${index}`,
+  };
+}
+
+// GraphQL query to check for existing table orders
+const GET_ORDER_BY_TABLE = gql`
+  query GetOrderByTable($tableNumber: Int!) {
+    orderByTable(tableNumber: $tableNumber) {
+      id
+      tableNumber
+      orderType
+      status
+      customerPhone
+      items {
+        menuItemId
+        quantity
+        status
+      }
+    }
+  }
+`;
+
+// GraphQL query to check for user's existing table orders
+const GET_USER_TABLE_ORDERS = gql`
+  query GetUserTableOrders($mobileNumber: String!) {
+    ordersByMobile(mobileNumber: $mobileNumber, orderType: "dine-in") {
+      id
+      tableNumber
+      orderType
+      status
+      customerPhone
+      items {
+        menuItemId
+        quantity
+        status
+      }
+    }
+  }
+`;
+
+export default function ConsumerPage() {
+  const { tableNumber, orderId, orderType } = useParams<{ 
+    tableNumber?: string; 
+    orderId?: string; 
+    orderType?: string; 
+  }>();
+  const [activeTab, setActiveTab] = useState(0);
+  const [isValidTable, setIsValidTable] = useState<boolean | null>(null);
+  const [isValidOrder, setIsValidOrder] = useState<boolean | null>(null);
+  const [isValidParcel, setIsValidParcel] = useState<boolean | null>(null);
+  const [orderRefreshTrigger, setOrderRefreshTrigger] = useState(0);
+  const [parcelOrderId, setParcelOrderId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showUserRegistration, setShowUserRegistration] = useState(false);
+  const [isUserRegistered, setIsUserRegistered] = useState(false);
+  const [isTableOccupied, setIsTableOccupied] = useState(false);
+  const [showTableOccupiedMessage, setShowTableOccupiedMessage] = useState(false);
+  const [existingTableOrder, setExistingTableOrder] = useState<any>(null);
+  const [showRedirectMessage, setShowRedirectMessage] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
+
+  // Query to check for existing table orders
+  const { data: tableOrderData, loading: tableOrderLoading } = useQuery(GET_ORDER_BY_TABLE, {
+    variables: { tableNumber: tableNumber ? parseInt(tableNumber) : 0 },
+    skip: !tableNumber || !isValidTable,
+    onCompleted: (data) => {
+      if (data?.orderByTable && data.orderByTable.status !== 'completed') {
+        console.log('ConsumerPage: Table is occupied with incomplete order:', data.orderByTable);
+        
+        // Check if current user is the owner of this order
+        const currentUser = localStorage.getItem('currentUser');
+        let isOwner = false;
+        
+        if (currentUser) {
+          try {
+            const user = JSON.parse(currentUser);
+            // Check if user's mobile number matches the order's customer phone
+            if (user.mobileNumber && data.orderByTable.customerPhone === user.mobileNumber) {
+              isOwner = true;
+              console.log('ConsumerPage: Current user is the owner of the existing order');
+            }
+          } catch (err) {
+            console.error('Error parsing current user:', err);
+          }
+        }
+        
+        if (!isOwner) {
+          console.log('ConsumerPage: Table is occupied by another user, showing warning');
+          setIsTableOccupied(true);
+          setShowTableOccupiedMessage(true);
+        } else {
+          console.log('ConsumerPage: Current user owns the existing order, allowing access');
+          // Don't set isTableOccupied to true, allow the user to continue
+        }
+      }
+    },
+    onError: (error) => {
+      console.log('ConsumerPage: No existing order found for table:', error);
+    }
+  });
+
+  // Suppress unused variable warning - tableOrderData is used in onCompleted callback
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+  // Query to check for user's existing table orders
+  const { loading: userTableOrdersLoading } = useQuery(GET_USER_TABLE_ORDERS, {
+    variables: { mobileNumber: currentUser?.mobileNumber || '' },
+    skip: !currentUser?.mobileNumber || !isValidTable,
+    onCompleted: (data) => {
+      if (data?.ordersByMobile && data.ordersByMobile.length > 0) {
+        // Find incomplete orders (not completed)
+        const incompleteOrders = data.ordersByMobile.filter((order: any) => order.status !== 'completed');
+        if (incompleteOrders.length > 0) {
+          const existingOrder = incompleteOrders[0];
+          const currentTableNumber = tableNumber ? parseInt(tableNumber) : 0;
+          
+          // If user is trying to access a different table than their existing order
+          if (existingOrder.tableNumber !== currentTableNumber) {
+            console.log('ConsumerPage: User has existing order on different table:', existingOrder);
+            setExistingTableOrder(existingOrder);
+            setShowRedirectMessage(true);
+            setRedirectCountdown(5);
+          }
+        }
+      }
+    },
+    onError: (error) => {
+      console.log('ConsumerPage: No existing table orders found for user:', error);
+    }
+  });
+
+  // Check for existing user on page load
+  useEffect(() => {
+    console.log('ConsumerPage: Checking for existing user...', { orderType, isValidParcel });
+    
+    if (isValidParcel) {
+      // For takeout/delivery orders, check for existing user session
+      const savedUser = localStorage.getItem('currentUser');
+      const savedOrderType = localStorage.getItem('lastOrderType');
+      
+      // If this is a different order type than what was saved, clear the session
+      if (savedOrderType && savedOrderType !== orderType) {
+        console.log('ConsumerPage: Different order type detected, clearing session');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('lastOrderType');
+        setShowUserRegistration(true);
+        setIsUserRegistered(true);
+        return;
+      }
+      
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          console.log('ConsumerPage: Found saved user for takeout order:', user);
+          setCurrentUser(user);
+          setIsUserRegistered(true);
+          
+          // Check if user has an existing order
+          if (user.mobileNumber) {
+            const existingOrderId = localStorage.getItem(`user_order_${user.mobileNumber}`);
+            if (existingOrderId) {
+              console.log('ConsumerPage: Found existing order for user mobile:', existingOrderId);
+              setParcelOrderId(existingOrderId);
+            }
+          }
+        } catch (err) {
+          console.error('Error parsing saved user:', err);
+          localStorage.removeItem('currentUser');
+          setShowUserRegistration(true);
+          setIsUserRegistered(true);
+        }
+      } else {
+        console.log('ConsumerPage: No saved user found for takeout order, showing registration dialog');
+        setShowUserRegistration(true);
+        setIsUserRegistered(true);
+      }
+    } else {
+      // For table orders, check for saved user
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          console.log('ConsumerPage: Found saved user for table order:', user);
+          setCurrentUser(user);
+          setIsUserRegistered(true);
+        } catch (err) {
+          console.error('Error parsing saved user:', err);
+          localStorage.removeItem('currentUser');
+          setShowUserRegistration(true);
+          setIsUserRegistered(true);
+        }
+      } else {
+        console.log('ConsumerPage: No saved user found for table order, showing registration dialog');
+        setShowUserRegistration(true);
+        setIsUserRegistered(true);
+      }
+    }
+  }, [isValidParcel, orderType]);
+
+  // Countdown timer for redirect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showRedirectMessage && redirectCountdown > 0) {
+      timer = setTimeout(() => {
+        setRedirectCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (showRedirectMessage && redirectCountdown === 0) {
+      // Redirect to existing table order
+      if (existingTableOrder) {
+        const redirectUrl = `/consumer/${existingTableOrder.tableNumber}`;
+        console.log('ConsumerPage: Redirecting to existing table order:', redirectUrl);
+        window.location.href = redirectUrl;
+      }
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showRedirectMessage, redirectCountdown, existingTableOrder]);
+
+  // Generate session ID for takeout orders
+  useEffect(() => {
+    if (orderType && ['takeout', 'delivery'].includes(orderType)) {
+      // Generate or retrieve session ID for takeout orders
+      let existingSessionId = localStorage.getItem(`takeout_session_${orderType}`);
+      if (!existingSessionId) {
+        existingSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem(`takeout_session_${orderType}`, existingSessionId);
+      }
+      setSessionId(existingSessionId);
+      
+      // Check if this is a new QR code scan by comparing with saved session
+      const savedSessionId = localStorage.getItem('lastSessionId');
+      if (savedSessionId && savedSessionId !== existingSessionId) {
+        console.log('ConsumerPage: New QR code detected, clearing user session');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('lastOrderType');
+        setCurrentUser(null);
+        setShowUserRegistration(true);
+        setIsUserRegistered(true);
+      }
+      
+      // Save current session ID
+      localStorage.setItem('lastSessionId', existingSessionId);
+    }
+  }, [orderType]);
+
+
+  // Validate table number, order ID, or parcel order type
+  useEffect(() => {
+    if (tableNumber) {
+      const tableNum = parseInt(tableNumber);
+      if (tableNum > 0 && tableNum <= 100) {
+        setIsValidTable(true);
+        setIsValidOrder(false);
+        setIsValidParcel(false);
+      } else {
+        setIsValidTable(false);
+        setIsValidOrder(false);
+        setIsValidParcel(false);
+      }
+    } else if (orderId) {
+      // Basic validation for order ID (MongoDB ObjectId format)
+      if (orderId.length === 24 && /^[0-9a-fA-F]{24}$/.test(orderId)) {
+        setIsValidOrder(true);
+        setIsValidTable(false);
+        setIsValidParcel(false);
+      } else {
+        setIsValidOrder(false);
+        setIsValidTable(false);
+        setIsValidParcel(false);
+      }
+    } else if (orderType && ['takeout', 'delivery'].includes(orderType)) {
+      // Valid parcel order type
+      setIsValidParcel(true);
+      setIsValidTable(false);
+      setIsValidOrder(false);
+    } else {
+      setIsValidTable(false);
+      setIsValidOrder(false);
+      setIsValidParcel(false);
+    }
+  }, [tableNumber, orderId, orderType]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  const handleOrderCreated = (orderId?: string) => {
+    setOrderRefreshTrigger(prev => prev + 1);
+    if (orderId && isValidParcel) {
+      setParcelOrderId(orderId);
+      // Store the order ID for this user using mobile number as key
+      if (currentUser && currentUser.mobileNumber) {
+        localStorage.setItem(`user_order_${currentUser.mobileNumber}`, orderId);
+      }
+    }
+  };
+
+  const handleUserRegistered = (user: any, orderId?: string) => {
+    console.log('ConsumerPage: User registered:', user, 'with orderId:', orderId);
+    setCurrentUser(user);
+    setIsUserRegistered(true);
+    setShowUserRegistration(false);
+    
+    // Save the order type for session tracking
+    if (isValidParcel) {
+      localStorage.setItem('lastOrderType', orderType || 'takeout');
+    }
+    
+    // If an order ID was provided (incomplete order found), use it
+    if (orderId && isValidParcel) {
+      console.log('ConsumerPage: Restoring incomplete order:', orderId);
+      setParcelOrderId(orderId);
+      // Store the order ID for this user
+      localStorage.setItem(`user_order_${user.mobileNumber}`, orderId);
+    } else if (isValidParcel) {
+      // Check if user has an existing order by mobile number
+      const existingOrderId = localStorage.getItem(`user_order_${user.mobileNumber}`);
+      if (existingOrderId) {
+        console.log('ConsumerPage: Found existing order for user mobile:', existingOrderId);
+        setParcelOrderId(existingOrderId);
+      }
+    }
+  };
+
+  const handleUserRegistrationClose = () => {
+    // If user closes without registering, redirect back or show error
+    setShowUserRegistration(false);
+    // You might want to redirect to home page or show an error message
+  };
+
+  if (isValidTable === null && isValidOrder === null && isValidParcel === null) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show loading only if we're still checking for user or table orders, but not if table is occupied or redirecting (show dialog instead)
+  if ((!isUserRegistered && !showUserRegistration) || (isValidTable && (tableOrderLoading || userTableOrdersLoading) && !isTableOccupied && !showRedirectMessage)) {
+    console.log('ConsumerPage: Showing loading screen - isUserRegistered:', isUserRegistered, 'showUserRegistration:', showUserRegistration, 'tableOrderLoading:', tableOrderLoading, 'userTableOrdersLoading:', userTableOrdersLoading, 'isTableOccupied:', isTableOccupied, 'showRedirectMessage:', showRedirectMessage);
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // If table is occupied, don't render main content - only show the dialog
+  if (isTableOccupied) {
+    return (
+      <>
+        {/* Table Occupied Dialog */}
+        <Dialog
+          open={showTableOccupiedMessage}
+          onClose={() => setShowTableOccupiedMessage(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Typography variant="h6" color="error" align="center">
+              Table Occupied
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" align="center" sx={{ mb: 2 }}>
+              This table already has an active order that is not yet completed.
+            </Typography>
+            <Typography variant="body2" align="center" color="text.secondary">
+              Please scan another table QR code to place your order.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setShowTableOccupiedMessage(false);
+                // Close the current page/tab
+                window.close();
+              }}
+              sx={{ minWidth: 120 }}
+            >
+              Close Page
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  }
+
+  // If user has existing order on different table, show redirect message
+  if (showRedirectMessage) {
+    return (
+      <>
+        {/* Redirect Message Dialog */}
+        <Dialog
+          open={showRedirectMessage}
+          maxWidth="sm"
+          fullWidth
+          disableEscapeKeyDown
+        >
+          <DialogTitle>
+            <Typography variant="h6" color="warning" align="center">
+              Existing Order Found
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" align="center" sx={{ mb: 2 }}>
+              You already have an active order on Table #{existingTableOrder?.tableNumber}.
+            </Typography>
+            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 2 }}>
+              Redirecting you to your existing order...
+            </Typography>
+            <Typography variant="h4" align="center" color="primary" sx={{ fontWeight: 'bold' }}>
+              {redirectCountdown}
+            </Typography>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  const tableNum = tableNumber ? parseInt(tableNumber) : 0;
+  const orderIdValue = orderId || parcelOrderId || '';
+  const parcelOrderType = orderType || '';
+
+  if (isValidTable === false && isValidOrder === false && isValidParcel === false) {
+    return (
+      <ConsumerLayout tableNumber={0} orderType={parcelOrderType} userName={currentUser?.name}>
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Invalid Access
+          </Typography>
+          <Typography>
+            {tableNumber 
+              ? `The table number "${tableNumber}" is not valid. Please scan the QR code again or contact staff for assistance.`
+              : orderId
+              ? `The order ID "${orderId}" is not valid. Please check the link or contact staff for assistance.`
+              : `The order type "${orderType}" is not valid. Please scan the QR code again or contact staff for assistance.`
+            }
+          </Typography>
+        </Alert>
+      </ConsumerLayout>
+    );
+  }
+
+  // Debug logging
+  console.log('ConsumerPage: Current state:', {
+    orderId,
+    parcelOrderId,
+    orderIdValue,
+    currentUser: currentUser?.mobileNumber,
+    isValidParcel,
+    orderType,
+    showUserRegistration,
+    isUserRegistered
+  });
+
+  return (
+    <>
+      <ConsumerLayout 
+        tableNumber={tableNum} 
+        orderType={parcelOrderType}
+        userName={currentUser?.name || (isValidParcel ? 'Guest' : undefined)}
+      >
+        <Box sx={{ 
+          maxWidth: '100%', 
+          mx: 'auto', 
+          p: { xs: 1, sm: 2, md: 3 },
+          minHeight: '100vh',
+          backgroundColor: '#f5f5f5'
+        }}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              width: '100%',
+              borderRadius: 3,
+              overflow: 'visible',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+            }}
+          >
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: '#fff' }}>
+              <Tabs
+                value={activeTab}
+                onChange={handleTabChange}
+                aria-label="consumer tabs"
+                variant="fullWidth"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+                sx={{
+                  '& .MuiTab-root': {
+                    minHeight: 72,
+                    fontSize: '0.9rem',
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    '&.Mui-selected': {
+                      color: '#1976d2',
+                      fontWeight: 600
+                    }
+                  },
+                  '& .MuiTabs-indicator': {
+                    height: 3,
+                    borderRadius: '3px 3px 0 0'
+                  }
+                }}
+              >
+                <Tab
+                  icon={<MenuBookIcon sx={{ fontSize: '1.2rem' }} />}
+                  label="Menu"
+                  {...a11yProps(0)}
+                />
+              <Tab
+                icon={<InvoiceIcon sx={{ fontSize: '1.2rem' }} />}
+                label="Invoice"
+                {...a11yProps(1)}
+              />
+              </Tabs>
+            </Box>
+
+            <Box sx={{ backgroundColor: '#fff', minHeight: '60vh', overflow: 'visible' }}>
+              <TabPanel value={activeTab} index={0}>
+                <MenuTab 
+                  tableNumber={tableNum} 
+                  orderId={orderIdValue} 
+                  orderType={parcelOrderType}
+                  isParcelOrder={isValidParcel || false}
+                  sessionId={sessionId}
+                  currentUser={currentUser}
+                  onOrderCreated={handleOrderCreated}
+                />
+              </TabPanel>
+
+              <TabPanel value={activeTab} index={1}>
+                <InvoiceTab 
+                  tableNumber={tableNum} 
+                  orderId={orderIdValue} 
+                  orderType={parcelOrderType}
+                  isParcelOrder={isValidParcel || false}
+                  sessionId={sessionId}
+                  currentUser={currentUser}
+                  isActive={activeTab === 1}
+                  refreshTrigger={orderRefreshTrigger}
+                />
+              </TabPanel>
+            </Box>
+          </Paper>
+        </Box>
+      </ConsumerLayout>
+
+      {/* User Registration Dialog */}
+      <UserRegistrationDialog
+        open={showUserRegistration}
+        onClose={handleUserRegistrationClose}
+        onUserRegistered={handleUserRegistered}
+        orderType={parcelOrderType}
+        sessionId={sessionId}
+      />
+
+    </>
+  );
+}
