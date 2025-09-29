@@ -1,0 +1,84 @@
+import jwt from 'jsonwebtoken';
+import { Restaurant, Admin } from '../models/index.js';
+
+export interface AuthContext {
+  restaurant?: {
+    id: string;
+    email: string;
+    slug: string;
+  };
+  admin?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions: string[];
+  };
+}
+
+export const authenticateUser = async (req: any): Promise<AuthContext> => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const restaurantId = req.headers['x-restaurant-id'];
+    const restaurantSlug = req.headers['x-restaurant-slug'];
+    
+    // If we have restaurant context from headers (for consumer pages)
+    if (restaurantId && restaurantSlug) {
+      const Restaurant = (await import('../models/Restaurant.js')).default;
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (restaurant && restaurant.slug === restaurantSlug && restaurant.isActive) {
+        return {
+          restaurant: {
+            id: restaurant._id.toString(),
+            email: restaurant.email,
+            slug: restaurant.slug
+          }
+        };
+      }
+    }
+    
+    if (!token) {
+      return {};
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+    
+    if (decoded.restaurantId) {
+      // Restaurant authentication
+      const restaurant = await Restaurant.findById(decoded.restaurantId);
+      if (!restaurant || !restaurant.isActive) {
+        throw new Error('Restaurant not found or inactive');
+      }
+      
+      return {
+        restaurant: {
+          id: restaurant._id.toString(),
+          email: restaurant.email,
+          slug: restaurant.slug
+        }
+      };
+    } else if (decoded.adminId) {
+      // Admin authentication
+      const admin = await Admin.findById(decoded.adminId);
+      if (!admin || !admin.isActive) {
+        throw new Error('Admin not found or inactive');
+      }
+      
+      return {
+        admin: {
+          id: admin._id.toString(),
+          email: admin.email,
+          role: admin.role,
+          permissions: admin.permissions
+        }
+      };
+    }
+    
+    return {};
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return {};
+  }
+};
+
+// Keep the old function for backward compatibility
+export const authenticateRestaurant = authenticateUser;
