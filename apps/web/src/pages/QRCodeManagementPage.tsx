@@ -12,10 +12,6 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import {
   QrCode,
@@ -26,6 +22,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
+import { ConfirmationDialog } from '../components/common';
 
 const GET_TABLES = gql`
   query GetTables {
@@ -576,56 +573,46 @@ export default function QRCodeManagementPage() {
         </Card>
 
         {/* Delete QR Code Confirmation Dialog */}
-        <Dialog
+        <ConfirmationDialog
           open={deleteConfirmOpen}
           onClose={handleCancelDelete}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            Delete QR Code
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body1">
-              Are you sure you want to delete this QR code? This action will hide the QR code from the display.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              You can restore it later using the "Restore All" button.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCancelDelete}>Cancel</Button>
-            <Button onClick={handleConfirmDelete} color="error" variant="contained">
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+          onConfirm={handleConfirmDelete}
+          title="Delete QR Code"
+          message={
+            <Box>
+              <Typography variant="body1">
+                Are you sure you want to delete this QR code? This action will hide the QR code from the display.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                You can restore it later using the "Restore All" button.
+              </Typography>
+            </Box>
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmColor="error"
+        />
 
         {/* Restore All Confirmation Dialog */}
-        <Dialog
+        <ConfirmationDialog
           open={restoreAllConfirmOpen}
           onClose={handleCancelRestoreAll}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            Restore All QR Codes
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body1">
-              Are you sure you want to restore all hidden QR codes? This will bring back all previously deleted QR codes.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCancelRestoreAll}>Cancel</Button>
-            <Button onClick={handleConfirmRestoreAll} color="primary" variant="contained">
-              Restore All
-            </Button>
-          </DialogActions>
-        </Dialog>
+          onConfirm={handleConfirmRestoreAll}
+          title="Restore All QR Codes"
+          message={
+            <Box>
+              <Typography variant="body1">
+                Are you sure you want to restore all hidden QR codes? This will bring back all previously deleted QR codes.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                This action cannot be undone.
+              </Typography>
+            </Box>
+          }
+          confirmText="Restore All"
+          cancelText="Cancel"
+          confirmColor="primary"
+        />
       </Box>
     </Layout>
   );

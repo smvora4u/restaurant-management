@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
+import { ConfirmationDialog } from '../components/common';
 
 const GET_TABLES = gql`
   query GetTables {
@@ -104,6 +105,10 @@ export default function TablesPage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [restaurant, setRestaurant] = useState<any>(null);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    id: string | null;
+  }>({ open: false, id: null });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -253,19 +258,29 @@ export default function TablesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this table?')) {
-      try {
-        await deleteTable({
-          variables: { id }
-        });
-        setSnackbar({ open: true, message: 'Table deleted successfully!', severity: 'success' });
-        refetch();
-      } catch (error) {
-        console.error('Error deleting table:', error);
-        setSnackbar({ open: true, message: 'Error deleting table', severity: 'error' });
-      }
+  const handleDelete = (id: string) => {
+    setDeleteConfirm({ open: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.id) return;
+    
+    try {
+      await deleteTable({
+        variables: { id: deleteConfirm.id }
+      });
+      setSnackbar({ open: true, message: 'Table deleted successfully!', severity: 'success' });
+      refetch();
+    } catch (error) {
+      console.error('Error deleting table:', error);
+      setSnackbar({ open: true, message: 'Error deleting table', severity: 'error' });
+    } finally {
+      setDeleteConfirm({ open: false, id: null });
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ open: false, id: null });
   };
 
   const handleSnackbarClose = () => {
@@ -567,6 +582,18 @@ export default function TablesPage() {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteConfirm.open}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          title="Delete Table"
+          message={`Are you sure you want to delete this table? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmColor="error"
+        />
       </Box>
     </Layout>
   );

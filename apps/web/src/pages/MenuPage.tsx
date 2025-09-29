@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import { gql } from '@apollo/client';
 import {
   Box,
   Card,
-  CardContent,
   Typography,
   Button,
   Table,
@@ -19,17 +17,15 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  Grid,
 } from '@mui/material';
 import {
   Add,
   Edit,
   Delete,
-  Restaurant,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
-import { FormDialog, AppSnackbar, FormField } from '../components/common';
-import { useRestaurant, useSnackbar, useCrudOperations } from '../hooks';
+import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
+import { useRestaurant, useCrudOperations } from '../hooks';
 
 const GET_MENU_ITEMS = gql`
   query GetMenuItems {
@@ -106,7 +102,6 @@ const categories = [
 ];
 
 export default function MenuPage() {
-  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
@@ -127,8 +122,17 @@ export default function MenuPage() {
 
   // Custom hooks
   const { getRestaurantId } = useRestaurant();
-  const { snackbar, hideSnackbar, showSuccess, showError } = useSnackbar();
-  const { handleCreate, handleUpdate, handleDelete, loading } = useCrudOperations({
+  const { 
+    handleCreate, 
+    handleUpdate, 
+    handleDelete, 
+    confirmDelete, 
+    cancelDelete, 
+    loading, 
+    snackbar, 
+    hideSnackbar, 
+    deleteConfirm 
+  } = useCrudOperations({
     createMutation: CREATE_MENU_ITEM,
     updateMutation: UPDATE_MENU_ITEM,
     deleteMutation: DELETE_MENU_ITEM,
@@ -197,8 +201,7 @@ export default function MenuPage() {
     });
   };
 
-  const handleInputChange = (field: string) => (event: any) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -356,7 +359,7 @@ export default function MenuPage() {
               name="name"
               label="Name"
               value={formData.name}
-              onChange={handleInputChange}
+              onChange={(field, value) => handleInputChange(field, value)}
               required
             />
             <FormField
@@ -364,66 +367,66 @@ export default function MenuPage() {
               name="description"
               label="Description"
               value={formData.description}
-              onChange={handleInputChange}
+              onChange={(field, value) => handleInputChange(field, value)}
               multiline
               rows={3}
             />
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
                 <FormField
                   type="number"
                   name="price"
                   label="Price"
                   value={formData.price}
-                  onChange={handleInputChange}
+                  onChange={(field, value) => handleInputChange(field, value)}
                   required
                 />
-              </Grid>
-              <Grid item xs={6}>
+              </Box>
+              <Box sx={{ flex: 1 }}>
                 <FormField
                   type="select"
                   name="category"
                   label="Category"
                   value={formData.category}
-                  onChange={handleInputChange}
+                  onChange={(field, value) => handleInputChange(field, value)}
                   options={categories.map(cat => ({ value: cat, label: cat }))}
                   required
                 />
-              </Grid>
-            </Grid>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
                 <FormField
                   type="number"
                   name="preparationTime"
                   label="Preparation Time (minutes)"
                   value={formData.preparationTime}
-                  onChange={handleInputChange}
+                  onChange={(field, value) => handleInputChange(field, value)}
                 />
-              </Grid>
-              <Grid item xs={6}>
+              </Box>
+              <Box sx={{ flex: 1 }}>
                 <FormField
                   type="switch"
                   name="available"
                   label="Available"
                   value={formData.available}
-                  onChange={handleInputChange}
+                  onChange={(field, value) => handleInputChange(field, value)}
                 />
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
             <FormField
               type="text"
               name="imageUrl"
               label="Image URL"
               value={formData.imageUrl}
-              onChange={handleInputChange}
+              onChange={(field, value) => handleInputChange(field, value)}
             />
             <FormField
               type="text"
               name="ingredients"
               label="Ingredients (comma-separated)"
               value={formData.ingredients}
-              onChange={handleInputChange}
+              onChange={(field, value) => handleInputChange(field, value)}
               placeholder="e.g., Chicken, Rice, Vegetables"
             />
             <FormField
@@ -431,7 +434,7 @@ export default function MenuPage() {
               name="allergens"
               label="Allergens (comma-separated)"
               value={formData.allergens}
-              onChange={handleInputChange}
+              onChange={(field, value) => handleInputChange(field, value)}
               placeholder="e.g., Nuts, Dairy, Gluten"
             />
           </Box>
@@ -443,6 +446,19 @@ export default function MenuPage() {
           onClose={hideSnackbar}
           message={snackbar.message}
           severity={snackbar.severity}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteConfirm.open}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          title="Delete Menu Item"
+          message={`Are you sure you want to delete this menu item? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmColor="error"
+          loading={loading}
         />
       </Box>
     </Layout>

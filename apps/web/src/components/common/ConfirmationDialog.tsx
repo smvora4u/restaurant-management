@@ -14,7 +14,7 @@ interface ConfirmationDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   confirmColor?: 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success';
@@ -42,9 +42,13 @@ export default function ConfirmationDialog({
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Box sx={{ py: 2 }}>
-          <Typography variant="body1">
-            {message}
-          </Typography>
+          {typeof message === 'string' ? (
+            <Typography variant="body1">
+              {message}
+            </Typography>
+          ) : (
+            message
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

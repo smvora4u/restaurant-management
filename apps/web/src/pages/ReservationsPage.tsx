@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client';
 import { gql } from '@apollo/client';
 import {
@@ -35,6 +34,7 @@ import {
   CalendarToday,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
+import { ConfirmationDialog } from '../components/common';
 
 const GET_RESERVATIONS = gql`
   query GetReservations {
@@ -111,12 +111,15 @@ const statusColors = {
 } as const;
 
 export default function ReservationsPage() {
-  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingReservation, setEditingReservation] = useState<any>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    id: string | null;
+  }>({ open: false, id: null });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -236,19 +239,29 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this reservation?')) {
-      try {
-        await deleteReservation({
-          variables: { id }
-        });
-        setSnackbar({ open: true, message: 'Reservation deleted successfully!', severity: 'success' });
-        refetch();
-      } catch (error) {
-        console.error('Error deleting reservation:', error);
-        setSnackbar({ open: true, message: 'Error deleting reservation', severity: 'error' });
-      }
+  const handleDelete = (id: string) => {
+    setDeleteConfirm({ open: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.id) return;
+    
+    try {
+      await deleteReservation({
+        variables: { id: deleteConfirm.id }
+      });
+      setSnackbar({ open: true, message: 'Reservation deleted successfully!', severity: 'success' });
+      refetch();
+    } catch (error) {
+      console.error('Error deleting reservation:', error);
+      setSnackbar({ open: true, message: 'Error deleting reservation', severity: 'error' });
+    } finally {
+      setDeleteConfirm({ open: false, id: null });
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ open: false, id: null });
   };
 
   const handleSnackbarClose = () => {
@@ -574,6 +587,18 @@ export default function ReservationsPage() {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteConfirm.open}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          title="Delete Reservation"
+          message={`Are you sure you want to delete this reservation? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmColor="error"
+        />
       </Box>
     </Layout>
   );

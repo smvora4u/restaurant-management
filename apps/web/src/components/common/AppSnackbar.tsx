@@ -1,4 +1,3 @@
-import React from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
 interface AppSnackbarProps {
@@ -21,6 +20,7 @@ export default function AppSnackbar({
       open={open}
       autoHideDuration={autoHideDuration}
       onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
     >
       <Alert onClose={onClose} severity={severity}>
         {message}

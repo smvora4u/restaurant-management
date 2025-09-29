@@ -16,7 +16,7 @@ export const mutationResolvers = {
     }
     return await MenuItem.findOneAndUpdate(
       { _id: id, restaurantId: context.restaurant.id }, 
-      { ...input, updatedAt: new Date() }, 
+      { ...input, restaurantId: context.restaurant.id, updatedAt: new Date() }, 
       { new: true }
     );
   },
