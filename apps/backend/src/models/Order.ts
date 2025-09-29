@@ -14,6 +14,7 @@ const OrderItemSchema = new Schema<IOrderItem>({
 });
 
 const OrderSchema = new Schema<IOrder>({
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   tableNumber: { type: Number, required: false },
   orderType: { 
     type: String, 

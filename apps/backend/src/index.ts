@@ -11,6 +11,7 @@ import { typeDefs } from './schema/typeDefs.js';
 import { resolvers } from './resolvers/index.js';
 import { connectMongo } from './config/database.js';
 import { seedInitialData } from './utils/seedData.js';
+import { authenticateUser, AuthContext } from './middleware/auth.js';
 
 async function start() {
   try {
@@ -31,11 +32,17 @@ async function start() {
     const schema = makeExecutableSchema({ typeDefs, resolvers });
     
     // Create Apollo Server
-    const server = new ApolloServer({ schema });
+    const server = new ApolloServer({ 
+      schema
+    });
     await server.start();
 
     // Apply GraphQL middleware
-    app.use('/graphql', expressMiddleware(server) as any);
+    app.use('/graphql', expressMiddleware(server, {
+      context: async ({ req }): Promise<AuthContext> => {
+        return await authenticateUser(req);
+      }
+    }) as any);
 
     // Start server
     const port = Number(process.env.PORT) || 4000;

@@ -2,6 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 import { IReservation } from '../types/index.js';
 
 const ReservationSchema = new Schema<IReservation>({
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   customerName: { type: String, required: true },
   customerPhone: { type: String, required: true },
   customerEmail: String,

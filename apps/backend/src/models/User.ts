@@ -2,6 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 import { IUser } from '../types/index.js';
 
 const UserSchema = new Schema<IUser>({
+  restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   name: { type: String, required: true },
   mobileNumber: { type: String, required: true },
   email: String,

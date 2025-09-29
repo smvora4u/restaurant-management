@@ -4,6 +4,53 @@ export const typeDefs = `#graphql
     mongo: Boolean!
   }
 
+  type Restaurant {
+    id: ID!
+    name: String!
+    slug: String!
+    email: String!
+    address: String
+    phone: String
+    settings: RestaurantSettings!
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type RestaurantSettings {
+    currency: String!
+    timezone: String!
+    theme: String
+  }
+
+  type AuthPayload {
+    token: String!
+    restaurant: Restaurant!
+  }
+
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    role: String!
+    permissions: [String!]!
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type AdminAuthPayload {
+    token: String!
+    admin: Admin!
+  }
+
+  type PlatformAnalytics {
+    totalRestaurants: Int!
+    activeRestaurants: Int!
+    totalOrders: Int!
+    totalRevenue: Float!
+  }
+
   type MenuItem {
     id: ID!
     name: String!
@@ -78,6 +125,7 @@ export const typeDefs = `#graphql
 
   type Query {
     health: Health!
+    restaurantBySlug(slug: String!): Restaurant
     menuItems: [MenuItem!]!
     menuItem(id: ID!): MenuItem
     tables: [Table!]!
@@ -92,9 +140,28 @@ export const typeDefs = `#graphql
     userByMobile(mobileNumber: String!): User
     reservations: [Reservation!]!
     reservation(id: ID!): Reservation
+    
+    # Admin queries
+    allRestaurants: [Restaurant!]!
+    restaurantById(id: ID!): Restaurant
+    platformAnalytics: PlatformAnalytics!
+    allOrders(limit: Int, offset: Int): [Order!]!
   }
 
   type Mutation {
+    # Restaurant Authentication
+    registerRestaurant(input: RestaurantInput!): AuthPayload!
+    loginRestaurant(email: String!, password: String!): AuthPayload!
+    
+    # Admin Authentication
+    loginAdmin(email: String!, password: String!): AdminAuthPayload!
+    
+    # Admin Management
+    createRestaurant(input: RestaurantInput!): Restaurant!
+    updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
+    deactivateRestaurant(id: ID!): Restaurant!
+    createAdmin(input: AdminInput!): Admin!
+    
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
     deleteMenuItem(id: ID!): Boolean!
@@ -117,7 +184,31 @@ export const typeDefs = `#graphql
     deleteReservation(id: ID!): Boolean!
   }
 
+  input AdminInput {
+    name: String!
+    email: String!
+    password: String!
+    role: String
+    permissions: [String!]
+  }
+
+  input RestaurantInput {
+    name: String!
+    email: String!
+    password: String!
+    address: String
+    phone: String
+    settings: RestaurantSettingsInput
+  }
+
+  input RestaurantSettingsInput {
+    currency: String
+    timezone: String
+    theme: String
+  }
+
   input MenuItemInput {
+    restaurantId: ID!
     name: String!
     description: String
     price: Float!
@@ -130,6 +221,7 @@ export const typeDefs = `#graphql
   }
 
   input TableInput {
+    restaurantId: ID!
     number: Int!
     capacity: Int!
     status: String
@@ -145,6 +237,7 @@ export const typeDefs = `#graphql
   }
 
   input UserInput {
+    restaurantId: ID!
     name: String!
     mobileNumber: String!
     email: String
@@ -152,6 +245,7 @@ export const typeDefs = `#graphql
   }
 
   input OrderInput {
+    restaurantId: ID!
     tableNumber: Int
     orderType: String!
     items: [OrderItemInput!]!
@@ -165,6 +259,7 @@ export const typeDefs = `#graphql
   }
 
   input ReservationInput {
+    restaurantId: ID!
     customerName: String!
     customerPhone: String!
     customerEmail: String

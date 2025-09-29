@@ -1,7 +1,38 @@
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 // Base interfaces
+export interface IAdmin extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+  password: string;
+  role: 'super_admin' | 'platform_admin' | 'support_admin';
+  permissions: string[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IRestaurant extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  slug: string;
+  email: string;
+  password: string;
+  address?: string;
+  phone?: string;
+  settings: {
+    currency: string;
+    timezone: string;
+    theme?: any;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IMenuItem extends Document {
+  restaurantId: Types.ObjectId;
   name: string;
   description?: string;
   price: number;
@@ -16,6 +47,7 @@ export interface IMenuItem extends Document {
 }
 
 export interface ITable extends Document {
+  restaurantId: Types.ObjectId;
   number: number;
   capacity: number;
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
@@ -32,6 +64,7 @@ export interface IOrderItem {
 }
 
 export interface IUser extends Document {
+  restaurantId: Types.ObjectId;
   name: string;
   mobileNumber: string;
   email?: string;
@@ -41,6 +74,7 @@ export interface IUser extends Document {
 }
 
 export interface IOrder extends Document {
+  restaurantId: Types.ObjectId;
   tableNumber?: number;
   orderType: 'dine-in' | 'takeout' | 'delivery';
   items: IOrderItem[];
@@ -56,6 +90,7 @@ export interface IOrder extends Document {
 }
 
 export interface IReservation extends Document {
+  restaurantId: Types.ObjectId;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -69,7 +104,30 @@ export interface IReservation extends Document {
 }
 
 // Input types for GraphQL mutations
+export interface AdminInput {
+  name: string;
+  email: string;
+  password: string;
+  role?: 'super_admin' | 'platform_admin' | 'support_admin';
+  permissions?: string[];
+}
+
+export interface RestaurantInput {
+  name: string;
+  email: string;
+  password: string;
+  slug?: string;
+  address?: string;
+  phone?: string;
+  settings?: {
+    currency?: string;
+    timezone?: string;
+    theme?: any;
+  };
+}
+
 export interface MenuItemInput {
+  restaurantId: string;
   name: string;
   description?: string;
   price: number;
@@ -82,6 +140,7 @@ export interface MenuItemInput {
 }
 
 export interface TableInput {
+  restaurantId: string;
   number: number;
   capacity: number;
   status?: string;
@@ -97,6 +156,7 @@ export interface OrderItemInput {
 }
 
 export interface UserInput {
+  restaurantId: string;
   name: string;
   mobileNumber: string;
   email?: string;
@@ -104,6 +164,7 @@ export interface UserInput {
 }
 
 export interface OrderInput {
+  restaurantId: string;
   tableNumber?: number;
   orderType: 'dine-in' | 'takeout' | 'delivery';
   items: OrderItemInput[];
@@ -117,6 +178,7 @@ export interface OrderInput {
 }
 
 export interface ReservationInput {
+  restaurantId: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -130,5 +192,15 @@ export interface ReservationInput {
 
 // GraphQL Context
 export interface GraphQLContext {
-  // Add any context properties here if needed
+  restaurant?: {
+    id: string;
+    email: string;
+    slug: string;
+  };
+  admin?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions: string[];
+  };
 }
