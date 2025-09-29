@@ -434,7 +434,25 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           return total + (item.price * item.quantity);
         }, 0);
 
+        // Get restaurant ID from localStorage
+        const currentRestaurant = localStorage.getItem('currentRestaurant');
+        let restaurantId = null;
+        
+        if (currentRestaurant) {
+          try {
+            const restaurant = JSON.parse(currentRestaurant);
+            restaurantId = restaurant.id;
+          } catch (error) {
+            console.error('Error parsing restaurant data:', error);
+          }
+        }
+
+        if (!restaurantId) {
+          throw new Error('Restaurant information not available. Please refresh the page and try again.');
+        }
+
         const orderInput = {
+          restaurantId,
           tableNumber: isParcelOrder ? undefined : tableNumber,
           orderType: isParcelOrder ? (orderType || 'takeout') : 'dine-in',
           items: mergedItems,
@@ -534,7 +552,25 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           };
         });
 
+        // Get restaurant ID from localStorage
+        const currentRestaurant = localStorage.getItem('currentRestaurant');
+        let restaurantId = null;
+        
+        if (currentRestaurant) {
+          try {
+            const restaurant = JSON.parse(currentRestaurant);
+            restaurantId = restaurant.id;
+          } catch (error) {
+            console.error('Error parsing restaurant data:', error);
+          }
+        }
+
+        if (!restaurantId) {
+          throw new Error('Restaurant information not available. Please refresh the page and try again.');
+        }
+
         const orderInput = {
+          restaurantId,
           tableNumber: isParcelOrder ? undefined : tableNumber,
           orderType: isParcelOrder ? (orderType || 'takeout') : 'dine-in',
           items: orderItems,

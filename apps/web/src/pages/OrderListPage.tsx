@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
+import Layout from '../components/Layout';
 
 const ORDERS_QUERY = gql`
   query Orders {
@@ -646,28 +647,33 @@ export default function OrderListPage() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Orders
-        </Typography>
-        <Typography>Loading orders...</Typography>
-      </Box>
+      <Layout>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>
+            Orders
+          </Typography>
+          <Typography>Loading orders...</Typography>
+        </Box>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          <AlertTitle>Error</AlertTitle>
-          Failed to load orders: {error.message}
-        </Alert>
-      </Box>
+      <Layout>
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">
+            <AlertTitle>Error</AlertTitle>
+            Failed to load orders: {error.message}
+          </Alert>
+        </Box>
+      </Layout>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Layout>
+      <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
         Orders
       </Typography>
@@ -906,6 +912,46 @@ export default function OrderListPage() {
           ) : (
             // Desktop view - Accordion layout
             <Box>
+              {/* Header row for desktop view */}
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: '100px 120px 100px 150px 100px 80px 100px 150px',
+                gap: 2,
+                alignItems: 'center',
+                width: '100%',
+                minHeight: '40px',
+                px: 2,
+                py: 1,
+                backgroundColor: 'grey.50',
+                borderBottom: 1,
+                borderColor: 'divider',
+                fontWeight: 'medium'
+              }}>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Order ID
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Type
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Table
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Customer
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Items
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Total
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Status
+                </Typography>
+                <Typography variant="body2" fontWeight="medium" color="text.secondary">
+                  Created
+                </Typography>
+              </Box>
               {paginatedOrders.map((order) => (
                 <Accordion
                   key={order.id}
@@ -918,25 +964,31 @@ export default function OrderListPage() {
                     sx={{
                       '& .MuiAccordionSummary-content': {
                         alignItems: 'center',
-                        justifyContent: 'space-between',
                         width: '100%',
                         mr: 2,
                       },
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                      <Typography variant="body2" fontFamily="monospace" sx={{ minWidth: '100px' }}>
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '100px 120px 100px 150px 100px 80px 100px 150px',
+                      gap: 2,
+                      alignItems: 'center',
+                      width: '100%',
+                      minHeight: '40px'
+                    }}>
+                      <Typography variant="body2" fontFamily="monospace">
                         #{order.id.slice(-8)}
                       </Typography>
                       
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '120px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {getOrderTypeIcon(order.orderType)}
                         <Typography variant="body2">
                           {getOrderTypeLabel(order.orderType)}
                         </Typography>
                       </Box>
                       
-                      <Box sx={{ minWidth: '100px' }}>
+                      <Box>
                         {order.tableNumber ? (
                           <Chip label={`Table ${order.tableNumber}`} size="small" />
                         ) : (
@@ -946,7 +998,7 @@ export default function OrderListPage() {
                         )}
                       </Box>
                       
-                      <Box sx={{ minWidth: '150px' }}>
+                      <Box>
                         {order.customerName ? (
                           <Box>
                             <Typography variant="body2">{order.customerName}</Typography>
@@ -963,7 +1015,7 @@ export default function OrderListPage() {
                         )}
                       </Box>
                       
-                      <Box sx={{ minWidth: '100px' }}>
+                      <Box>
                         <Typography variant="body2">
                           {order.items.length} items
                         </Typography>
@@ -972,7 +1024,7 @@ export default function OrderListPage() {
                         </Typography>
                       </Box>
                       
-                      <Typography variant="body2" fontWeight="medium" sx={{ minWidth: '80px' }}>
+                      <Typography variant="body2" fontWeight="medium">
                         {formatCurrency(order.totalAmount)}
                       </Typography>
                       
@@ -981,10 +1033,9 @@ export default function OrderListPage() {
                         color={getStatusColor(order.status)}
                         size="small"
                         icon={<span>{getStatusIcon(order.status)}</span>}
-                        sx={{ minWidth: '100px' }}
                       />
                       
-                      <Typography variant="body2" sx={{ minWidth: '150px' }}>
+                      <Typography variant="body2">
                         {formatDate(order.createdAt)}
                       </Typography>
                     </Box>
@@ -1007,6 +1058,7 @@ export default function OrderListPage() {
           />
         </CardContent>
       </Card>
-    </Box>
+      </Box>
+    </Layout>
   );
 }

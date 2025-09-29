@@ -147,9 +147,27 @@ export default function UserRegistrationDialog({
       
       // Try to create/update user in database
       try {
+        // Get restaurant ID from localStorage
+        const currentRestaurant = localStorage.getItem('currentRestaurant');
+        let restaurantId = null;
+        
+        if (currentRestaurant) {
+          try {
+            const restaurant = JSON.parse(currentRestaurant);
+            restaurantId = restaurant.id;
+          } catch (error) {
+            console.error('Error parsing restaurant data:', error);
+          }
+        }
+
+        if (!restaurantId) {
+          throw new Error('Restaurant information not available. Please refresh the page and try again.');
+        }
+
         const result = await createUser({
           variables: {
             input: {
+              restaurantId,
               name: user.name,
               mobileNumber: user.mobileNumber,
               email: user.email,

@@ -94,8 +94,28 @@ const GET_USER_TABLE_ORDERS = gql`
   }
 `;
 
+// GraphQL query to get restaurant by slug
+const GET_RESTAURANT_BY_SLUG = gql`
+  query GetRestaurantBySlug($slug: String!) {
+    restaurantBySlug(slug: $slug) {
+      id
+      name
+      slug
+      email
+      address
+      phone
+      settings {
+        currency
+        timezone
+      }
+      isActive
+    }
+  }
+`;
+
 export default function ConsumerPage() {
-  const { tableNumber, orderId, orderType } = useParams<{ 
+  const { restaurantSlug, tableNumber, orderId, orderType } = useParams<{ 
+    restaurantSlug?: string;
     tableNumber?: string; 
     orderId?: string; 
     orderType?: string; 
@@ -115,11 +135,54 @@ export default function ConsumerPage() {
   const [existingTableOrder, setExistingTableOrder] = useState<any>(null);
   const [showRedirectMessage, setShowRedirectMessage] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(5);
+  const [restaurant, setRestaurant] = useState<any>(null);
+  const [queryTimeout, setQueryTimeout] = useState(false);
+
+  // Query to get restaurant data
+  const { loading: restaurantLoading, error: restaurantError } = useQuery(GET_RESTAURANT_BY_SLUG, {
+    variables: { slug: restaurantSlug || '' },
+    skip: !restaurantSlug,
+    onCompleted: (data) => {
+      console.log('Restaurant query completed:', data);
+      if (data?.restaurantBySlug) {
+        setRestaurant(data.restaurantBySlug);
+        // Store restaurant data in localStorage for context
+        localStorage.setItem('currentRestaurant', JSON.stringify(data.restaurantBySlug));
+      }
+    },
+    onError: (error) => {
+      console.error('Error fetching restaurant:', error);
+    }
+  });
+
+  // Set timeout to prevent showing error too quickly
+  useEffect(() => {
+    if (restaurantSlug && !restaurant && !restaurantLoading) {
+      const timer = setTimeout(() => {
+        setQueryTimeout(true);
+      }, 2000); // Wait 2 seconds before showing error
+      
+      return () => clearTimeout(timer);
+    } else {
+      setQueryTimeout(false);
+    }
+  }, [restaurantSlug, restaurant, restaurantLoading]);
+
+  // Debug logging
+  console.log('ConsumerPage render:', { 
+    restaurantSlug, 
+    tableNumber, 
+    orderType, 
+    restaurant, 
+    restaurantLoading, 
+    restaurantError,
+    queryTimeout
+  });
 
   // Query to check for existing table orders
-  const { data: tableOrderData, loading: tableOrderLoading } = useQuery(GET_ORDER_BY_TABLE, {
+  useQuery(GET_ORDER_BY_TABLE, {
     variables: { tableNumber: tableNumber ? parseInt(tableNumber) : 0 },
-    skip: !tableNumber || !isValidTable,
+    skip: !tableNumber || !isValidTable || !restaurant,
     onCompleted: (data) => {
       if (data?.orderByTable && data.orderByTable.status !== 'completed') {
         console.log('ConsumerPage: Table is occupied with incomplete order:', data.orderByTable);
@@ -264,7 +327,7 @@ export default function ConsumerPage() {
     } else if (showRedirectMessage && redirectCountdown === 0) {
       // Redirect to existing table order
       if (existingTableOrder) {
-        const redirectUrl = `/consumer/${existingTableOrder.tableNumber}`;
+        const redirectUrl = `/consumer/${restaurantSlug}/${existingTableOrder.tableNumber}`;
         console.log('ConsumerPage: Redirecting to existing table order:', redirectUrl);
         window.location.href = redirectUrl;
       }
@@ -401,9 +464,77 @@ export default function ConsumerPage() {
     );
   }
 
+  // Show loading while fetching restaurant data
+  if (restaurantLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Loading restaurant information...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Show error if restaurant not found (only after query completed and timeout)
+  if (restaurantError || (!restaurant && restaurantSlug && !restaurantLoading && queryTimeout)) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <Typography variant="h5" color="error">
+          Restaurant Not Found
+        </Typography>
+        <Typography variant="body1">
+          The restaurant "{restaurantSlug}" could not be found or is not active.
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Please check the QR code and try again.
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Don't render main content until we have restaurant data or timeout
+  if (!restaurant && restaurantSlug && !queryTimeout) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Loading restaurant information...
+        </Typography>
+      </Box>
+    );
+  }
+
   // Show loading only if we're still checking for user or table orders, but not if table is occupied or redirecting (show dialog instead)
-  if ((!isUserRegistered && !showUserRegistration) || (isValidTable && (tableOrderLoading || userTableOrdersLoading) && !isTableOccupied && !showRedirectMessage)) {
-    console.log('ConsumerPage: Showing loading screen - isUserRegistered:', isUserRegistered, 'showUserRegistration:', showUserRegistration, 'tableOrderLoading:', tableOrderLoading, 'userTableOrdersLoading:', userTableOrdersLoading, 'isTableOccupied:', isTableOccupied, 'showRedirectMessage:', showRedirectMessage);
+  if ((!isUserRegistered && !showUserRegistration) || (isValidTable && userTableOrdersLoading && !isTableOccupied && !showRedirectMessage)) {
+    console.log('ConsumerPage: Showing loading screen - isUserRegistered:', isUserRegistered, 'showUserRegistration:', showUserRegistration, 'userTableOrdersLoading:', userTableOrdersLoading, 'isTableOccupied:', isTableOccupied, 'showRedirectMessage:', showRedirectMessage);
     return (
       <Box
         sx={{

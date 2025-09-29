@@ -23,6 +23,7 @@ import {
   TableRestaurant as TableIcon,
   Receipt as OrderIcon,
   CalendarToday as ReservationIcon,
+  QrCode as QRCodeIcon,
 } from '@mui/icons-material';
 
 interface LayoutProps {
@@ -32,11 +33,12 @@ interface LayoutProps {
 const drawerWidth = 240;
 
 const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/restaurant/dashboard' },
   { text: 'Menu', icon: <MenuBookIcon />, path: '/menu' },
   { text: 'Tables', icon: <TableIcon />, path: '/tables' },
   { text: 'Orders', icon: <OrderIcon />, path: '/orders' },
   { text: 'Reservations', icon: <ReservationIcon />, path: '/reservations' },
+  { text: 'QR Codes', icon: <QRCodeIcon />, path: '/qr-codes' },
 ];
 
 export default function Layout({ children }: LayoutProps) {
