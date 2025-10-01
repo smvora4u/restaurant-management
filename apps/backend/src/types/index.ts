@@ -103,6 +103,19 @@ export interface IReservation extends Document {
   createdAt: Date;
 }
 
+export interface IStaff extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+  password: string;
+  restaurantId: Types.ObjectId;
+  role: 'manager' | 'waiter' | 'kitchen_staff' | 'cashier';
+  permissions: string[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Input types for GraphQL mutations
 export interface AdminInput {
   name: string;
@@ -190,6 +203,15 @@ export interface ReservationInput {
   specialRequests?: string;
 }
 
+export interface StaffInput {
+  name: string;
+  email: string;
+  password: string;
+  restaurantId: string;
+  role?: 'manager' | 'waiter' | 'kitchen_staff' | 'cashier';
+  permissions?: string[];
+}
+
 // GraphQL Context
 export interface GraphQLContext {
   restaurant?: {
@@ -202,5 +224,12 @@ export interface GraphQLContext {
     email: string;
     role: string;
     permissions: string[];
+  };
+  staff?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions: string[];
+    restaurantId: string;
   };
 }

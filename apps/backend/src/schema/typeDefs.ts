@@ -44,6 +44,23 @@ export const typeDefs = `#graphql
     admin: Admin!
   }
 
+  type Staff {
+    id: ID!
+    name: String!
+    email: String!
+    role: String!
+    permissions: [String!]!
+    restaurantId: ID!
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type StaffAuthPayload {
+    token: String!
+    staff: Staff!
+  }
+
   type PlatformAnalytics {
     totalRestaurants: Int!
     activeRestaurants: Int!
@@ -146,6 +163,12 @@ export const typeDefs = `#graphql
     restaurantById(id: ID!): Restaurant
     platformAnalytics: PlatformAnalytics!
     allOrders(limit: Int, offset: Int): [Order!]!
+    
+    # Staff queries
+    staffByRestaurant(restaurantId: ID!): [Staff!]!
+    staffById(id: ID!): Staff
+    ordersForStaff(restaurantId: ID!): [Order!]!
+    orderByIdForStaff(id: ID!): Order
   }
 
   type Mutation {
@@ -156,11 +179,25 @@ export const typeDefs = `#graphql
     # Admin Authentication
     loginAdmin(email: String!, password: String!): AdminAuthPayload!
     
+    # Staff Authentication
+    loginStaff(email: String!, password: String!): StaffAuthPayload!
+    
     # Admin Management
     createRestaurant(input: RestaurantInput!): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
+    deleteRestaurant(id: ID!): Boolean!
     deactivateRestaurant(id: ID!): Restaurant!
     createAdmin(input: AdminInput!): Admin!
+    createSampleDataForRestaurant(restaurantId: ID!): SampleDataResponse!
+    
+    # Staff Management
+    createStaff(input: StaffInput!): Staff!
+    updateStaff(id: ID!, input: StaffInput!): Staff!
+    deactivateStaff(id: ID!): Staff!
+    
+    # Staff Order Management
+    updateOrderStatusForStaff(id: ID!, status: String!): Order!
+    updateOrderItemStatusForStaff(orderId: ID!, itemIndex: Int!, status: String!): Order!
     
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
@@ -192,12 +229,22 @@ export const typeDefs = `#graphql
     permissions: [String!]
   }
 
+  input StaffInput {
+    name: String!
+    email: String!
+    password: String!
+    restaurantId: ID!
+    role: String
+    permissions: [String!]
+  }
+
   input RestaurantInput {
     name: String!
     email: String!
     password: String!
     address: String
     phone: String
+    slug: String
     settings: RestaurantSettingsInput
   }
 
@@ -269,5 +316,10 @@ export const typeDefs = `#graphql
     partySize: Int!
     status: String
     specialRequests: String
+  }
+
+  type SampleDataResponse {
+    success: Boolean!
+    message: String!
   }
 `;

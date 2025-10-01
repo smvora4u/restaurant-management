@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Restaurant } from '../models/index.js';
 import { RestaurantInput } from '../types/index.js';
+import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
 
 export const restaurantAuthResolvers = {
   Mutation: {
@@ -33,6 +34,9 @@ export const restaurantAuthResolvers = {
         });
 
         await restaurant.save();
+
+        // Create sample data for the new restaurant
+        await createSampleDataForRestaurant(restaurant._id as any);
 
         // Generate JWT token
         const token = jwt.sign(
