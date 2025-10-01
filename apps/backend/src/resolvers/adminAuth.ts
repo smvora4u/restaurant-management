@@ -38,7 +38,10 @@ export const adminAuthResolvers = {
             name: admin.name,
             email: admin.email,
             role: admin.role,
-            permissions: admin.permissions
+            permissions: admin.permissions,
+            isActive: admin.isActive,
+            createdAt: admin.createdAt,
+            updatedAt: admin.updatedAt
           }
         };
       } catch (error) {

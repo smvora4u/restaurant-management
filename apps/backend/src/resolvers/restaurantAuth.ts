@@ -59,7 +59,9 @@ export const restaurantAuthResolvers = {
             address: restaurant.address,
             phone: restaurant.phone,
             settings: restaurant.settings,
-            isActive: restaurant.isActive
+            isActive: restaurant.isActive,
+            createdAt: restaurant.createdAt,
+            updatedAt: restaurant.updatedAt
           }
         };
       } catch (error) {
@@ -102,7 +104,9 @@ export const restaurantAuthResolvers = {
             address: restaurant.address,
             phone: restaurant.phone,
             settings: restaurant.settings,
-            isActive: restaurant.isActive
+            isActive: restaurant.isActive,
+            createdAt: restaurant.createdAt,
+            updatedAt: restaurant.updatedAt
           }
         };
       } catch (error) {
