@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -7,9 +7,7 @@ import {
   Typography,
   Button,
   IconButton,
-  Menu,
   MenuItem,
-  Avatar,
   Chip,
   Table,
   TableBody,
@@ -19,8 +17,6 @@ import {
   TableRow,
   Alert,
   CircularProgress,
-  Grid,
-  Paper,
   Divider,
   Dialog,
   DialogTitle,
@@ -33,7 +29,6 @@ import {
 } from '@mui/material';
 import {
   ArrowBack,
-  Person,
   ShoppingCart,
   Restaurant,
   AccessTime,
