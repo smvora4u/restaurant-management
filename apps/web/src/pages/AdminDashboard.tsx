@@ -32,7 +32,11 @@ import {
   InputLabel,
   Select,
   SelectChangeEvent,
-  LinearProgress
+  LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Logout,
@@ -59,6 +63,7 @@ import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { DEACTIVATE_RESTAURANT, CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
+import { CREATE_RESTAURANT, UPDATE_RESTAURANT, DEACTIVATE_RESTAURANT as DEACTIVATE_RESTAURANT_MUTATION } from '../graphql/mutations/restaurant';
 
 
 
@@ -110,6 +115,27 @@ export default function AdminDashboard() {
   
   // Staff management state
   const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
+  
+  // Restaurant dialog state
+  const [restaurantDialogOpen, setRestaurantDialogOpen] = useState(false);
+  const [restaurantDialogMode, setRestaurantDialogMode] = useState<'create' | 'edit'>('create');
+  const [editingRestaurantId, setEditingRestaurantId] = useState<string | null>(null);
+  const [restaurantFormData, setRestaurantFormData] = useState({
+    name: '',
+    email: '',
+    address: '',
+    phone: '',
+    settings: {
+      currency: 'USD',
+      timezone: 'UTC',
+      theme: 'light'
+    }
+  });
+  const [restaurantSnackbar, setRestaurantSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Queries
   const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS);
@@ -134,6 +160,65 @@ export default function AdminDashboard() {
   const [createSampleData] = useMutation(CREATE_SAMPLE_DATA, {
     onCompleted: () => {
       refetchRestaurants();
+    }
+  });
+
+  // Restaurant mutations
+  const [createRestaurant, { loading: createRestaurantLoading }] = useMutation(CREATE_RESTAURANT, {
+    onCompleted: () => {
+      setRestaurantDialogOpen(false);
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Restaurant created successfully!',
+        severity: 'success'
+      });
+      refetchRestaurants();
+      refetchAnalytics();
+    },
+    onError: (error) => {
+      setRestaurantSnackbar({
+        open: true,
+        message: `Error creating restaurant: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  const [updateRestaurant, { loading: updateRestaurantLoading }] = useMutation(UPDATE_RESTAURANT, {
+    onCompleted: () => {
+      setRestaurantDialogOpen(false);
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Restaurant updated successfully!',
+        severity: 'success'
+      });
+      refetchRestaurants();
+    },
+    onError: (error) => {
+      setRestaurantSnackbar({
+        open: true,
+        message: `Error updating restaurant: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  const [deactivateRestaurantMutation] = useMutation(DEACTIVATE_RESTAURANT_MUTATION, {
+    onCompleted: () => {
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Restaurant deactivated successfully!',
+        severity: 'success'
+      });
+      refetchRestaurants();
+      refetchAnalytics();
+    },
+    onError: (error) => {
+      setRestaurantSnackbar({
+        open: true,
+        message: `Error deactivating restaurant: ${error.message}`,
+        severity: 'error'
+      });
     }
   });
 
@@ -202,6 +287,100 @@ export default function AdminDashboard() {
 
   const handleViewStaff = (restaurant: any) => {
     setSelectedRestaurant(restaurant);
+  };
+
+  // Restaurant dialog handlers
+  const handleOpenRestaurantDialog = (mode: 'create' | 'edit', restaurant?: any) => {
+    setRestaurantDialogMode(mode);
+    if (mode === 'edit' && restaurant) {
+      setEditingRestaurantId(restaurant.id);
+      setRestaurantFormData({
+        name: restaurant.name || '',
+        email: restaurant.email || '',
+        address: restaurant.address || '',
+        phone: restaurant.phone || '',
+        settings: {
+          currency: restaurant.settings?.currency || 'USD',
+          timezone: restaurant.settings?.timezone || 'UTC',
+          theme: restaurant.settings?.theme || 'light'
+        }
+      });
+    } else {
+      setEditingRestaurantId(null);
+      setRestaurantFormData({
+        name: '',
+        email: '',
+        address: '',
+        phone: '',
+        settings: {
+          currency: 'USD',
+          timezone: 'UTC',
+          theme: 'light'
+        }
+      });
+    }
+    setRestaurantDialogOpen(true);
+  };
+
+  const handleCloseRestaurantDialog = () => {
+    setRestaurantDialogOpen(false);
+    setEditingRestaurantId(null);
+    setRestaurantFormData({
+      name: '',
+      email: '',
+      address: '',
+      phone: '',
+      settings: {
+        currency: 'USD',
+        timezone: 'UTC',
+        theme: 'light'
+      }
+    });
+  };
+
+  const handleRestaurantFormChange = (field: string, value: any) => {
+    if (field.startsWith('settings.')) {
+      const settingField = field.split('.')[1];
+      setRestaurantFormData(prev => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          [settingField]: value
+        }
+      }));
+    } else {
+      setRestaurantFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  const handleRestaurantSubmit = () => {
+    if (restaurantDialogMode === 'create') {
+      createRestaurant({
+        variables: {
+          input: restaurantFormData
+        }
+      });
+    } else if (editingRestaurantId) {
+      updateRestaurant({
+        variables: {
+          id: editingRestaurantId,
+          input: restaurantFormData
+        }
+      });
+    }
+  };
+
+  const handleDeactivateRestaurantFromDialog = async (restaurantId: string) => {
+    try {
+      await deactivateRestaurantMutation({
+        variables: { id: restaurantId }
+      });
+    } catch (error) {
+      console.error('Error deactivating restaurant:', error);
+    }
   };
 
   if (!admin) {
@@ -371,7 +550,7 @@ export default function AdminDashboard() {
             <Button
               variant="contained"
               startIcon={<Add />}
-              onClick={() => navigate('/admin/restaurants/new')}
+              onClick={() => handleOpenRestaurantDialog('create')}
             >
               Add Restaurant
             </Button>
@@ -440,7 +619,7 @@ export default function AdminDashboard() {
                             <IconButton size="small" onClick={() => handleViewStaff(restaurant)}>
                               <Group />
                         </IconButton>
-                            <IconButton size="small" onClick={() => navigate('/admin/restaurants/new')}>
+                            <IconButton size="small" onClick={() => handleOpenRestaurantDialog('edit', restaurant)}>
                           <Edit />
                         </IconButton>
                             <IconButton 
@@ -866,6 +1045,112 @@ export default function AdminDashboard() {
           </TabPanel>
         </Card>
       </Container>
+
+      {/* Restaurant Dialog */}
+      <Dialog open={restaurantDialogOpen} onClose={handleCloseRestaurantDialog} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {restaurantDialogMode === 'create' ? 'Add New Restaurant' : 'Edit Restaurant'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Restaurant Name"
+              value={restaurantFormData.name}
+              onChange={(e) => handleRestaurantFormChange('name', e.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={restaurantFormData.email}
+              onChange={(e) => handleRestaurantFormChange('email', e.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Address"
+              value={restaurantFormData.address}
+              onChange={(e) => handleRestaurantFormChange('address', e.target.value)}
+              fullWidth
+              multiline
+              rows={2}
+            />
+            <TextField
+              label="Phone"
+              value={restaurantFormData.phone}
+              onChange={(e) => handleRestaurantFormChange('phone', e.target.value)}
+              fullWidth
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={restaurantFormData.settings.currency}
+                  onChange={(e) => handleRestaurantFormChange('settings.currency', e.target.value)}
+                  label="Currency"
+                >
+                  <MenuItem value="USD">USD</MenuItem>
+                  <MenuItem value="EUR">EUR</MenuItem>
+                  <MenuItem value="GBP">GBP</MenuItem>
+                  <MenuItem value="INR">INR</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Timezone</InputLabel>
+                <Select
+                  value={restaurantFormData.settings.timezone}
+                  onChange={(e) => handleRestaurantFormChange('settings.timezone', e.target.value)}
+                  label="Timezone"
+                >
+                  <MenuItem value="UTC">UTC</MenuItem>
+                  <MenuItem value="America/New_York">America/New_York</MenuItem>
+                  <MenuItem value="America/Los_Angeles">America/Los_Angeles</MenuItem>
+                  <MenuItem value="Europe/London">Europe/London</MenuItem>
+                  <MenuItem value="Asia/Kolkata">Asia/Kolkata</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <FormControl fullWidth>
+              <InputLabel>Theme</InputLabel>
+              <Select
+                value={restaurantFormData.settings.theme}
+                onChange={(e) => handleRestaurantFormChange('settings.theme', e.target.value)}
+                label="Theme"
+              >
+                <MenuItem value="light">Light</MenuItem>
+                <MenuItem value="dark">Dark</MenuItem>
+                <MenuItem value="auto">Auto</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRestaurantDialog}>Cancel</Button>
+          <Button 
+            onClick={handleRestaurantSubmit} 
+            variant="contained"
+            disabled={createRestaurantLoading || updateRestaurantLoading}
+          >
+            {createRestaurantLoading || updateRestaurantLoading ? (
+              <CircularProgress size={20} />
+            ) : (
+              restaurantDialogMode === 'create' ? 'Create' : 'Update'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      {restaurantSnackbar.open && (
+        <Alert
+          severity={restaurantSnackbar.severity}
+          onClose={() => setRestaurantSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
+        >
+          {restaurantSnackbar.message}
+        </Alert>
+      )}
     </Box>
   );
 }

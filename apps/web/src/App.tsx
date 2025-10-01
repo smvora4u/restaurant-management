@@ -9,7 +9,6 @@ import { client } from './apollo/client';
 import ConsumerPage from './pages/ConsumerPage';
 import OrderListPage from './pages/OrderListPage';
 import AdminDashboard from './pages/AdminDashboard';
-import RestaurantManagement from './pages/RestaurantManagement';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import MenuPage from './pages/MenuPage';
 import TablesPage from './pages/TablesPage';
@@ -76,22 +75,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/restaurants" 
-              element={
-                <ProtectedRoute>
-                  <RestaurantManagement />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/restaurants/new" 
-              element={
-                <ProtectedRoute>
-                  <RestaurantManagement />
                 </ProtectedRoute>
               } 
             />
