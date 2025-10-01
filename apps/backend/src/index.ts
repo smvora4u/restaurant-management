@@ -11,12 +11,16 @@ import { typeDefs } from './schema/typeDefs.js';
 import { resolvers } from './resolvers/index.js';
 import { connectMongo } from './config/database.js';
 import { seedInitialData } from './utils/seedData.js';
+import { fixTableIndexes } from './utils/fixTableIndexes.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 
 async function start() {
   try {
     // Connect to MongoDB
     await connectMongo();
+    
+    // Fix table indexes to prevent duplicate key errors
+    await fixTableIndexes();
     
     // Seed initial data
     await seedInitialData();

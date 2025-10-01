@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { Restaurant, Admin } from '../models/index.js';
+import { Restaurant, Admin, Staff } from '../models/index.js';
 
 export interface AuthContext {
   restaurant?: {
@@ -12,6 +12,13 @@ export interface AuthContext {
     email: string;
     role: string;
     permissions: string[];
+  };
+  staff?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions: string[];
+    restaurantId: string;
   };
 }
 
@@ -69,6 +76,22 @@ export const authenticateUser = async (req: any): Promise<AuthContext> => {
           email: admin.email,
           role: admin.role,
           permissions: admin.permissions
+        }
+      };
+    } else if (decoded.staffId) {
+      // Staff authentication
+      const staff = await Staff.findById(decoded.staffId);
+      if (!staff || !staff.isActive) {
+        throw new Error('Staff not found or inactive');
+      }
+      
+      return {
+        staff: {
+          id: staff._id.toString(),
+          email: staff.email,
+          role: staff.role,
+          permissions: staff.permissions,
+          restaurantId: staff.restaurantId.toString()
         }
       };
     }
