@@ -155,3 +155,20 @@ export const GET_ORDERS_BY_MOBILE = gql`
     }
   }
 `;
+
+export const GET_USER_TABLE_ORDERS = gql`
+  query GetUserTableOrders($mobileNumber: String!) {
+    ordersByMobile(mobileNumber: $mobileNumber, orderType: "dine-in") {
+      id
+      tableNumber
+      orderType
+      status
+      customerPhone
+      items {
+        menuItemId
+        quantity
+        status
+      }
+    }
+  }
+`;

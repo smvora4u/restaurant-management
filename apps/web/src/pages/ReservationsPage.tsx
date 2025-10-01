@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { ConfirmationDialog } from '../components/common';
+import { formatDate } from '../utils/dateFormatting';
 import { GET_RESERVATIONS, CREATE_RESERVATION, UPDATE_RESERVATION, DELETE_RESERVATION } from '../graphql';
 
 const reservationStatuses = [
@@ -378,7 +379,7 @@ export default function ReservationsPage() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
-                            {new Date(reservation.date).toLocaleDateString()}
+                            {formatDate(reservation.date)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {reservation.time}

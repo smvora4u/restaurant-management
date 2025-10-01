@@ -32,113 +32,16 @@ import {
   CheckCircle as CheckCircleIcon,
   Receipt as ReceiptIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
+import { formatFullDateTime } from '../../utils/dateFormatting';
+import { 
+  GET_ORDER_BY_TABLE, 
+  GET_ORDER_BY_ID, 
+  GET_ORDERS_BY_SESSION, 
+  GET_ORDERS_BY_MOBILE 
+} from '../../graphql/queries/orders';
+import { PAY_ORDER } from '../../graphql/mutations/orders';
 
-const GET_ORDER_BY_TABLE = gql`
-  query GetOrderByTable($tableNumber: Int!) {
-    orderByTable(tableNumber: $tableNumber) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDER_BY_ID = gql`
-  query GetOrderById($id: ID!) {
-    orderById(id: $id) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDERS_BY_SESSION = gql`
-  query GetOrdersBySession($sessionId: String!, $orderType: String!) {
-    ordersBySession(sessionId: $sessionId, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDERS_BY_USER = gql`
-  query GetOrdersByUser($userId: String!, $orderType: String!) {
-    ordersByUser(userId: $userId, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDERS_BY_MOBILE = gql`
-  query GetOrdersByMobile($mobileNumber: String!, $orderType: String!) {
-    ordersByMobile(mobileNumber: $mobileNumber, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const PAY_ORDER = gql`
-  mutation PayOrder($orderId: ID!, $paymentMethod: String!, $tip: Float) {
-    payOrder(orderId: $orderId, paymentMethod: $paymentMethod, tip: $tip) {
-      id
-      status
-      paidAt
-      finalTotal
-    }
-  }
-`;
 
 interface OrderItem {
   menuItemId: string;
@@ -353,11 +256,11 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
             Type: {invoice.orderType} {invoice.tableNumber && `• Table ${invoice.tableNumber}`}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Date: {new Date(invoice.createdAt).toLocaleString()}
+            Date: {formatFullDateTime(invoice.createdAt)}
           </Typography>
           {isPaid && invoice.paidAt && (
             <Typography variant="body2" color="text.secondary">
-              Paid: {new Date(invoice.paidAt).toLocaleString()}
+              Paid: {formatFullDateTime(invoice.paidAt)}
             </Typography>
           )}
         </CardContent>

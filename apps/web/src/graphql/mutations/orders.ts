@@ -83,3 +83,14 @@ export const DELETE_ORDER = gql`
     deleteOrder(id: $id)
   }
 `;
+
+export const PAY_ORDER = gql`
+  mutation PayOrder($orderId: ID!, $paymentMethod: String!, $tip: Float) {
+    payOrder(orderId: $orderId, paymentMethod: $paymentMethod, tip: $tip) {
+      id
+      status
+      paidAt
+      finalTotal
+    }
+  }
+`;

@@ -34,6 +34,7 @@ import {
   FilterList
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
+import { formatDate } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 
@@ -47,7 +48,7 @@ export default function StaffOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Queries
-  const { data: ordersData, loading: ordersLoading, refetch } = useQuery(GET_ORDERS_FOR_STAFF, {
+  const { data: ordersData, loading: ordersLoading } = useQuery(GET_ORDERS_FOR_STAFF, {
     variables: { restaurantId: staff?.restaurantId },
     skip: !staff?.restaurantId
   });
@@ -343,7 +344,7 @@ export default function StaffOrders() {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {formatDate(order.createdAt)}
                         </TableCell>
                         <TableCell>
                           <Button

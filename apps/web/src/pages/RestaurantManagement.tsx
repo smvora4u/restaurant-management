@@ -4,7 +4,6 @@ import {
   Box,
   Container,
   Card,
-  CardContent,
   Typography,
   Button,
   AppBar,
@@ -15,7 +14,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Alert,
   CircularProgress,
   Chip,
@@ -41,6 +39,7 @@ import {
   Restaurant
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import { formatDate } from '../utils/dateFormatting';
 import AppSnackbar from '../components/common/AppSnackbar';
 import { 
   GET_ALL_RESTAURANTS, 
@@ -199,7 +198,7 @@ export default function RestaurantManagement() {
     }
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -304,7 +303,7 @@ export default function RestaurantManagement() {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(restaurant.createdAt).toLocaleDateString()}
+                          {formatDate(restaurant.createdAt)}
                         </TableCell>
                         <TableCell>
                           <IconButton

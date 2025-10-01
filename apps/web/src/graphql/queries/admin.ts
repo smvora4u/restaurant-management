@@ -18,6 +18,7 @@ export const GET_PLATFORM_ANALYTICS = gql`
   }
 `;
 
+
 export const GET_ALL_ORDERS = gql`
   query GetAllOrders($limit: Int, $offset: Int) {
     allOrders(limit: $limit, offset: $offset) {
@@ -43,3 +44,4 @@ export const GET_ALL_ORDERS = gql`
     }
   }
 `;
+

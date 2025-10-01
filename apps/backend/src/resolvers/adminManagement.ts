@@ -1,4 +1,4 @@
-import { Admin, Restaurant } from '../models/index.js';
+import { Admin, Restaurant, Order } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
 import { generateUniqueSlug } from '../utils/slugGenerator.js';
@@ -15,6 +15,43 @@ export const adminQueries = {
       throw new Error('Authentication required');
     }
     return await Restaurant.findById(id);
+  },
+  allOrders: async (_: any, { limit, offset }: { limit?: number; offset?: number }, context: GraphQLContext) => {
+    if (!context.admin) {
+      throw new Error('Authentication required');
+    }
+    
+    const query = Order.find().sort({ createdAt: -1 });
+    
+    if (offset) {
+      query.skip(offset);
+    }
+    
+    if (limit) {
+      query.limit(limit);
+    }
+    
+    return await query;
+  },
+  platformAnalytics: async (_: any, __: any, context: GraphQLContext) => {
+    if (!context.admin) {
+      throw new Error('Authentication required');
+    }
+    
+    const totalRestaurants = await Restaurant.countDocuments();
+    const activeRestaurants = await Restaurant.countDocuments({ isActive: true });
+    const totalOrders = await Order.countDocuments();
+    
+    // Calculate total revenue
+    const orders = await Order.find({}, 'totalAmount');
+    const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    
+    return {
+      totalRestaurants,
+      activeRestaurants,
+      totalOrders,
+      totalRevenue
+    };
   }
 };
 

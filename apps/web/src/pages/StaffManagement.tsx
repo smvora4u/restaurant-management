@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   Card,
-  CardContent,
   Typography,
   Button,
   TextField,
@@ -12,7 +10,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Alert,
   CircularProgress,
   Chip,
@@ -39,10 +36,9 @@ import {
   MoreVert,
   Edit,
   Delete,
-  Person,
-  Restaurant
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import { formatDate } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { 
   GET_STAFF_BY_RESTAURANT, 
@@ -332,7 +328,7 @@ export default function StaffManagement() {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(staffMember.createdAt).toLocaleDateString()}
+                          {formatDate(staffMember.createdAt)}
                         </TableCell>
                         <TableCell>
                           <IconButton

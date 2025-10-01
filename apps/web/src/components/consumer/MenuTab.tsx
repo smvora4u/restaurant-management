@@ -30,141 +30,17 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_MENU_ITEMS } from '../../graphql/queries/menu';
+import { CREATE_ORDER, UPDATE_ORDER } from '../../graphql/mutations/orders';
+import { 
+  GET_ORDER_BY_TABLE, 
+  GET_ORDER_BY_ID, 
+  GET_ORDERS_BY_SESSION, 
+  GET_ORDERS_BY_MOBILE 
+} from '../../graphql/queries/orders';
 import { getStatusChipColor } from '../../utils/statusColors';
 
-const GET_MENU_ITEMS = gql`
-  query GetMenuItems {
-    menuItems {
-      id
-      name
-      description
-      price
-      category
-      imageUrl
-      available
-    }
-  }
-`;
-
-const CREATE_ORDER = gql`
-  mutation CreateOrder($input: OrderInput!) {
-    createOrder(input: $input) {
-      id
-      tableNumber
-      orderType
-      items {
-        menuItemId
-        quantity
-        price
-      }
-      totalAmount
-      status
-      createdAt
-    }
-  }
-`;
-
-const UPDATE_ORDER = gql`
-  mutation UpdateOrder($id: ID!, $input: OrderInput!) {
-    updateOrder(id: $id, input: $input) {
-      id
-      tableNumber
-      orderType
-      items {
-        menuItemId
-        quantity
-        price
-        status
-      }
-      totalAmount
-      status
-      updatedAt
-    }
-  }
-`;
-
-
-const GET_ORDER_BY_TABLE = gql`
-  query GetOrderByTable($tableNumber: Int!) {
-    orderByTable(tableNumber: $tableNumber) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDER_BY_ID = gql`
-  query GetOrderById($id: ID!) {
-    orderById(id: $id) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDERS_BY_SESSION = gql`
-  query GetOrdersBySession($sessionId: String!, $orderType: String!) {
-    ordersBySession(sessionId: $sessionId, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
-
-
-const GET_ORDERS_BY_MOBILE = gql`
-  query GetOrdersByMobile($mobileNumber: String!, $orderType: String!) {
-    ordersByMobile(mobileNumber: $mobileNumber, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
 
 interface MenuItem {
   id: string;

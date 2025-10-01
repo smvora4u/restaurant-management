@@ -37,6 +37,7 @@ import {
   Update
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import { formatFullDateTime } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import { 
   GET_ORDER_BY_ID_FOR_STAFF, 
@@ -277,7 +278,7 @@ export default function StaffOrderManagement() {
                     Created At
                   </Typography>
                   <Typography variant="body1">
-                    {new Date(order.createdAt).toLocaleString()}
+                    {formatFullDateTime(order.createdAt)}
                   </Typography>
                 </Box>
 
@@ -286,7 +287,7 @@ export default function StaffOrderManagement() {
                     Last Updated
                   </Typography>
                   <Typography variant="body1">
-                    {new Date(order.updatedAt).toLocaleString()}
+                    {formatFullDateTime(order.updatedAt)}
                   </Typography>
                 </Box>
 

@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
+import { formatDate, formatTimeAgo } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { GET_ORDERS, GET_MENU_ITEMS } from '../graphql';
 
@@ -161,53 +162,6 @@ export default function OrderListPage() {
     setPage(0);
   };
 
-  const formatDate = (dateString: string | Date | number) => {
-    if (!dateString) return 'N/A';
-    
-    try {
-      // Handle different date formats that might come from GraphQL
-      let date: Date;
-      
-      // If it's already a Date object
-      if (dateString instanceof Date) {
-        date = dateString;
-      } 
-      // If it's a number (Unix timestamp in milliseconds)
-      else if (typeof dateString === 'number') {
-        date = new Date(dateString);
-      }
-      // If it's a string, try to parse it
-      else {
-        // Check if it's a numeric string (Unix timestamp)
-        const numericValue = Number(dateString);
-        if (!isNaN(numericValue) && numericValue > 0) {
-          // It's a Unix timestamp as a string
-          date = new Date(numericValue);
-        } else {
-          // It's a regular date string (ISO format, etc.)
-          date = new Date(dateString);
-        }
-      }
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date received:', dateString, 'Type:', typeof dateString);
-        return 'Invalid Date';
-      }
-      
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error, 'Input:', dateString);
-      return 'Invalid Date';
-    }
-  };
 
   const getOrderTypeIcon = (orderType: string) => {
     switch (orderType) {
@@ -239,66 +193,6 @@ export default function OrderListPage() {
     return menuData?.menuItems?.find(item => item.id === menuItemId) || null;
   };
 
-  const formatTimeAgo = (dateString: string | Date | number) => {
-    if (!dateString) return 'N/A';
-    
-    try {
-      const now = new Date();
-      let orderDate: Date;
-      
-      // Handle different date formats that might come from GraphQL
-      if (dateString instanceof Date) {
-        orderDate = dateString;
-      } 
-      // If it's a number (Unix timestamp in milliseconds)
-      else if (typeof dateString === 'number') {
-        orderDate = new Date(dateString);
-      }
-      // If it's a string, try to parse it
-      else {
-        // Check if it's a numeric string (Unix timestamp)
-        const numericValue = Number(dateString);
-        if (!isNaN(numericValue) && numericValue > 0) {
-          // It's a Unix timestamp as a string
-          orderDate = new Date(numericValue);
-        } else {
-          // It's a regular date string (ISO format, etc.)
-          orderDate = new Date(dateString);
-        }
-      }
-      
-      // Check if date is valid
-      if (isNaN(orderDate.getTime())) {
-        console.warn('Invalid date for time ago calculation:', dateString, 'Type:', typeof dateString);
-        return 'Invalid Date';
-      }
-      
-      const diffInMinutes = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60));
-      
-      // Handle future dates
-      if (diffInMinutes < 0) {
-        return 'In the future';
-      }
-      
-      if (diffInMinutes < 1) return 'Just now';
-      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-      if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-      if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d ago`;
-      
-      // For very old dates, show weeks or months
-      const diffInWeeks = Math.floor(diffInMinutes / 10080);
-      if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
-      
-      const diffInMonths = Math.floor(diffInMinutes / 43800); // Approximate months
-      if (diffInMonths < 12) return `${diffInMonths}mo ago`;
-      
-      const diffInYears = Math.floor(diffInMinutes / 525600); // Approximate years
-      return `${diffInYears}y ago`;
-    } catch (error) {
-      console.error('Time ago calculation error:', error, 'Input:', dateString);
-      return 'Invalid Date';
-    }
-  };
 
   const paginatedOrders = filteredOrders.slice(
     page * rowsPerPage,

@@ -34,56 +34,11 @@ import {
   QrCode
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
-import { gql } from '@apollo/client';
+import { formatDate } from '../utils/dateFormatting';
+import { GET_MENU_ITEMS, GET_ORDERS, GET_TABLES } from '../graphql/queries/restaurant';
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 
-const GET_MENU_ITEMS = gql`
-  query GetMenuItems {
-    menuItems {
-      id
-      name
-      description
-      price
-      category
-      available
-      preparationTime
-    }
-  }
-`;
-
-const GET_ORDERS = gql`
-  query GetOrders {
-    orders {
-      id
-      tableNumber
-      orderType
-      status
-      totalAmount
-      customerName
-      customerPhone
-      createdAt
-      items {
-        menuItemId
-        quantity
-        price
-        status
-      }
-    }
-  }
-`;
-
-const GET_TABLES = gql`
-  query GetTables {
-    tables {
-      id
-      number
-      capacity
-      status
-      location
-    }
-  }
-`;
 
 export default function RestaurantDashboard() {
   const navigate = useNavigate();
@@ -542,7 +497,7 @@ export default function RestaurantDashboard() {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {formatDate(order.createdAt)}
                         </TableCell>
                       </TableRow>
                     ))

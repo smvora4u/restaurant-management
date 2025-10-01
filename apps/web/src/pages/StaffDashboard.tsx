@@ -20,11 +20,9 @@ import {
   TablePagination,
   Alert,
   CircularProgress,
-  Paper
 } from '@mui/material';
 import {
   Logout,
-  Person,
   ShoppingCart,
   Restaurant,
   TrendingUp,
@@ -33,6 +31,7 @@ import {
   Cancel
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
+import { formatDate } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 
@@ -44,7 +43,7 @@ export default function StaffDashboard() {
   const [staff, setStaff] = useState<any>(null);
 
   // Queries
-  const { data: ordersData, loading: ordersLoading, refetch } = useQuery(GET_ORDERS_FOR_STAFF, {
+  const { data: ordersData, loading: ordersLoading } = useQuery(GET_ORDERS_FOR_STAFF, {
     variables: { restaurantId: staff?.restaurantId },
     skip: !staff?.restaurantId
   });
@@ -117,7 +116,7 @@ export default function StaffDashboard() {
   const pendingOrders = orders.filter((order: any) => order.status === 'pending').length;
   const preparingOrders = orders.filter((order: any) => order.status === 'preparing').length;
   const readyOrders = orders.filter((order: any) => order.status === 'ready').length;
-  const totalRevenue = orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
+  // const totalRevenue = orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
 
   return (
     <StaffLayout staffPermissions={staff.permissions}>
@@ -294,7 +293,7 @@ export default function StaffDashboard() {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {formatDate(order.createdAt)}
                         </TableCell>
                         <TableCell>
                           <Button

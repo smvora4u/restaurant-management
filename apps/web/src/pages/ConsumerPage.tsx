@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import { gql } from '@apollo/client';
+import { GET_ORDER_BY_TABLE, GET_USER_TABLE_ORDERS } from '../graphql/queries/orders';
+import { GET_RESTAURANT_BY_SLUG } from '../graphql/queries/restaurant';
 import {
   Box,
   Tabs,
@@ -58,60 +59,8 @@ function a11yProps(index: number) {
   };
 }
 
-// GraphQL query to check for existing table orders
-const GET_ORDER_BY_TABLE = gql`
-  query GetOrderByTable($tableNumber: Int!) {
-    orderByTable(tableNumber: $tableNumber) {
-      id
-      tableNumber
-      orderType
-      status
-      customerPhone
-      items {
-        menuItemId
-        quantity
-        status
-      }
-    }
-  }
-`;
 
-// GraphQL query to check for user's existing table orders
-const GET_USER_TABLE_ORDERS = gql`
-  query GetUserTableOrders($mobileNumber: String!) {
-    ordersByMobile(mobileNumber: $mobileNumber, orderType: "dine-in") {
-      id
-      tableNumber
-      orderType
-      status
-      customerPhone
-      items {
-        menuItemId
-        quantity
-        status
-      }
-    }
-  }
-`;
 
-// GraphQL query to get restaurant by slug
-const GET_RESTAURANT_BY_SLUG = gql`
-  query GetRestaurantBySlug($slug: String!) {
-    restaurantBySlug(slug: $slug) {
-      id
-      name
-      slug
-      email
-      address
-      phone
-      settings {
-        currency
-        timezone
-      }
-      isActive
-    }
-  }
-`;
 
 export default function ConsumerPage() {
   const { restaurantSlug, tableNumber, orderId, orderType } = useParams<{ 

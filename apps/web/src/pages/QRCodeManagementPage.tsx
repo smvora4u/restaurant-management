@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
+import { GET_TABLES } from '../graphql/queries/tables';
+import { CREATE_TABLE } from '../graphql/mutations/tables';
 import {
   Box,
   Card,
@@ -24,29 +25,6 @@ import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 import { ConfirmationDialog } from '../components/common';
 
-const GET_TABLES = gql`
-  query GetTables {
-    tables {
-      id
-      number
-      capacity
-      status
-      location
-    }
-  }
-`;
-
-const CREATE_TABLE = gql`
-  mutation CreateTable($input: TableInput!) {
-    createTable(input: $input) {
-      id
-      number
-      capacity
-      status
-      location
-    }
-  }
-`;
 
 export default function QRCodeManagementPage() {
   const [customTableNumber, setCustomTableNumber] = useState('');

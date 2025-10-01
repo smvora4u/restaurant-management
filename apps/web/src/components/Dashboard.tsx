@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { gql, useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client';
+import { HEALTH_QUERY } from '../graphql/queries/health';
 import {
   Box,
   Card,
@@ -24,14 +25,6 @@ import ResponsiveGrid from './ResponsiveGrid';
 import QRCodeGenerator from './QRCodeGenerator';
 import TestHooks from '../TestHooks';
 
-const HEALTH_QUERY = gql`
-  query Health {
-    health { 
-      ok 
-      mongo 
-    }
-  }
-`;
 
 interface HealthData {
   health: {

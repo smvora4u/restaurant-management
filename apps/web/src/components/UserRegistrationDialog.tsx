@@ -12,40 +12,10 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Person as PersonIcon, Phone as PhoneIcon } from '@mui/icons-material';
-import { useMutation, useQuery, gql } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
+import { CREATE_USER } from '../graphql/mutations/user';
+import { GET_ORDERS_BY_MOBILE } from '../graphql/queries/orders';
 
-const CREATE_USER = gql`
-  mutation CreateUser($input: UserInput!) {
-    createUser(input: $input) {
-      id
-      name
-      mobileNumber
-      email
-      sessionId
-      createdAt
-    }
-  }
-`;
-
-const GET_ORDERS_BY_MOBILE = gql`
-  query GetOrdersByMobile($mobileNumber: String!, $orderType: String!) {
-    ordersByMobile(mobileNumber: $mobileNumber, orderType: $orderType) {
-      id
-      tableNumber
-      orderType
-      status
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      totalAmount
-      createdAt
-    }
-  }
-`;
 
 
 interface UserRegistrationDialogProps {
