@@ -20,22 +20,7 @@ import {
   AdminPanelSettings
 } from '@mui/icons-material';
 import { useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
-
-const LOGIN_ADMIN = gql`
-  mutation LoginAdmin($email: String!, $password: String!) {
-    loginAdmin(email: $email, password: $password) {
-      token
-      admin {
-        id
-        name
-        email
-        role
-        permissions
-      }
-    }
-  }
-`;
+import { LOGIN_ADMIN } from '../graphql';
 
 export default function AdminLogin() {
   const navigate = useNavigate();

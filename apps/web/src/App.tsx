@@ -17,6 +17,11 @@ import MenuPage from './pages/MenuPage';
 import TablesPage from './pages/TablesPage';
 import ReservationsPage from './pages/ReservationsPage';
 import QRCodeManagementPage from './pages/QRCodeManagementPage';
+import StaffLogin from './pages/StaffLogin';
+import StaffDashboard from './pages/StaffDashboard';
+import StaffOrders from './pages/StaffOrders';
+import StaffOrderManagement from './pages/StaffOrderManagement';
+import StaffManagement from './pages/StaffManagement';
 
 // Create theme
 const theme = createTheme({
@@ -43,6 +48,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const ProtectedRestaurantRoute = ({ children }: { children: React.ReactNode }) => {
   const restaurantToken = localStorage.getItem('restaurantToken');
   return restaurantToken ? <>{children}</> : <Navigate to="/restaurant/login" />;
+};
+
+// Protected Route component for staff
+const ProtectedStaffRoute = ({ children }: { children: React.ReactNode }) => {
+  const staffToken = localStorage.getItem('staffToken');
+  return staffToken ? <>{children}</> : <Navigate to="/staff/login" />;
 };
 
 function App() {
@@ -104,7 +115,7 @@ function App() {
               } 
             />
             <Route 
-              path="/tables" 
+              path="/tables"
               element={
                 <ProtectedRestaurantRoute>
                   <TablesPage />
@@ -133,6 +144,41 @@ function App() {
                 <ProtectedRestaurantRoute>
                   <QRCodeManagementPage />
                 </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
+              path="/staff-management" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <StaffManagement />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            
+            {/* Staff Routes */}
+            <Route path="/staff/login" element={<StaffLogin />} />
+            <Route 
+              path="/staff/dashboard" 
+              element={
+                <ProtectedStaffRoute>
+                  <StaffDashboard />
+                </ProtectedStaffRoute>
+              } 
+            />
+            <Route 
+              path="/staff/orders" 
+              element={
+                <ProtectedStaffRoute>
+                  <StaffOrders />
+                </ProtectedStaffRoute>
+              } 
+            />
+            <Route 
+              path="/staff/orders/:orderId" 
+              element={
+                <ProtectedStaffRoute>
+                  <StaffOrderManagement />
+                </ProtectedStaffRoute>
               } 
             />
             

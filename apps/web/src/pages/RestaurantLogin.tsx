@@ -20,24 +20,7 @@ import {
   Restaurant
 } from '@mui/icons-material';
 import { useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
-
-const LOGIN_RESTAURANT = gql`
-  mutation LoginRestaurant($email: String!, $password: String!) {
-    loginRestaurant(email: $email, password: $password) {
-      token
-      restaurant {
-        id
-        name
-        slug
-        email
-        address
-        phone
-        isActive
-      }
-    }
-  }
-`;
+import { LOGIN_RESTAURANT } from '../graphql';
 
 export default function RestaurantLogin() {
   const navigate = useNavigate();

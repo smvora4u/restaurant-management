@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { gql, useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import {
   Box,
   Card,
@@ -39,43 +39,7 @@ import {
 import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
 import Layout from '../components/Layout';
-
-const ORDERS_QUERY = gql`
-  query Orders {
-    orders {
-      id
-      tableNumber
-      orderType
-      items {
-        menuItemId
-        quantity
-        specialInstructions
-        price
-        status
-      }
-      status
-      totalAmount
-      customerName
-      customerPhone
-      notes
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-const GET_MENU_ITEMS = gql`
-  query GetMenuItems {
-    menuItems {
-      id
-      name
-      description
-      price
-      category
-      imageUrl
-    }
-  }
-`;
+import { GET_ORDERS, GET_MENU_ITEMS } from '../graphql';
 
 interface MenuItem {
   id: string;
@@ -138,7 +102,7 @@ export default function OrderListPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-  const { data, loading, error, refetch } = useQuery<OrdersData>(ORDERS_QUERY, {
+  const { data, loading, error, refetch } = useQuery<OrdersData>(GET_ORDERS, {
     errorPolicy: 'all',
     pollInterval: 30000, // Refresh every 30 seconds
   });

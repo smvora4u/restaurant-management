@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery } from '@apollo/client';
-import { gql } from '@apollo/client';
 import {
   Box,
   Card,
@@ -26,65 +25,7 @@ import {
 import Layout from '../components/Layout';
 import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
 import { useRestaurant, useCrudOperations } from '../hooks';
-
-const GET_MENU_ITEMS = gql`
-  query GetMenuItems {
-    menuItems {
-      id
-      name
-      description
-      price
-      category
-      available
-      imageUrl
-      ingredients
-      allergens
-      preparationTime
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-const CREATE_MENU_ITEM = gql`
-  mutation CreateMenuItem($input: MenuItemInput!) {
-    createMenuItem(input: $input) {
-      id
-      name
-      description
-      price
-      category
-      available
-      imageUrl
-      ingredients
-      allergens
-      preparationTime
-    }
-  }
-`;
-
-const UPDATE_MENU_ITEM = gql`
-  mutation UpdateMenuItem($id: ID!, $input: MenuItemInput!) {
-    updateMenuItem(id: $id, input: $input) {
-      id
-      name
-      description
-      price
-      category
-      available
-      imageUrl
-      ingredients
-      allergens
-      preparationTime
-    }
-  }
-`;
-
-const DELETE_MENU_ITEM = gql`
-  mutation DeleteMenuItem($id: ID!) {
-    deleteMenuItem(id: $id)
-  }
-`;
+import { GET_MENU_ITEMS, CREATE_MENU_ITEM, UPDATE_MENU_ITEM, DELETE_MENU_ITEM } from '../graphql';
 
 const categories = [
   'Appetizers',

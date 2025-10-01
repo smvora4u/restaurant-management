@@ -9,6 +9,7 @@ const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage
   const adminToken = localStorage.getItem('adminToken');
   const restaurantToken = localStorage.getItem('restaurantToken');
+  const staffToken = localStorage.getItem('staffToken');
   
   // Get restaurant context for consumer pages
   const currentRestaurant = localStorage.getItem('currentRestaurant');
@@ -30,7 +31,7 @@ const authLink = setContext((_, { headers }) => {
   return {
     headers: {
       ...headers,
-      authorization: adminToken || restaurantToken ? `Bearer ${adminToken || restaurantToken}` : "",
+      authorization: adminToken || restaurantToken || staffToken ? `Bearer ${adminToken || restaurantToken || staffToken}` : "",
       ...restaurantContext
     }
   }

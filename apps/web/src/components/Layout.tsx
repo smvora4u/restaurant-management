@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -13,6 +13,10 @@ import {
   ListItemText,
   IconButton,
   Divider,
+  Avatar,
+  Menu,
+  MenuItem,
+  Chip,
 } from '@mui/material';
 import ResponsiveContainer, { ResponsiveContainerConfigs } from './ResponsiveContainer';
 import {
@@ -24,6 +28,8 @@ import {
   Receipt as OrderIcon,
   CalendarToday as ReservationIcon,
   QrCode as QRCodeIcon,
+  Person as PersonIcon,
+  Logout,
 } from '@mui/icons-material';
 
 interface LayoutProps {
@@ -38,15 +44,19 @@ const menuItems = [
   { text: 'Tables', icon: <TableIcon />, path: '/tables' },
   { text: 'Orders', icon: <OrderIcon />, path: '/orders' },
   { text: 'Reservations', icon: <ReservationIcon />, path: '/reservations' },
+  { text: 'Staff', icon: <PersonIcon />, path: '/staff-management' },
   { text: 'QR Codes', icon: <QRCodeIcon />, path: '/qr-codes' },
 ];
 
 export default function Layout({ children }: LayoutProps) {
-  // const theme = useTheme();
-  // const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Get restaurant data from localStorage
+  const restaurantData = localStorage.getItem('restaurant');
+  const restaurant = restaurantData ? JSON.parse(restaurantData) : null;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -55,6 +65,20 @@ export default function Layout({ children }: LayoutProps) {
   const handleNavigation = (path: string) => {
     navigate(path);
     setMobileOpen(false); // Close mobile drawer after navigation
+  };
+
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('restaurantToken');
+    localStorage.removeItem('restaurant');
+    navigate('/restaurant/login');
   };
 
   const drawer = (
@@ -101,9 +125,35 @@ export default function Layout({ children }: LayoutProps) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Restaurant Management System
           </Typography>
+          
+          {/* User Menu */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {restaurant && (
+              <Chip
+                label={restaurant.name}
+                color="secondary"
+                size="small"
+              />
+            )}
+            <IconButton onClick={handleMenuClick}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                {restaurant ? restaurant.name.charAt(0).toUpperCase() : 'R'}
+              </Avatar>
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+            >
+              <MenuItem onClick={handleLogout}>
+                <Logout sx={{ mr: 1 }} />
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
 

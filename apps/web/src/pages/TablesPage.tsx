@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
 import {
   Box,
   Card,
@@ -37,49 +36,7 @@ import {
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 import { ConfirmationDialog } from '../components/common';
-
-const GET_TABLES = gql`
-  query GetTables {
-    tables {
-      id
-      number
-      capacity
-      status
-      location
-      createdAt
-    }
-  }
-`;
-
-const CREATE_TABLE = gql`
-  mutation CreateTable($input: TableInput!) {
-    createTable(input: $input) {
-      id
-      number
-      capacity
-      status
-      location
-    }
-  }
-`;
-
-const UPDATE_TABLE = gql`
-  mutation UpdateTable($id: ID!, $input: TableInput!) {
-    updateTable(id: $id, input: $input) {
-      id
-      number
-      capacity
-      status
-      location
-    }
-  }
-`;
-
-const DELETE_TABLE = gql`
-  mutation DeleteTable($id: ID!) {
-    deleteTable(id: $id)
-  }
-`;
+import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE } from '../graphql';
 
 const tableStatuses = [
   'available',

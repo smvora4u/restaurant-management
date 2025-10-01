@@ -41,63 +41,13 @@ import {
   Restaurant
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
-
-const GET_ALL_RESTAURANTS = gql`
-  query GetAllRestaurants {
-    allRestaurants {
-      id
-      name
-      slug
-      email
-      address
-      phone
-      isActive
-      createdAt
-      settings {
-        currency
-        timezone
-      }
-    }
-  }
-`;
-
-const CREATE_RESTAURANT = gql`
-  mutation CreateRestaurant($input: RestaurantInput!) {
-    createRestaurant(input: $input) {
-      id
-      name
-      slug
-      email
-      address
-      phone
-      isActive
-    }
-  }
-`;
-
-const UPDATE_RESTAURANT = gql`
-  mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!) {
-    updateRestaurant(id: $id, input: $input) {
-      id
-      name
-      slug
-      email
-      address
-      phone
-      isActive
-    }
-  }
-`;
-
-const DEACTIVATE_RESTAURANT = gql`
-  mutation DeactivateRestaurant($id: ID!) {
-    deactivateRestaurant(id: $id) {
-      id
-      isActive
-    }
-  }
-`;
+import AppSnackbar from '../components/common/AppSnackbar';
+import { 
+  GET_ALL_RESTAURANTS, 
+  CREATE_RESTAURANT, 
+  UPDATE_RESTAURANT, 
+  DEACTIVATE_RESTAURANT 
+} from '../graphql';
 
 export default function RestaurantManagement() {
   const navigate = useNavigate();
@@ -116,6 +66,11 @@ export default function RestaurantManagement() {
     phone: '',
     slug: ''
   });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Queries
   const { data: restaurantsData, loading: restaurantsLoading, refetch } = useQuery(GET_ALL_RESTAURANTS);
@@ -126,6 +81,18 @@ export default function RestaurantManagement() {
       setOpenDialog(false);
       resetForm();
       refetch();
+      setSnackbar({
+        open: true,
+        message: 'Restaurant created successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: 'error'
+      });
     }
   });
 
@@ -134,6 +101,18 @@ export default function RestaurantManagement() {
       setOpenDialog(false);
       resetForm();
       refetch();
+      setSnackbar({
+        open: true,
+        message: 'Restaurant updated successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: 'error'
+      });
     }
   });
 
@@ -378,66 +357,60 @@ export default function RestaurantManagement() {
             {dialogMode === 'create' ? 'Add New Restaurant' : 'Edit Restaurant'}
           </DialogTitle>
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <TextField
-                  fullWidth
+                  sx={{ flex: '1 1 300px', minWidth: '250px' }}
                   label="Restaurant Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
                 <TextField
-                  fullWidth
+                  sx={{ flex: '1 1 300px', minWidth: '250px' }}
                   label="Email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
-              </Grid>
+              </Box>
               {dialogMode === 'create' && (
-                <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <TextField
-                    fullWidth
+                    sx={{ flex: '1 1 300px', minWidth: '250px' }}
                     label="Password"
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
                   />
-                </Grid>
+                </Box>
               )}
-              <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <TextField
-                  fullWidth
+                  sx={{ flex: '1 1 300px', minWidth: '250px' }}
                   label="Slug"
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="auto-generated if empty"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
                 <TextField
-                  fullWidth
+                  sx={{ flex: '1 1 300px', minWidth: '250px' }}
                   label="Phone"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  multiline
-                  rows={2}
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </Grid>
-            </Grid>
+              </Box>
+              <TextField
+                fullWidth
+                label="Address"
+                multiline
+                rows={2}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
@@ -451,6 +424,13 @@ export default function RestaurantManagement() {
           </DialogActions>
         </Dialog>
       </Container>
+      
+      <AppSnackbar
+        open={snackbar.open}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+        severity={snackbar.severity}
+      />
     </Box>
   );
 }

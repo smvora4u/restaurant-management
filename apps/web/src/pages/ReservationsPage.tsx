@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { gql } from '@apollo/client';
 import {
   Box,
   Card,
@@ -35,64 +34,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { ConfirmationDialog } from '../components/common';
-
-const GET_RESERVATIONS = gql`
-  query GetReservations {
-    reservations {
-      id
-      customerName
-      customerPhone
-      customerEmail
-      tableNumber
-      date
-      time
-      partySize
-      status
-      specialRequests
-      createdAt
-    }
-  }
-`;
-
-const CREATE_RESERVATION = gql`
-  mutation CreateReservation($input: ReservationInput!) {
-    createReservation(input: $input) {
-      id
-      customerName
-      customerPhone
-      customerEmail
-      tableNumber
-      date
-      time
-      partySize
-      status
-      specialRequests
-    }
-  }
-`;
-
-const UPDATE_RESERVATION = gql`
-  mutation UpdateReservation($id: ID!, $input: ReservationInput!) {
-    updateReservation(id: $id, input: $input) {
-      id
-      customerName
-      customerPhone
-      customerEmail
-      tableNumber
-      date
-      time
-      partySize
-      status
-      specialRequests
-    }
-  }
-`;
-
-const DELETE_RESERVATION = gql`
-  mutation DeleteReservation($id: ID!) {
-    deleteReservation(id: $id)
-  }
-`;
+import { GET_RESERVATIONS, CREATE_RESERVATION, UPDATE_RESERVATION, DELETE_RESERVATION } from '../graphql';
 
 const reservationStatuses = [
   'confirmed',
