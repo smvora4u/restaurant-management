@@ -8,20 +8,18 @@ import { client } from './apollo/client';
 // Import pages
 import ConsumerPage from './pages/ConsumerPage';
 import OrderListPage from './pages/OrderListPage';
-import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import RestaurantManagement from './pages/RestaurantManagement';
-import RestaurantLogin from './pages/RestaurantLogin';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import MenuPage from './pages/MenuPage';
 import TablesPage from './pages/TablesPage';
 import ReservationsPage from './pages/ReservationsPage';
 import QRCodeManagementPage from './pages/QRCodeManagementPage';
-import StaffLogin from './pages/StaffLogin';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffOrders from './pages/StaffOrders';
 import StaffOrderManagement from './pages/StaffOrderManagement';
 import StaffManagement from './pages/StaffManagement';
+import UnifiedLogin from './pages/UnifiedLogin';
 
 // Create theme
 const theme = createTheme({
@@ -41,19 +39,19 @@ const theme = createTheme({
 // Protected Route component for admin
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const adminToken = localStorage.getItem('adminToken');
-  return adminToken ? <>{children}</> : <Navigate to="/admin/login" />;
+  return adminToken ? <>{children}</> : <Navigate to="/login" />;
 };
 
 // Protected Route component for restaurant
 const ProtectedRestaurantRoute = ({ children }: { children: React.ReactNode }) => {
   const restaurantToken = localStorage.getItem('restaurantToken');
-  return restaurantToken ? <>{children}</> : <Navigate to="/restaurant/login" />;
+  return restaurantToken ? <>{children}</> : <Navigate to="/login" />;
 };
 
 // Protected Route component for staff
 const ProtectedStaffRoute = ({ children }: { children: React.ReactNode }) => {
   const staffToken = localStorage.getItem('staffToken');
-  return staffToken ? <>{children}</> : <Navigate to="/staff/login" />;
+  return staffToken ? <>{children}</> : <Navigate to="/login" />;
 };
 
 function App() {
@@ -69,8 +67,10 @@ function App() {
             <Route path="/parcel/:restaurantSlug/:orderType" element={<ConsumerPage />} />
             <Route path="/orders" element={<OrderListPage />} />
             
+            {/* Unified Login Route */}
+            <Route path="/login" element={<UnifiedLogin />} />
+            
             {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
             <Route 
               path="/admin/dashboard" 
               element={
@@ -97,7 +97,6 @@ function App() {
             />
             
             {/* Restaurant Routes */}
-            <Route path="/restaurant/login" element={<RestaurantLogin />} />
             <Route 
               path="/restaurant/dashboard" 
               element={
@@ -156,7 +155,6 @@ function App() {
             />
             
             {/* Staff Routes */}
-            <Route path="/staff/login" element={<StaffLogin />} />
             <Route 
               path="/staff/dashboard" 
               element={
@@ -183,8 +181,8 @@ function App() {
             />
             
             {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/restaurant/login" />} />
-            <Route path="*" element={<Navigate to="/restaurant/login" />} />
+            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         </Router>
       </ThemeProvider>
