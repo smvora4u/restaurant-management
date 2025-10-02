@@ -16,6 +16,7 @@ import ReservationsPage from './pages/ReservationsPage';
 import QRCodeManagementPage from './pages/QRCodeManagementPage';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffOrderManagement from './pages/StaffOrderManagement';
+import RestaurantOrderManagement from './pages/RestaurantOrderManagement';
 import StaffManagement from './pages/StaffManagement';
 import UnifiedLogin from './pages/UnifiedLogin';
 
@@ -108,6 +109,14 @@ function App() {
               element={
                 <ProtectedRestaurantRoute>
                   <OrderListPage />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
+              path="/restaurant/orders/:orderId" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <RestaurantOrderManagement />
                 </ProtectedRestaurantRoute>
               } 
             />

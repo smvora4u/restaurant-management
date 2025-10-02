@@ -63,3 +63,29 @@ export const GET_RESTAURANT_BY_SLUG = gql`
   }
 `;
 
+export const GET_ORDER_BY_ID_FOR_RESTAURANT = gql`
+  query GetOrderByIdForRestaurant($id: ID!) {
+    order(id: $id) {
+      id
+      tableNumber
+      orderType
+      status
+      totalAmount
+      customerName
+      customerPhone
+      notes
+      sessionId
+      userId
+      createdAt
+      updatedAt
+      items {
+        menuItemId
+        quantity
+        price
+        status
+        specialInstructions
+      }
+    }
+  }
+`;
+

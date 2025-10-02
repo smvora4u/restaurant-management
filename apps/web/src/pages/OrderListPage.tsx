@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@apollo/client';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -91,6 +92,7 @@ interface FilterState {
 export default function OrderListPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -230,7 +232,8 @@ export default function OrderListPage() {
               display: 'flex', 
               gap: 1, 
               flexWrap: 'wrap',
-              justifyContent: { xs: 'center', sm: 'flex-end' }
+              justifyContent: { xs: 'center', sm: 'flex-end' },
+              alignItems: 'center'
             }}>
               <Chip
                 label={order.status}
@@ -243,6 +246,14 @@ export default function OrderListPage() {
                 variant="outlined"
                 sx={{ fontWeight: 500 }}
               />
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => navigate(`/restaurant/orders/${order.id}`)}
+                sx={{ ml: 1 }}
+              >
+                Manage Order
+              </Button>
             </Box>
           </Box>
 
@@ -507,9 +518,6 @@ export default function OrderListPage() {
     return (
       <Layout>
         <Box sx={{ p: 3 }}>
-          <Typography variant="h4" gutterBottom>
-            Orders
-          </Typography>
           <Typography>Loading orders...</Typography>
         </Box>
       </Layout>
@@ -727,12 +735,24 @@ export default function OrderListPage() {
                       <Typography variant="h6" component="div">
                         Order #{order.id.slice(-8)}
                       </Typography>
-                      <Chip
-                        label={order.status}
-                        color={getStatusColor(order.status)}
-                        size="small"
-                        icon={<span>{getStatusIcon(order.status)}</span>}
-                      />
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Chip
+                          label={order.status}
+                          color={getStatusColor(order.status)}
+                          size="small"
+                          icon={<span>{getStatusIcon(order.status)}</span>}
+                        />
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/restaurant/orders/${order.id}`);
+                          }}
+                        >
+                          Manage
+                        </Button>
+                      </Box>
                     </Box>
                     
                     <Stack spacing={1} sx={{ width: '100%' }}>
