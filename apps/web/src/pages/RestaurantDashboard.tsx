@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -6,31 +6,18 @@ import {
   CardContent,
   Typography,
   Button,
-  IconButton,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Alert,
-  CircularProgress,
-  TextField
+  CircularProgress
 } from '@mui/material';
 import {
   Restaurant,
   ShoppingCart,
   TableRestaurant,
   TrendingUp,
-  Add,
-  Edit,
-  Delete,
   QrCode
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
-import { formatDate } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import { GET_TABLES } from '../graphql/queries/tables';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
@@ -38,16 +25,11 @@ import { GET_ORDERS } from '../graphql/queries/orders';
 import Layout from '../components/Layout';
 import { DataFreshnessIndicator } from '../components/common';
 import { useDataFreshness } from '../hooks/useDataFreshness';
-import QRCodeGenerator from '../components/QRCodeGenerator';
 
 
 export default function RestaurantDashboard() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [restaurant, setRestaurant] = useState<any>(null);
-  const [customTableNumber, setCustomTableNumber] = useState('');
-  const [showCustomQR, setShowCustomQR] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -104,18 +86,6 @@ export default function RestaurantDashboard() {
     setRestaurant(JSON.parse(restaurantData));
   }, [navigate]);
 
-  // Memoize base URL to prevent QR code regeneration
-  const baseUrl = window.location.origin;
-
-
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
 
   if (!restaurant) {
     return (
@@ -234,304 +204,45 @@ export default function RestaurantDashboard() {
           </Box>
         </Box>
 
-        {/* QR Code Management */}
+
+
+        {/* Quick Actions */}
         <Card sx={{ mb: 4 }}>
-          <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <QrCode color="primary" />
-              <Typography variant="h6" component="h2">
-                QR Code Management
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => navigate('/qr-codes')}
-              startIcon={<QrCode />}
-            >
-              View All QR Codes
-            </Button>
-          </Box>
-          <CardContent>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              QR codes for your restaurant tables and parcel orders. Table QR codes are automatically generated based on your actual tables.
-            </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ width: '100%', mb: 1 }}>
-                For Tables (Dine-in Orders):
-              </Typography>
-              {tablesData?.tables && tablesData.tables.length > 0 ? (
-                tablesData.tables.slice(0, 3).map((table: any) => (
-                  <QRCodeGenerator 
-                    key={`dashboard-table-${table.number}`}
-                    value={`${baseUrl}/consumer/${restaurant?.slug || 'restaurant'}/${table.number}`} 
-                    label={`Table ${table.number}`} 
-                  />
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No tables found. Create tables to generate QR codes.
-                </Typography>
-              )}
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ width: '100%', mb: 1 }}>
-                For Parcel Orders:
-              </Typography>
-              <QRCodeGenerator 
-                value={`${baseUrl}/parcel/${restaurant?.slug || 'restaurant'}/takeout`} 
-                label="Takeout Order" 
-              />
-              <QRCodeGenerator 
-                value={`${baseUrl}/parcel/${restaurant?.slug || 'restaurant'}/delivery`} 
-                label="Delivery Order" 
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ width: '100%', mb: 1 }}>
-                Test Links:
-              </Typography>
-              {tablesData?.tables && tablesData.tables.length > 0 ? (
-                tablesData.tables.slice(0, 3).map((table: any) => (
-                  <Button
-                    key={`test-table-${table.number}`}
-                    variant="outlined"
-                    href={`/consumer/${restaurant?.slug || 'restaurant'}/${table.number}`}
-                    target="_blank"
-                    size="small"
-                  >
-                    Test Table {table.number}
-                  </Button>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No tables available for testing.
-                </Typography>
-              )}
-              <Button
-                variant="outlined"
-                href={`/parcel/${restaurant?.slug || 'restaurant'}/takeout`}
-                target="_blank"
-                size="small"
-              >
-                Test Takeout
-              </Button>
-              <Button
-                variant="outlined"
-                href={`/parcel/${restaurant?.slug || 'restaurant'}/delivery`}
-                target="_blank"
-                size="small"
-              >
-                Test Delivery
-              </Button>
-            </Box>
-
-            {/* Custom QR Code Generation */}
-            <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Generate Custom QR Code
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
-                <TextField
-                  label="Table Number"
-                  type="number"
-                  value={customTableNumber}
-                  onChange={(e) => setCustomTableNumber(e.target.value)}
-                  size="small"
-                  sx={{ width: 150 }}
-                  inputProps={{ min: 1 }}
-                />
-                <Button
-                  variant="contained"
-                  onClick={() => setShowCustomQR(!!customTableNumber)}
-                  disabled={!customTableNumber}
-                >
-                  Generate QR Code
-                </Button>
-              </Box>
-              
-              {showCustomQR && customTableNumber && (
-                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                  <QRCodeGenerator 
-                    value={`${baseUrl}/consumer/${restaurant?.slug || 'restaurant'}/${customTableNumber}`} 
-                    label={`Table ${customTableNumber}`} 
-                  />
-                </Box>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Menu Items Table */}
-        <Card sx={{ mb: 4 }}>
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" component="h2">
-              Menu Items
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => navigate('/restaurant/menu/new')}
-            >
-              Add Menu Item
-            </Button>
-          </Box>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Price</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Prep Time</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {menuLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : menuItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Alert severity="info">No menu items found</Alert>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  menuItems.map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="subtitle2" fontWeight="bold">
-                            {item.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {item.description || 'No description'}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={item.category} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>{formatCurrencyFromRestaurant(item.price, restaurant)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={item.available ? 'Available' : 'Unavailable'}
-                          color={item.available ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{item.preparationTime || 'N/A'} min</TableCell>
-                      <TableCell>
-                        <IconButton size="small">
-                          <Edit />
-                        </IconButton>
-                        <IconButton size="small">
-                          <Delete />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-
-        {/* Recent Orders Table */}
-        <Card>
           <Box sx={{ p: 2 }}>
-            <Typography variant="h6" component="h2">
-              Recent Orders
+            <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+              Quick Actions
             </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                startIcon={<Restaurant />}
+                onClick={() => navigate('/restaurant/menu')}
+              >
+                Manage Menu Items
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<QrCode />}
+                onClick={() => navigate('/restaurant/qr-codes')}
+              >
+                Manage QR Codes
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ShoppingCart />}
+                onClick={() => navigate('/restaurant/orders')}
+              >
+                View All Orders
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<TableRestaurant />}
+                onClick={() => navigate('/restaurant/tables')}
+              >
+                Manage Tables
+              </Button>
+            </Box>
           </Box>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Order ID</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Date</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ordersLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : orders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Alert severity="info">No orders found</Alert>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  orders
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((order: any) => (
-                      <TableRow key={order.id}>
-                        <TableCell>{order.id.slice(-8)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={order.orderType}
-                            size="small"
-                            color="primary"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="subtitle2">
-                              {order.customerName || 'Walk-in'}
-                            </Typography>
-                            {order.customerPhone && (
-                              <Typography variant="caption" color="text.secondary">
-                                {order.customerPhone}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{formatCurrencyFromRestaurant(order.totalAmount, restaurant)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={order.status}
-                            size="small"
-                            color={
-                              order.status === 'completed' ? 'success' :
-                              order.status === 'pending' ? 'warning' :
-                              order.status === 'cancelled' ? 'error' : 'default'
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {formatDate(order.createdAt)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={orders.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
         </Card>
       </Box>
 
