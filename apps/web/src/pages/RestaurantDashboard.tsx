@@ -40,6 +40,8 @@ import { GET_TABLES } from '../graphql/queries/tables';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { GET_ORDERS } from '../graphql/queries/orders';
 import Layout from '../components/Layout';
+import { DataFreshnessIndicator } from '../components/common';
+import { useDataFreshness } from '../hooks/useDataFreshness';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 
 
@@ -51,11 +53,52 @@ export default function RestaurantDashboard() {
   const [restaurant, setRestaurant] = useState<any>(null);
   const [customTableNumber, setCustomTableNumber] = useState('');
   const [showCustomQR, setShowCustomQR] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Queries
-  const { data: menuData, loading: menuLoading } = useQuery(GET_MENU_ITEMS);
-  const { data: ordersData, loading: ordersLoading } = useQuery(GET_ORDERS);
-  const { data: tablesData, loading: tablesLoading } = useQuery(GET_TABLES);
+  const { data: menuData, loading: menuLoading, refetch: refetchMenu } = useQuery(GET_MENU_ITEMS);
+  const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS);
+  const { data: tablesData, loading: tablesLoading, refetch: refetchTables } = useQuery(GET_TABLES);
+
+  // Data freshness management
+  const {
+    dataStaleWarning,
+    refetchAllData: refetchAllDataHook
+  } = useDataFreshness({
+    onStaleData: () => {
+      setSnackbar({
+        open: true,
+        message: 'Data might be outdated. Consider refreshing.',
+        severity: 'warning'
+      });
+    }
+  });
+
+  // Enhanced refetch function
+  const refetchAllData = async () => {
+    try {
+      await refetchAllDataHook([
+        () => refetchMenu(),
+        () => refetchOrders(),
+        () => refetchTables()
+      ]);
+      setSnackbar({
+        open: true,
+        message: 'All data refreshed successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error refreshing data. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
 
   useEffect(() => {
     const restaurantData = localStorage.getItem('restaurant');
@@ -119,6 +162,11 @@ export default function RestaurantDashboard() {
             {restaurant.name} - Dashboard
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <DataFreshnessIndicator
+              dataStaleWarning={dataStaleWarning}
+              onRefresh={refetchAllData}
+              position="header"
+            />
             <Chip
               label="RESTAURANT"
               color="primary"
@@ -519,6 +567,17 @@ export default function RestaurantDashboard() {
           />
         </Card>
       </Box>
+
+      {/* Snackbar for notifications */}
+      {snackbar.open && (
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
+        >
+          {snackbar.message}
+        </Alert>
+      )}
     </Layout>
   );
 }

@@ -55,7 +55,8 @@ import {
   Assessment,
   Settings,
   PersonAdd,
-  SupervisorAccount
+  SupervisorAccount,
+  ToggleOff
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
@@ -63,9 +64,10 @@ import { formatCurrencyFromRestaurant } from '../utils/currency';
 import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
-import { DEACTIVATE_RESTAURANT, CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
+import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
-import { ConfirmationDialog } from '../components/common';
+import { ConfirmationDialog, DataFreshnessIndicator } from '../components/common';
+import { useDataFreshness } from '../hooks/useDataFreshness';
 
 
 
@@ -103,6 +105,22 @@ export default function AdminDashboard() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [admin, setAdmin] = useState<any>(null);
+  
+  // Data freshness management
+  const {
+    dataStaleWarning,
+    checkDataFreshness,
+    updateDataFetchTime,
+    refetchAllData: refetchAllDataHook
+  } = useDataFreshness({
+    onStaleData: () => {
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Data might be outdated. Consider refreshing.',
+        severity: 'warning'
+      });
+    }
+  });
   
   // Order management state
   const [orderPage, setOrderPage] = useState(0);
@@ -159,12 +177,6 @@ export default function AdminDashboard() {
   });
 
   // Mutations
-  const [deactivateRestaurant] = useMutation(DEACTIVATE_RESTAURANT, {
-    onCompleted: () => {
-      refetchRestaurants();
-      refetchAnalytics();
-    }
-  });
 
   const [createSampleData] = useMutation(CREATE_SAMPLE_DATA, {
     onCompleted: () => {
@@ -196,6 +208,7 @@ export default function AdminDashboard() {
   const [updateRestaurant, { loading: updateRestaurantLoading }] = useMutation(UPDATE_RESTAURANT, {
     onCompleted: () => {
       setRestaurantDialogOpen(false);
+      updateDataFetchTime(); // Update freshness timestamp
       setRestaurantSnackbar({
         open: true,
         message: 'Restaurant updated successfully!',
@@ -205,11 +218,33 @@ export default function AdminDashboard() {
       refetchAnalytics(); // Also refetch analytics to update active restaurant count
     },
     onError: (error) => {
-      setRestaurantSnackbar({
-        open: true,
-        message: `Error updating restaurant: ${error.message}`,
-        severity: 'error'
-      });
+      // Check for conflict errors
+      if (error.message.includes('conflict') || error.message.includes('stale')) {
+        setRestaurantSnackbar({
+          open: true,
+          message: 'Data conflict detected. Please refresh and try again.',
+          severity: 'error'
+        });
+      } else {
+        setRestaurantSnackbar({
+          open: true,
+          message: `Error updating restaurant: ${error.message}`,
+          severity: 'error'
+        });
+      }
+    }
+  });
+
+  // Separate mutation for toggling restaurant status without dialog interference
+  const [toggleRestaurantStatus] = useMutation(UPDATE_RESTAURANT, {
+    onCompleted: () => {
+      // Only refetch data, don't show snackbar or close dialog
+      refetchRestaurants();
+      refetchAnalytics();
+      updateDataFetchTime();
+    },
+    onError: (error) => {
+      console.error('Error toggling restaurant status:', error);
     }
   });
 
@@ -221,6 +256,28 @@ export default function AdminDashboard() {
     }
     setAdmin(JSON.parse(adminData));
   }, [navigate]);
+
+  // Enhanced refetch function that updates timestamps
+  const refetchAllData = async () => {
+    try {
+      await refetchAllDataHook([
+        () => refetchAnalytics(),
+        () => refetchRestaurants(),
+        () => refetchOrders()
+      ]);
+      setRestaurantSnackbar({
+        open: true,
+        message: 'All data refreshed successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Error refreshing data. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -260,27 +317,53 @@ export default function AdminDashboard() {
     setRestaurantPage(0);
   };
 
-  const handleDeactivateRestaurant = (restaurantId: string) => {
+  const handleToggleRestaurantStatus = (restaurantId: string) => {
     const restaurant = restaurants.find((r: any) => r.id === restaurantId);
     setRestaurantToAction(restaurant);
     setDeactivateConfirmOpen(true);
   };
 
-  const handleConfirmDeactivate = async () => {
+  const handleConfirmToggle = async () => {
     if (!restaurantToAction) return;
     
     try {
-      await deactivateRestaurant({ variables: { id: restaurantToAction.id } });
+      const newStatus = !restaurantToAction.isActive;
+      // Create clean settings object without __typename
+      const cleanSettings = restaurantToAction.settings ? {
+        currency: restaurantToAction.settings.currency || 'USD',
+        timezone: restaurantToAction.settings.timezone || 'UTC',
+        theme: restaurantToAction.settings.theme || 'light'
+      } : {
+        currency: 'USD',
+        timezone: 'UTC',
+        theme: 'light'
+      };
+
+      await toggleRestaurantStatus({ 
+        variables: { 
+          id: restaurantToAction.id,
+          input: {
+            name: restaurantToAction.name,
+            email: restaurantToAction.email,
+            password: '', // Empty password to keep current password
+            address: restaurantToAction.address || '',
+            phone: restaurantToAction.phone || '',
+            isActive: newStatus,
+            settings: cleanSettings
+          }
+        } 
+      });
+      
       setRestaurantSnackbar({
         open: true,
-        message: `${restaurantToAction.name} has been deactivated successfully!`,
+        message: `${restaurantToAction.name} has been ${newStatus ? 'activated' : 'deactivated'} successfully!`,
         severity: 'success'
       });
     } catch (error) {
-      console.error('Error deactivating restaurant:', error);
+      console.error('Error toggling restaurant status:', error);
       setRestaurantSnackbar({
         open: true,
-        message: `Error deactivating ${restaurantToAction.name}: ${error}`,
+        message: `Error updating ${restaurantToAction.name}: ${error}`,
         severity: 'error'
       });
     } finally {
@@ -289,7 +372,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleCancelDeactivate = () => {
+  const handleCancelToggle = () => {
     setDeactivateConfirmOpen(false);
     setRestaurantToAction(null);
   };
@@ -407,6 +490,41 @@ export default function AdminDashboard() {
   };
 
   const handleRestaurantSubmit = () => {
+    // Check data freshness before submitting
+    if (checkDataFreshness()) {
+      setRestaurantSnackbar({
+        open: true,
+        message: 'Data might be outdated. Refreshing before making changes...',
+        severity: 'warning'
+      });
+      // Refresh data and then retry
+      refetchAllData().then(() => {
+        // Retry the submission after refresh
+        setTimeout(() => {
+          if (restaurantDialogMode === 'create') {
+            createRestaurant({
+              variables: {
+                input: restaurantFormData
+              }
+            });
+          } else if (editingRestaurantId) {
+            const { password, ...updateData } = restaurantFormData;
+            if (password) {
+              (updateData as any).password = password;
+            }
+            updateRestaurant({
+              variables: {
+                id: editingRestaurantId,
+                input: updateData
+              }
+            });
+          }
+        }, 1000); // Small delay to ensure data is refreshed
+      });
+      return;
+    }
+
+    // Proceed with normal submission if data is fresh
     if (restaurantDialogMode === 'create') {
       createRestaurant({
         variables: {
@@ -499,6 +617,14 @@ export default function AdminDashboard() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
             Admin Dashboard
           </Typography>
+          
+          {/* Data freshness indicator */}
+          <DataFreshnessIndicator
+            dataStaleWarning={dataStaleWarning}
+            onRefresh={refetchAllData}
+            position="header"
+          />
+          
           <Chip
             icon={<AdminPanelSettings />}
             label={admin.role.replace('_', ' ').toUpperCase()}
@@ -694,12 +820,23 @@ export default function AdminDashboard() {
                             <Add />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Deactivate Restaurant">
+                        <Tooltip title={restaurant.isActive ? "Deactivate Restaurant" : "Activate Restaurant"}>
                           <IconButton 
                             size="small"
-                            onClick={() => handleDeactivateRestaurant(restaurant.id)}
+                            onClick={() => handleToggleRestaurantStatus(restaurant.id)}
+                            sx={{
+                              color: restaurant.isActive ? 'success.main' : 'grey.500',
+                              '&:hover': {
+                                backgroundColor: restaurant.isActive ? 'success.light' : 'grey.100',
+                                color: restaurant.isActive ? 'success.dark' : 'grey.700'
+                              }
+                            }}
                           >
-                            <Delete />
+                            {restaurant.isActive ? (
+                              <ToggleOff sx={{ color: 'success.main' }} />
+                            ) : (
+                              <ToggleOff sx={{ color: 'grey.500', transform: 'rotate(180deg)' }} />
+                            )}
                           </IconButton>
                         </Tooltip>
                       </TableCell>
@@ -1125,16 +1262,7 @@ export default function AdminDashboard() {
                       <Button 
                         variant="outlined" 
                         startIcon={<Refresh />}
-                        onClick={() => {
-                          refetchAnalytics();
-                          refetchRestaurants();
-                          refetchOrders();
-                          setRestaurantSnackbar({
-                            open: true,
-                            message: 'All data refreshed successfully!',
-                            severity: 'success'
-                          });
-                        }}
+                        onClick={refetchAllData}
                       >
                         Refresh All Data
                       </Button>
@@ -1279,25 +1407,28 @@ export default function AdminDashboard() {
         </Alert>
       )}
 
-      {/* Deactivate Restaurant Confirmation Dialog */}
+      {/* Toggle Restaurant Status Confirmation Dialog */}
       <ConfirmationDialog
         open={deactivateConfirmOpen}
-        onClose={handleCancelDeactivate}
-        onConfirm={handleConfirmDeactivate}
-        title="Deactivate Restaurant"
+        onClose={handleCancelToggle}
+        onConfirm={handleConfirmToggle}
+        title={restaurantToAction?.isActive ? "Deactivate Restaurant" : "Activate Restaurant"}
         message={
           <Box>
             <Typography variant="body1">
-              Are you sure you want to deactivate <strong>{restaurantToAction?.name}</strong>?
+              Are you sure you want to {restaurantToAction?.isActive ? 'deactivate' : 'activate'} <strong>{restaurantToAction?.name}</strong>?
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This will prevent the restaurant from logging in and accessing their dashboard.
+              {restaurantToAction?.isActive 
+                ? "This will prevent the restaurant from logging in and accessing their dashboard."
+                : "This will allow the restaurant to log in and access their dashboard."
+              }
             </Typography>
           </Box>
         }
-        confirmText="Deactivate"
+        confirmText={restaurantToAction?.isActive ? "Deactivate" : "Activate"}
         cancelText="Cancel"
-        confirmColor="error"
+        confirmColor={restaurantToAction?.isActive ? "error" : "success"}
       />
 
       {/* Create Sample Data Confirmation Dialog */}

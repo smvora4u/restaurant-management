@@ -34,6 +34,8 @@ import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
+import { DataFreshnessIndicator } from '../components/common';
+import { useDataFreshness } from '../hooks/useDataFreshness';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 
 export default function StaffDashboard() {
@@ -43,12 +45,49 @@ export default function StaffDashboard() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Queries
-  const { data: ordersData, loading: ordersLoading } = useQuery(GET_ORDERS_FOR_STAFF, {
+  const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS_FOR_STAFF, {
     variables: { restaurantId: staff?.restaurantId },
     skip: !staff?.restaurantId
   });
+
+  // Data freshness management
+  const {
+    dataStaleWarning,
+    refetchAllData: refetchAllDataHook
+  } = useDataFreshness({
+    onStaleData: () => {
+      setSnackbar({
+        open: true,
+        message: 'Data might be outdated. Consider refreshing.',
+        severity: 'warning'
+      });
+    }
+  });
+
+  // Enhanced refetch function
+  const refetchAllData = async () => {
+    try {
+      await refetchAllDataHook([() => refetchOrders()]);
+      setSnackbar({
+        open: true,
+        message: 'All data refreshed successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error refreshing data. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
 
   useEffect(() => {
     const staffData = localStorage.getItem('staff');
@@ -133,6 +172,11 @@ export default function StaffDashboard() {
             Staff Dashboard - {staff.name}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <DataFreshnessIndicator
+              dataStaleWarning={dataStaleWarning}
+              onRefresh={refetchAllData}
+              position="header"
+            />
             <Chip
               label={staff.role.toUpperCase()}
               color="secondary"
@@ -327,6 +371,17 @@ export default function StaffDashboard() {
           />
         </Card>
       </Box>
+
+      {/* Snackbar for notifications */}
+      {snackbar.open && (
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
+        >
+          {snackbar.message}
+        </Alert>
+      )}
     </StaffLayout>
   );
 }
