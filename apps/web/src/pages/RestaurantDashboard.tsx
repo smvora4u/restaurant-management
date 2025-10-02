@@ -7,9 +7,6 @@ import {
   Typography,
   Button,
   IconButton,
-  Menu,
-  MenuItem,
-  Avatar,
   Chip,
   Table,
   TableBody,
@@ -23,7 +20,6 @@ import {
   TextField
 } from '@mui/material';
 import {
-  Logout,
   Restaurant,
   ShoppingCart,
   TableRestaurant,
@@ -47,7 +43,6 @@ import QRCodeGenerator from '../components/QRCodeGenerator';
 
 export default function RestaurantDashboard() {
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [restaurant, setRestaurant] = useState<any>(null);
@@ -112,19 +107,6 @@ export default function RestaurantDashboard() {
   // Memoize base URL to prevent QR code regeneration
   const baseUrl = window.location.origin;
 
-  const handleLogout = () => {
-    localStorage.removeItem('restaurantToken');
-    localStorage.removeItem('restaurant');
-    navigate('/restaurant/login');
-  };
-
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -172,21 +154,6 @@ export default function RestaurantDashboard() {
               color="primary"
               size="small"
             />
-            <IconButton onClick={handleMenuClick}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                {restaurant.name.charAt(0).toUpperCase()}
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-            >
-              <MenuItem onClick={handleLogout}>
-                <Logout sx={{ mr: 1 }} />
-                Logout
-              </MenuItem>
-            </Menu>
           </Box>
         </Box>
         {/* Analytics Cards */}
