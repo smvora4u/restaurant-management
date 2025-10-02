@@ -20,6 +20,8 @@ import {
   TablePagination,
   Alert,
   CircularProgress,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   Logout,
@@ -28,7 +30,9 @@ import {
   TrendingUp,
   AccessTime,
   CheckCircle,
-  Cancel
+  Cancel,
+  Search,
+  FilterList
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
@@ -45,6 +49,8 @@ export default function StaffDashboard() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -132,6 +138,8 @@ export default function StaffDashboard() {
       case 'cancelled': return 'error';
       case 'preparing': return 'info';
       case 'ready': return 'primary';
+      case 'confirmed': return 'secondary';
+      case 'served': return 'success';
       default: return 'default';
     }
   };
@@ -142,6 +150,7 @@ export default function StaffDashboard() {
       case 'cancelled': return <Cancel />;
       case 'preparing': return <AccessTime />;
       case 'ready': return <Restaurant />;
+      case 'served': return <CheckCircle />;
       default: return <ShoppingCart />;
     }
   };
@@ -155,6 +164,18 @@ export default function StaffDashboard() {
   }
 
   const orders = ordersData?.ordersForStaff || [];
+
+  // Filter orders based on search term and status
+  const filteredOrders = orders.filter((order: any) => {
+    const matchesSearch = 
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.customerName && order.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (order.customerPhone && order.customerPhone.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   // Calculate statistics
   const totalOrders = orders.length;
@@ -275,11 +296,39 @@ export default function StaffDashboard() {
           </Box>
         </Box>
 
+        {/* Search and Filter */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextField
+                placeholder="Search orders..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ minWidth: 300 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<FilterList />}
+                onClick={() => setStatusFilter(statusFilter === 'all' ? 'pending' : 'all')}
+              >
+                {statusFilter === 'all' ? 'Show Pending Only' : 'Show All'}
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
         {/* Orders Table */}
         <Card>
           <Box sx={{ p: 2 }}>
             <Typography variant="h6" component="h2">
-              Recent Orders
+              Orders ({filteredOrders.length})
             </Typography>
           </Box>
           <TableContainer>
@@ -288,6 +337,7 @@ export default function StaffDashboard() {
                 <TableRow>
                   <TableCell>Order ID</TableCell>
                   <TableCell>Type</TableCell>
+                  <TableCell>Table</TableCell>
                   <TableCell>Customer</TableCell>
                   <TableCell>Amount</TableCell>
                   <TableCell>Status</TableCell>
@@ -298,18 +348,18 @@ export default function StaffDashboard() {
               <TableBody>
                 {ordersLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
-                ) : orders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Alert severity="info">No orders found</Alert>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  orders
+                  filteredOrders
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((order: any) => (
                       <TableRow key={order.id}>
@@ -320,6 +370,9 @@ export default function StaffDashboard() {
                             size="small"
                             color="primary"
                           />
+                        </TableCell>
+                        <TableCell>
+                          {order.tableNumber ? `Table ${order.tableNumber}` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <Box>
@@ -363,7 +416,7 @@ export default function StaffDashboard() {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={orders.length}
+            count={filteredOrders.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}

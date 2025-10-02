@@ -15,7 +15,6 @@ import TablesPage from './pages/TablesPage';
 import ReservationsPage from './pages/ReservationsPage';
 import QRCodeManagementPage from './pages/QRCodeManagementPage';
 import StaffDashboard from './pages/StaffDashboard';
-import StaffOrders from './pages/StaffOrders';
 import StaffOrderManagement from './pages/StaffOrderManagement';
 import StaffManagement from './pages/StaffManagement';
 import UnifiedLogin from './pages/UnifiedLogin';
@@ -143,14 +142,6 @@ function App() {
               element={
                 <ProtectedStaffRoute>
                   <StaffDashboard />
-                </ProtectedStaffRoute>
-              } 
-            />
-            <Route 
-              path="/staff/orders" 
-              element={
-                <ProtectedStaffRoute>
-                  <StaffOrders />
                 </ProtectedStaffRoute>
               } 
             />

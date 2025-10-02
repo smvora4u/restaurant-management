@@ -19,7 +19,6 @@ import {
   Menu as MenuIcon,
   Person as PersonIcon,
   Dashboard as DashboardIcon,
-  Receipt as OrderIcon,
 } from '@mui/icons-material';
 
 interface StaffLayoutProps {
@@ -35,9 +34,7 @@ const getMenuItems = (permissions: string[]) => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard', permission: 'view_orders' },
   ];
 
-  const conditionalItems = [
-    { text: 'Orders', icon: <OrderIcon />, path: '/staff/orders', permission: 'view_orders' },
-  ];
+  const conditionalItems: Array<{ text: string; icon: React.ReactElement; path: string; permission: string }> = [];
 
   // Filter items based on permissions
   const allowedItems = baseItems.filter(item => 
