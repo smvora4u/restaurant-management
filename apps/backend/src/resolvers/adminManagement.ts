@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { Admin, Restaurant, Order } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
@@ -71,8 +72,12 @@ export const adminMutations = {
       const baseSlug = input.slug || input.name.toLowerCase().replace(/\s+/g, '-');
       const slug = await generateUniqueSlug(baseSlug);
       
+      // Hash password
+      const hashedPassword = await bcrypt.hash(input.password, 12);
+      
       const restaurant = new Restaurant({
         ...input,
+        password: hashedPassword,
         slug,
         settings: {
           currency: 'USD',
@@ -94,7 +99,13 @@ export const adminMutations = {
         throw new Error('Authentication required');
       }
       
-      return await Restaurant.findByIdAndUpdate(id, input, { new: true });
+      // Hash password if provided
+      const updateData = { ...input };
+      if (updateData.password) {
+        updateData.password = await bcrypt.hash(updateData.password, 12);
+      }
+      
+      return await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
     },
     
     deleteRestaurant: async (_: any, { id }: { id: string }, context: GraphQLContext) => {

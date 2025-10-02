@@ -68,6 +68,30 @@ export const getCurrentCurrency = (): CurrencyConfig => {
   return CURRENCIES[DEFAULT_CURRENCY];
 };
 
+// Get restaurant-specific currency configuration
+export const getRestaurantCurrency = (restaurant?: any): CurrencyConfig => {
+  if (restaurant?.settings?.currency && CURRENCIES[restaurant.settings.currency]) {
+    return CURRENCIES[restaurant.settings.currency];
+  }
+  return getCurrentCurrency();
+};
+
+// Get currency from localStorage (for consumer pages)
+export const getCurrencyFromContext = (): CurrencyConfig => {
+  try {
+    const currentRestaurant = localStorage.getItem('currentRestaurant');
+    const restaurant = localStorage.getItem('restaurant');
+    
+    const restaurantData = currentRestaurant ? JSON.parse(currentRestaurant) : 
+                          restaurant ? JSON.parse(restaurant) : null;
+    
+    return getRestaurantCurrency(restaurantData);
+  } catch (error) {
+    console.error('Error getting currency from context:', error);
+    return getCurrentCurrency();
+  }
+};
+
 // Format amount with current currency
 export const formatCurrency = (amount: number, currencyCode?: string): string => {
   const currency = currencyCode ? CURRENCIES[currencyCode] : getCurrentCurrency();
@@ -167,4 +191,36 @@ export const formatCurrencyWithCode = (amount: number): string => {
   }
   
   return formatted;
+};
+
+// Format currency using restaurant context (for consumer pages)
+export const formatCurrencyFromContext = (amount: number): string => {
+  const currency = getCurrencyFromContext();
+  
+  const formattedNumber = amount.toLocaleString('en-US', {
+    minimumFractionDigits: currency.decimalPlaces,
+    maximumFractionDigits: currency.decimalPlaces,
+  });
+
+  if (currency.position === 'before') {
+    return `${currency.symbol}${formattedNumber}`;
+  } else {
+    return `${formattedNumber} ${currency.symbol}`;
+  }
+};
+
+// Format currency using restaurant data (for restaurant dashboard)
+export const formatCurrencyFromRestaurant = (amount: number, restaurant?: any): string => {
+  const currency = getRestaurantCurrency(restaurant);
+  
+  const formattedNumber = amount.toLocaleString('en-US', {
+    minimumFractionDigits: currency.decimalPlaces,
+    maximumFractionDigits: currency.decimalPlaces,
+  });
+
+  if (currency.position === 'before') {
+    return `${currency.symbol}${formattedNumber}`;
+  } else {
+    return `${formattedNumber} ${currency.symbol}`;
+  }
 };

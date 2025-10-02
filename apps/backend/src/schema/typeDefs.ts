@@ -112,6 +112,7 @@ export const typeDefs = `#graphql
 
   type Order {
     id: ID!
+    restaurantId: ID!
     tableNumber: Int
     orderType: String!
     items: [OrderItem!]!
@@ -245,6 +246,7 @@ export const typeDefs = `#graphql
     address: String
     phone: String
     slug: String
+    isActive: Boolean
     settings: RestaurantSettingsInput
   }
 

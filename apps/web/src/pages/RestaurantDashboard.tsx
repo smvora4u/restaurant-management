@@ -35,7 +35,10 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
-import { GET_MENU_ITEMS, GET_ORDERS, GET_TABLES } from '../graphql/queries/restaurant';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
+import { GET_TABLES } from '../graphql/queries/tables';
+import { GET_MENU_ITEMS } from '../graphql/queries/menu';
+import { GET_ORDERS } from '../graphql/queries/orders';
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 
@@ -189,7 +192,7 @@ export default function RestaurantDashboard() {
                       Total Revenue
                     </Typography>
                     <Typography variant="h4">
-                      ${ordersLoading ? '...' : totalRevenue.toFixed(2)}
+                      {ordersLoading ? '...' : formatCurrencyFromRestaurant(totalRevenue, restaurant)}
                     </Typography>
                   </Box>
                 </Box>
@@ -402,7 +405,7 @@ export default function RestaurantDashboard() {
                       <TableCell>
                         <Chip label={item.category} size="small" variant="outlined" />
                       </TableCell>
-                      <TableCell>${item.price.toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrencyFromRestaurant(item.price, restaurant)}</TableCell>
                       <TableCell>
                         <Chip
                           label={item.available ? 'Available' : 'Unavailable'}
@@ -484,7 +487,7 @@ export default function RestaurantDashboard() {
                             )}
                           </Box>
                         </TableCell>
-                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrencyFromRestaurant(order.totalAmount, restaurant)}</TableCell>
                         <TableCell>
                           <Chip
                             label={order.status}

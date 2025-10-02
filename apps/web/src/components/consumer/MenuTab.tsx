@@ -40,6 +40,7 @@ import {
   GET_ORDERS_BY_MOBILE 
 } from '../../graphql/queries/orders';
 import { getStatusChipColor } from '../../utils/statusColors';
+import { formatCurrencyFromContext } from '../../utils/currency';
 
 
 interface MenuItem {
@@ -588,7 +589,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
               borderColor: 'primary.300'
             }}>
               <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 600 }}>
-                ${currentOrderData.totalAmount.toFixed(2)}
+                {formatCurrencyFromContext(currentOrderData.totalAmount)}
               </Typography>
             </Box>
           </Box>
@@ -626,7 +627,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                         />
                       </Box>
                     }
-                    secondary={`$${item.price.toFixed(2)} each`}
+                    secondary={`${formatCurrencyFromContext(item.price)} each`}
                     sx={{ flex: 1 }}
                   />
                   
@@ -666,7 +667,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                   )}
                   
                   <Typography variant="body1" fontWeight="bold" sx={{ ml: 2, minWidth: '60px', textAlign: 'right' }}>
-                    ${(item.price * currentQuantity).toFixed(2)}
+                    {formatCurrencyFromContext(item.price * currentQuantity)}
                   </Typography>
                   
                   {canEdit && (
@@ -723,7 +724,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                 <ListItem key={itemId} sx={{ px: 0 }}>
                   <ListItemText
                     primary={item.name}
-                    secondary={`$${item.price.toFixed(2)} each`}
+                    secondary={`${formatCurrencyFromContext(item.price)} each`}
                     sx={{ flex: 1 }}
                   />
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -761,7 +762,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                       fontWeight="bold"
                       sx={{ minWidth: '60px', textAlign: 'right' }}
                     >
-                      ${(item.price * quantity).toFixed(2)}
+                      {formatCurrencyFromContext(item.price * quantity)}
                     </Typography>
                   </Box>
                 </ListItem>
@@ -776,7 +777,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
               Total ({getTotalItems()} item{getTotalItems() !== 1 ? 's' : ''})
           </Typography>
             <Typography variant="h5" color="primary" fontWeight="bold">
-              ${getTotalPrice().toFixed(2)}
+              {formatCurrencyFromContext(getTotalPrice())}
           </Typography>
           </Box>
           
@@ -935,7 +936,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                       fontSize: '1.2rem'
                     }}
                   >
-                    ${item.price.toFixed(2)}
+                    {formatCurrencyFromContext(item.price)}
                   </Typography>
                   <Chip
                     label={item.category}
@@ -1064,7 +1065,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           <Typography variant="body2" color="text.secondary">
             {hasOrderModifications && currentOrderData
               ? 'This will update your existing order with the modifications made.'
-              : `Total: ${getTotalItems()} item${getTotalItems() !== 1 ? 's' : ''} - $${getTotalPrice().toFixed(2)}`
+              : `Total: ${getTotalItems()} item${getTotalItems() !== 1 ? 's' : ''} - ${formatCurrencyFromContext(getTotalPrice())}`
             }
           </Typography>
         </DialogContent>

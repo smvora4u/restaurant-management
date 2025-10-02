@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 
@@ -44,6 +45,7 @@ export default function StaffOrders() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [staff, setStaff] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -55,11 +57,15 @@ export default function StaffOrders() {
 
   useEffect(() => {
     const staffData = localStorage.getItem('staff');
+    const restaurantData = localStorage.getItem('restaurant');
     if (!staffData) {
       navigate('/staff/login');
       return;
     }
     setStaff(JSON.parse(staffData));
+    if (restaurantData) {
+      setRestaurant(JSON.parse(restaurantData));
+    }
   }, [navigate]);
 
   const handleLogout = () => {
@@ -334,7 +340,7 @@ export default function StaffOrders() {
                             )}
                           </Box>
                         </TableCell>
-                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrencyFromRestaurant(order.totalAmount, restaurant)}</TableCell>
                         <TableCell>
                           <Chip
                             icon={getStatusIcon(order.status)}

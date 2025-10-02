@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../utils/dateFormatting';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { 
   GET_ORDER_BY_ID_FOR_STAFF, 
@@ -49,6 +50,7 @@ export default function StaffOrderManagement() {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
   const [staff, setStaff] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -78,11 +80,15 @@ export default function StaffOrderManagement() {
 
   useEffect(() => {
     const staffData = localStorage.getItem('staff');
+    const restaurantData = localStorage.getItem('restaurant');
     if (!staffData) {
       navigate('/staff/login');
       return;
     }
     setStaff(JSON.parse(staffData));
+    if (restaurantData) {
+      setRestaurant(JSON.parse(restaurantData));
+    }
   }, [navigate]);
 
   const handleStatusUpdate = async () => {
@@ -246,7 +252,7 @@ export default function StaffOrderManagement() {
                     Total Amount
                   </Typography>
                   <Typography variant="h6" color="primary">
-                    ${order.totalAmount.toFixed(2)}
+                    {formatCurrencyFromRestaurant(order.totalAmount, restaurant)}
                   </Typography>
                 </Box>
 
@@ -341,7 +347,7 @@ export default function StaffOrderManagement() {
                             </Box>
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
-                          <TableCell>${item.price.toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrencyFromRestaurant(item.price, restaurant)}</TableCell>
                           <TableCell>
                             <Chip
                               icon={getStatusIcon(item.status)}

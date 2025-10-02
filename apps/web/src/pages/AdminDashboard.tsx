@@ -36,7 +36,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
   Logout,
@@ -54,16 +55,17 @@ import {
   Assessment,
   Settings,
   PersonAdd,
-  AttachMoney,
   SupervisorAccount
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
 import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { DEACTIVATE_RESTAURANT, CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
-import { CREATE_RESTAURANT, UPDATE_RESTAURANT, DEACTIVATE_RESTAURANT as DEACTIVATE_RESTAURANT_MUTATION } from '../graphql/mutations/restaurant';
+import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
+import { ConfirmationDialog } from '../components/common';
 
 
 
@@ -123,8 +125,10 @@ export default function AdminDashboard() {
   const [restaurantFormData, setRestaurantFormData] = useState({
     name: '',
     email: '',
+    password: '',
     address: '',
     phone: '',
+    isActive: true,
     settings: {
       currency: 'USD',
       timezone: 'UTC',
@@ -136,6 +140,11 @@ export default function AdminDashboard() {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
+
+  // Confirmation dialog states
+  const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+  const [sampleDataConfirmOpen, setSampleDataConfirmOpen] = useState(false);
+  const [restaurantToAction, setRestaurantToAction] = useState<any>(null);
 
   // Queries
   const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS);
@@ -193,30 +202,12 @@ export default function AdminDashboard() {
         severity: 'success'
       });
       refetchRestaurants();
+      refetchAnalytics(); // Also refetch analytics to update active restaurant count
     },
     onError: (error) => {
       setRestaurantSnackbar({
         open: true,
         message: `Error updating restaurant: ${error.message}`,
-        severity: 'error'
-      });
-    }
-  });
-
-  const [deactivateRestaurantMutation] = useMutation(DEACTIVATE_RESTAURANT_MUTATION, {
-    onCompleted: () => {
-      setRestaurantSnackbar({
-        open: true,
-        message: 'Restaurant deactivated successfully!',
-        severity: 'success'
-      });
-      refetchRestaurants();
-      refetchAnalytics();
-    },
-    onError: (error) => {
-      setRestaurantSnackbar({
-        open: true,
-        message: `Error deactivating restaurant: ${error.message}`,
         severity: 'error'
       });
     }
@@ -269,24 +260,77 @@ export default function AdminDashboard() {
     setRestaurantPage(0);
   };
 
-  const handleDeactivateRestaurant = async (restaurantId: string) => {
+  const handleDeactivateRestaurant = (restaurantId: string) => {
+    const restaurant = restaurants.find((r: any) => r.id === restaurantId);
+    setRestaurantToAction(restaurant);
+    setDeactivateConfirmOpen(true);
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!restaurantToAction) return;
+    
     try {
-      await deactivateRestaurant({ variables: { id: restaurantId } });
+      await deactivateRestaurant({ variables: { id: restaurantToAction.id } });
+      setRestaurantSnackbar({
+        open: true,
+        message: `${restaurantToAction.name} has been deactivated successfully!`,
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error deactivating restaurant:', error);
+      setRestaurantSnackbar({
+        open: true,
+        message: `Error deactivating ${restaurantToAction.name}: ${error}`,
+        severity: 'error'
+      });
+    } finally {
+      setDeactivateConfirmOpen(false);
+      setRestaurantToAction(null);
     }
   };
 
-  const handleCreateSampleData = async (restaurantId: string) => {
+  const handleCancelDeactivate = () => {
+    setDeactivateConfirmOpen(false);
+    setRestaurantToAction(null);
+  };
+
+  const handleCreateSampleData = (restaurantId: string) => {
+    const restaurant = restaurants.find((r: any) => r.id === restaurantId);
+    setRestaurantToAction(restaurant);
+    setSampleDataConfirmOpen(true);
+  };
+
+  const handleConfirmSampleData = async () => {
+    if (!restaurantToAction) return;
+    
     try {
-      await createSampleData({ variables: { restaurantId } });
+      await createSampleData({ variables: { restaurantId: restaurantToAction.id } });
+      setRestaurantSnackbar({
+        open: true,
+        message: `Sample data created successfully for ${restaurantToAction.name}!`,
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error creating sample data:', error);
+      setRestaurantSnackbar({
+        open: true,
+        message: `Error creating sample data for ${restaurantToAction.name}: ${error}`,
+        severity: 'error'
+      });
+    } finally {
+      setSampleDataConfirmOpen(false);
+      setRestaurantToAction(null);
     }
+  };
+
+  const handleCancelSampleData = () => {
+    setSampleDataConfirmOpen(false);
+    setRestaurantToAction(null);
   };
 
   const handleViewStaff = (restaurant: any) => {
     setSelectedRestaurant(restaurant);
+    setActiveTab(2); // Switch to Staff tab
   };
 
   // Restaurant dialog handlers
@@ -297,8 +341,10 @@ export default function AdminDashboard() {
       setRestaurantFormData({
         name: restaurant.name || '',
         email: restaurant.email || '',
+        password: '', // Don't populate password for edit
         address: restaurant.address || '',
         phone: restaurant.phone || '',
+        isActive: restaurant.isActive !== undefined ? restaurant.isActive : true,
         settings: {
           currency: restaurant.settings?.currency || 'USD',
           timezone: restaurant.settings?.timezone || 'UTC',
@@ -310,8 +356,10 @@ export default function AdminDashboard() {
       setRestaurantFormData({
         name: '',
         email: '',
+        password: '',
         address: '',
         phone: '',
+        isActive: true,
         settings: {
           currency: 'USD',
           timezone: 'UTC',
@@ -328,8 +376,10 @@ export default function AdminDashboard() {
     setRestaurantFormData({
       name: '',
       email: '',
+      password: '',
       address: '',
       phone: '',
+      isActive: true,
       settings: {
         currency: 'USD',
         timezone: 'UTC',
@@ -364,24 +414,20 @@ export default function AdminDashboard() {
         }
       });
     } else if (editingRestaurantId) {
+      // For edit mode, only include password if it's provided
+      const { password, ...updateData } = restaurantFormData;
+      if (password) {
+        (updateData as any).password = password;
+      }
       updateRestaurant({
         variables: {
           id: editingRestaurantId,
-          input: restaurantFormData
+          input: updateData
         }
       });
     }
   };
 
-  const handleDeactivateRestaurantFromDialog = async (restaurantId: string) => {
-    try {
-      await deactivateRestaurantMutation({
-        variables: { id: restaurantId }
-      });
-    } catch (error) {
-      console.error('Error deactivating restaurant:', error);
-    }
-  };
 
   if (!admin) {
     return (
@@ -395,6 +441,37 @@ export default function AdminDashboard() {
   const restaurants = restaurantsData?.allRestaurants || [];
   const orders = ordersData?.allOrders || [];
   const staff = staffData?.staffByRestaurant || [];
+
+  // Calculate currency-wise revenues
+  const getCurrencyWiseRevenue = () => {
+    const currencyRevenue: Record<string, { total: number; count: number; symbol: string }> = {};
+    
+    orders.forEach((order: any) => {
+      const restaurant = restaurants.find((r: any) => r.id === order.restaurantId);
+      const currency = restaurant?.settings?.currency || 'USD';
+      
+      if (!currencyRevenue[currency]) {
+        currencyRevenue[currency] = { total: 0, count: 0, symbol: '' };
+      }
+      
+      currencyRevenue[currency].total += order.totalAmount;
+      currencyRevenue[currency].count += 1;
+      currencyRevenue[currency].symbol = getCurrencySymbol(currency);
+    });
+    
+    return currencyRevenue;
+  };
+
+  const getCurrencySymbol = (currencyCode: string) => {
+    const currencyMap: Record<string, string> = {
+      'USD': '$',
+      'INR': '₹',
+      'EUR': '€',
+      'GBP': '£',
+      'JPY': '¥'
+    };
+    return currencyMap[currencyCode] || '$';
+  };
 
   // Filter data
   const filteredRestaurants = restaurants.filter((restaurant: any) =>
@@ -450,7 +527,7 @@ export default function AdminDashboard() {
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Analytics Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <CardContent>
                 <Box display="flex" alignItems="center">
@@ -468,7 +545,7 @@ export default function AdminDashboard() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
               <CardContent>
                 <Box display="flex" alignItems="center">
@@ -486,7 +563,7 @@ export default function AdminDashboard() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%)', color: 'white' }}>
               <CardContent>
                 <Box display="flex" alignItems="center">
@@ -504,23 +581,6 @@ export default function AdminDashboard() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center">
-                  <AttachMoney sx={{ fontSize: 40, mr: 2 }} />
-                  <Box>
-                    <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                      Total Revenue
-                    </Typography>
-                    <Typography variant="h4" fontWeight="bold">
-                      ${analyticsLoading ? '...' : (analytics?.totalRevenue || 0).toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
         </Grid>
 
         {/* Main Content Tabs */}
@@ -616,25 +676,32 @@ export default function AdminDashboard() {
                         {formatDate(restaurant.createdAt)}
                       </TableCell>
                       <TableCell>
-                            <IconButton size="small" onClick={() => handleViewStaff(restaurant)}>
-                              <Group />
-                        </IconButton>
-                            <IconButton size="small" onClick={() => handleOpenRestaurantDialog('edit', restaurant)}>
-                          <Edit />
-                        </IconButton>
-                            <IconButton 
-                              size="small"
-                              onClick={() => handleCreateSampleData(restaurant.id)}
-                              title="Create Sample Data"
-                            >
-                              <Add />
-                        </IconButton>
-                        <IconButton 
-                          size="small"
-                          onClick={() => handleDeactivateRestaurant(restaurant.id)}
-                        >
-                          <Delete />
-                        </IconButton>
+                        <Tooltip title="View Staff">
+                          <IconButton size="small" onClick={() => handleViewStaff(restaurant)}>
+                            <Group />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit Restaurant">
+                          <IconButton size="small" onClick={() => handleOpenRestaurantDialog('edit', restaurant)}>
+                            <Edit />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Create Sample Data">
+                          <IconButton 
+                            size="small"
+                            onClick={() => handleCreateSampleData(restaurant.id)}
+                          >
+                            <Add />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Deactivate Restaurant">
+                          <IconButton 
+                            size="small"
+                            onClick={() => handleDeactivateRestaurant(restaurant.id)}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))
@@ -695,24 +762,25 @@ export default function AdminDashboard() {
               <TableHead>
                 <TableRow>
                   <TableCell>Order ID</TableCell>
+                  <TableCell>Restaurant</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Customer</TableCell>
                   <TableCell>Amount</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Date</TableCell>
-                    <TableCell>Actions</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {ordersLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
                   ) : filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Alert severity="info">No orders found</Alert>
                     </TableCell>
                   </TableRow>
@@ -724,6 +792,19 @@ export default function AdminDashboard() {
                             {order.id.slice(-8)}
                           </Typography>
                         </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar sx={{ mr: 1, bgcolor: 'primary.main', width: 24, height: 24 }}>
+                            <Restaurant sx={{ fontSize: 16 }} />
+                          </Avatar>
+                          <Typography variant="body2" fontWeight="bold">
+                            {(() => {
+                              const restaurant = restaurants.find((r: any) => r.id === order.restaurantId);
+                              return restaurant?.name || 'N/A';
+                            })()}
+                          </Typography>
+                        </Box>
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={order.orderType}
@@ -744,7 +825,10 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold">
-                            ${order.totalAmount.toFixed(2)}
+                            {(() => {
+                              const restaurant = restaurants.find((r: any) => r.id === order.restaurantId);
+                              return formatCurrencyFromRestaurant(order.totalAmount, restaurant);
+                            })()}
                           </Typography>
                         </TableCell>
                       <TableCell>
@@ -972,15 +1056,25 @@ export default function AdminDashboard() {
                       <Typography>Total Orders</Typography>
                       <Typography fontWeight="bold">{analytics?.totalOrders || 0}</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography>Total Revenue</Typography>
-                      <Typography fontWeight="bold">${analytics?.totalRevenue?.toFixed(2) || '0.00'}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography>Average Order Value</Typography>
-                      <Typography fontWeight="bold">
-                        ${analytics ? (analytics.totalRevenue / analytics.totalOrders).toFixed(2) : '0.00'}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Revenue by Currency
                       </Typography>
+                      {Object.entries(getCurrencyWiseRevenue()).map(([currency, data]) => (
+                        <Box key={currency} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="body2">
+                            {currency} ({data.count} orders)
+                          </Typography>
+                          <Typography variant="body2" fontWeight="bold">
+                            {data.symbol}{data.total.toFixed(2)}
+                          </Typography>
+                        </Box>
+                      ))}
+                      {Object.keys(getCurrencyWiseRevenue()).length === 0 && (
+                        <Typography variant="body2" color="text.secondary">
+                          No revenue data available
+                        </Typography>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -1028,7 +1122,20 @@ export default function AdminDashboard() {
                       System Actions
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Button variant="outlined" startIcon={<Refresh />}>
+                      <Button 
+                        variant="outlined" 
+                        startIcon={<Refresh />}
+                        onClick={() => {
+                          refetchAnalytics();
+                          refetchRestaurants();
+                          refetchOrders();
+                          setRestaurantSnackbar({
+                            open: true,
+                            message: 'All data refreshed successfully!',
+                            severity: 'success'
+                          });
+                        }}
+                      >
                         Refresh All Data
                       </Button>
                       <Button variant="outlined" startIcon={<Assessment />}>
@@ -1068,6 +1175,26 @@ export default function AdminDashboard() {
               fullWidth
               required
             />
+            <TextField
+              label="Password"
+              type="password"
+              value={restaurantFormData.password}
+              onChange={(e) => handleRestaurantFormChange('password', e.target.value)}
+              fullWidth
+              required={restaurantDialogMode === 'create'}
+              helperText={restaurantDialogMode === 'edit' ? 'Leave blank to keep current password' : 'Required for new restaurants'}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={restaurantFormData.isActive ? 'active' : 'inactive'}
+                onChange={(e) => handleRestaurantFormChange('isActive', e.target.value === 'active')}
+                label="Status"
+              >
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="inactive">Inactive</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               label="Address"
               value={restaurantFormData.address}
@@ -1151,6 +1278,48 @@ export default function AdminDashboard() {
           {restaurantSnackbar.message}
         </Alert>
       )}
+
+      {/* Deactivate Restaurant Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deactivateConfirmOpen}
+        onClose={handleCancelDeactivate}
+        onConfirm={handleConfirmDeactivate}
+        title="Deactivate Restaurant"
+        message={
+          <Box>
+            <Typography variant="body1">
+              Are you sure you want to deactivate <strong>{restaurantToAction?.name}</strong>?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              This will prevent the restaurant from logging in and accessing their dashboard.
+            </Typography>
+          </Box>
+        }
+        confirmText="Deactivate"
+        cancelText="Cancel"
+        confirmColor="error"
+      />
+
+      {/* Create Sample Data Confirmation Dialog */}
+      <ConfirmationDialog
+        open={sampleDataConfirmOpen}
+        onClose={handleCancelSampleData}
+        onConfirm={handleConfirmSampleData}
+        title="Create Sample Data"
+        message={
+          <Box>
+            <Typography variant="body1">
+              Are you sure you want to create sample data for <strong>{restaurantToAction?.name}</strong>?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              This will add sample menu items, tables, and other data to help the restaurant get started.
+            </Typography>
+          </Box>
+        }
+        confirmText="Create Sample Data"
+        cancelText="Cancel"
+        confirmColor="primary"
+      />
     </Box>
   );
 }

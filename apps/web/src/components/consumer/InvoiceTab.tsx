@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../../utils/dateFormatting';
+import { formatCurrencyFromContext } from '../../utils/currency';
 import { 
   GET_ORDER_BY_TABLE, 
   GET_ORDER_BY_ID, 
@@ -281,7 +282,7 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
                     secondary={`Qty: ${item.quantity}`}
                   />
                   <Typography variant="body1" fontWeight="medium">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    {formatCurrencyFromContext(item.price * item.quantity)}
                   </Typography>
                 </ListItem>
                 {index < invoice.items.length - 1 && <Divider />}
@@ -300,22 +301,22 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body1">Subtotal:</Typography>
-              <Typography variant="body1">${invoice.totalAmount.toFixed(2)}</Typography>
+              <Typography variant="body1">{formatCurrencyFromContext(invoice.totalAmount)}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body1">Tax:</Typography>
-              <Typography variant="body1">$0.00</Typography>
+              <Typography variant="body1">{formatCurrencyFromContext(0)}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body1">Tip:</Typography>
               <Typography variant="body1">
-                ${(customTip ? parseFloat(customTip) : calculateTip(invoice.totalAmount)).toFixed(2)}
+                {formatCurrencyFromContext(customTip ? parseFloat(customTip) : calculateTip(invoice.totalAmount))}
               </Typography>
             </Box>
             <Divider />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="h6">Total:</Typography>
-              <Typography variant="h6">${getFinalTotal().toFixed(2)}</Typography>
+              <Typography variant="h6">{formatCurrencyFromContext(getFinalTotal())}</Typography>
             </Box>
           </Box>
         </CardContent>
@@ -396,7 +397,7 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
               </Box>
               <TextField
                 fullWidth
-                label="Custom Tip Amount ($)"
+                label={`Custom Tip Amount (${formatCurrencyFromContext(0).replace('0.00', '').trim()})`}
                 value={customTip}
                 onChange={(e) => {
                   setCustomTip(e.target.value);
@@ -409,7 +410,7 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
             {/* Total Display */}
             <Paper sx={{ p: 2, backgroundColor: 'grey.50' }}>
               <Typography variant="h6" align="center">
-                Total: ${getFinalTotal().toFixed(2)}
+                Total: {formatCurrencyFromContext(getFinalTotal())}
               </Typography>
             </Paper>
           </Box>

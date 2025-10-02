@@ -6,7 +6,6 @@ import {
   Paper,
   Tabs,
   Tab,
-  Card,
   CardContent,
   TextField,
   Button,
@@ -24,10 +23,7 @@ import {
   VisibilityOff,
   Restaurant,
   AdminPanelSettings,
-  Person,
-  BusinessCenter,
-  Security,
-  Group
+  Person
 } from '@mui/icons-material';
 import { useMutation } from '@apollo/client';
 import { LOGIN_RESTAURANT, LOGIN_ADMIN, LOGIN_STAFF } from '../graphql';
@@ -143,7 +139,7 @@ export default function UnifiedLogin() {
     }
   });
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
     setError('');
     setFormData({ email: '', password: '' });

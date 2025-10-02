@@ -26,6 +26,7 @@ import Layout from '../components/Layout';
 import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
 import { useRestaurant, useCrudOperations } from '../hooks';
 import { GET_MENU_ITEMS, CREATE_MENU_ITEM, UPDATE_MENU_ITEM, DELETE_MENU_ITEM } from '../graphql';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
 
 const categories = [
   'Appetizers',
@@ -250,7 +251,7 @@ export default function MenuPage() {
                         <TableCell>
                           <Chip label={item.category} size="small" variant="outlined" />
                         </TableCell>
-                        <TableCell>${item.price.toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrencyFromRestaurant(item.price, restaurant)}</TableCell>
                         <TableCell>
                           <Chip
                             label={item.available ? 'Available' : 'Unavailable'}
