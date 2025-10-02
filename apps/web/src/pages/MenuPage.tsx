@@ -63,7 +63,7 @@ export default function MenuPage() {
   });
 
   // Custom hooks
-  const { getRestaurantId } = useRestaurant();
+  const { restaurant, getRestaurantId } = useRestaurant();
   const { 
     handleCreate, 
     handleUpdate, 

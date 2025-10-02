@@ -89,7 +89,7 @@ function App() {
               } 
             />
             <Route 
-              path="/menu" 
+              path="/restaurant/menu" 
               element={
                 <ProtectedRestaurantRoute>
                   <MenuPage />
@@ -97,7 +97,7 @@ function App() {
               } 
             />
             <Route 
-              path="/tables"
+              path="/restaurant/tables"
               element={
                 <ProtectedRestaurantRoute>
                   <TablesPage />
@@ -105,7 +105,7 @@ function App() {
               } 
             />
             <Route 
-              path="/orders" 
+              path="/restaurant/orders" 
               element={
                 <ProtectedRestaurantRoute>
                   <OrderListPage />
@@ -113,7 +113,7 @@ function App() {
               } 
             />
             <Route 
-              path="/reservations" 
+              path="/restaurant/reservations" 
               element={
                 <ProtectedRestaurantRoute>
                   <ReservationsPage />
@@ -121,7 +121,7 @@ function App() {
               } 
             />
             <Route 
-              path="/qr-codes" 
+              path="/restaurant/qr-codes" 
               element={
                 <ProtectedRestaurantRoute>
                   <QRCodeManagementPage />
@@ -129,7 +129,7 @@ function App() {
               } 
             />
             <Route 
-              path="/staff-management" 
+              path="/restaurant/staff-management" 
               element={
                 <ProtectedRestaurantRoute>
                   <StaffManagement />

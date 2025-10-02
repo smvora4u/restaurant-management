@@ -14,7 +14,6 @@ export const GET_RESERVATIONS = gql`
       status
       specialRequests
       createdAt
-      updatedAt
     }
   }
 `;
@@ -33,7 +32,6 @@ export const GET_RESERVATION_BY_ID = gql`
       status
       specialRequests
       createdAt
-      updatedAt
     }
   }
 `;

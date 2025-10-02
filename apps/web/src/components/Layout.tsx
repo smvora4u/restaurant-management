@@ -40,12 +40,12 @@ const drawerWidth = 240;
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/restaurant/dashboard' },
-  { text: 'Menu', icon: <MenuBookIcon />, path: '/menu' },
-  { text: 'Tables', icon: <TableIcon />, path: '/tables' },
-  { text: 'Orders', icon: <OrderIcon />, path: '/orders' },
-  { text: 'Reservations', icon: <ReservationIcon />, path: '/reservations' },
-  { text: 'Staff', icon: <PersonIcon />, path: '/staff-management' },
-  { text: 'QR Codes', icon: <QRCodeIcon />, path: '/qr-codes' },
+  { text: 'Menu', icon: <MenuBookIcon />, path: '/restaurant/menu' },
+  { text: 'Tables', icon: <TableIcon />, path: '/restaurant/tables' },
+  { text: 'Orders', icon: <OrderIcon />, path: '/restaurant/orders' },
+  { text: 'Reservations', icon: <ReservationIcon />, path: '/restaurant/reservations' },
+  { text: 'Staff', icon: <PersonIcon />, path: '/restaurant/staff-management' },
+  { text: 'QR Codes', icon: <QRCodeIcon />, path: '/restaurant/qr-codes' },
 ];
 
 export default function Layout({ children }: LayoutProps) {

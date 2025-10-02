@@ -97,7 +97,7 @@ export default function StaffManagement() {
   React.useEffect(() => {
     const restaurantData = localStorage.getItem('restaurant');
     if (!restaurantData) {
-      navigate('/restaurant/login');
+      navigate('/login');
       return;
     }
     setRestaurant(JSON.parse(restaurantData));
