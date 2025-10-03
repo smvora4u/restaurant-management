@@ -46,10 +46,12 @@ import { formatFullDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import Layout from '../components/Layout';
 import { GET_ORDER_BY_ID_FOR_RESTAURANT } from '../graphql/queries/restaurant';
+import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { 
-  UPDATE_ORDER, 
-  UPDATE_ORDER_ITEM_STATUS 
+  UPDATE_ORDER
 } from '../graphql/mutations/orders';
+import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
+import { ConfirmationDialog, AppSnackbar } from '../components/common';
 
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
@@ -60,8 +62,18 @@ export default function RestaurantOrderManagement() {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [newItemStatus, setNewItemStatus] = useState('');
+  const [statusUpdateQuantity, setStatusUpdateQuantity] = useState(1);
   const [editingItems, setEditingItems] = useState<any[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
+  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID_FOR_RESTAURANT, {
@@ -77,6 +89,8 @@ export default function RestaurantOrderManagement() {
     }
   });
 
+  const { data: menuData } = useQuery(GET_MENU_ITEMS);
+
   // Mutations
   const [updateOrderStatus, { loading: updateLoading }] = useMutation(UPDATE_ORDER, {
     onCompleted: () => {
@@ -88,17 +102,6 @@ export default function RestaurantOrderManagement() {
     }
   });
 
-  const [updateOrderItemStatus, { loading: updateItemLoading }] = useMutation(UPDATE_ORDER_ITEM_STATUS, {
-    onCompleted: () => {
-      setSelectedItemIndex(null);
-      setItemStatusDialogOpen(false);
-      setNewItemStatus('');
-      refetch();
-    },
-    onError: (error) => {
-      console.error('Error updating item status:', error);
-    }
-  });
 
   useEffect(() => {
     const restaurantData = localStorage.getItem('restaurant');
@@ -158,41 +161,82 @@ export default function RestaurantOrderManagement() {
   };
 
   const handleItemStatusUpdate = async () => {
-    if (selectedItemIndex === null || !newItemStatus || !orderId) return;
+    if (selectedItemIndex === null || !newItemStatus) return;
     
     try {
-      await updateOrderItemStatus({
-        variables: {
-          orderId: orderId,
-          itemIndex: selectedItemIndex,
-          status: newItemStatus
-        }
-      });
+      // Use the new partial quantity status update logic
+      const updatedItems = updatePartialQuantityStatus(
+        editingItems, 
+        selectedItemIndex, 
+        newItemStatus, 
+        statusUpdateQuantity
+      );
+      
+      setEditingItems(updatedItems);
+      setHasUnsavedChanges(true);
+      
+      // Close dialog and reset state
+      setItemStatusDialogOpen(false);
+      setSelectedItemIndex(null);
+      setNewItemStatus('');
+      setStatusUpdateQuantity(1);
     } catch (error) {
       console.error('Error updating item status:', error);
     }
   };
 
   const handleQuantityChange = (index: number, newQuantity: number) => {
-    if (newQuantity < 0) return;
-    
-    const updatedItems = [...editingItems];
-    updatedItems[index] = {
-      ...updatedItems[index],
-      quantity: newQuantity
-    };
+    const updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
     setEditingItems(updatedItems);
     setHasUnsavedChanges(true);
   };
 
   const handleRemoveItem = (index: number) => {
-    const updatedItems = editingItems.filter((_, i) => i !== index);
+    const updatedItems = removeOrderItem(editingItems, index);
     setEditingItems(updatedItems);
     setHasUnsavedChanges(true);
   };
 
-  const handleSaveOrderChanges = async () => {
+  const handleAddNewItem = () => {
+    if (!selectedMenuItemId || !menuData?.menuItems) return;
+    
+    const selectedMenuItem = menuData.menuItems.find((item: any) => item.id === selectedMenuItemId);
+    if (!selectedMenuItem) return;
+    
+    const newItem = {
+      menuItemId: selectedMenuItemId,
+      quantity: newItemQuantity,
+      price: selectedMenuItem.price,
+      status: 'pending', // Will be overridden by addNewOrderItem
+      specialInstructions: newItemSpecialInstructions
+    };
+    
+    const updatedItems = addNewOrderItem(editingItems, newItem);
+    setEditingItems(updatedItems);
+    setHasUnsavedChanges(true);
+    
+    // Reset form
+    setSelectedMenuItemId('');
+    setNewItemQuantity(1);
+    setNewItemSpecialInstructions('');
+    setAddItemDialogOpen(false);
+  };
+
+  const getMenuItemName = (menuItemId: string) => {
+    if (!menuData?.menuItems) return `Item ${menuItemId}`;
+    const menuItem = menuData.menuItems.find((item: any) => item.id === menuItemId);
+    return menuItem?.name || `Item ${menuItemId}`;
+  };
+
+  const handleSaveOrderChanges = () => {
+    setSaveConfirmationOpen(true);
+  };
+
+  const confirmSaveChanges = async () => {
     if (!orderId || !order) return;
+    
+    setIsSaving(true);
+    setSaveConfirmationOpen(false);
     
     try {
       // Calculate new total amount
@@ -204,6 +248,7 @@ export default function RestaurantOrderManagement() {
         variables: {
           id: orderId,
           input: {
+            restaurantId: restaurant?.id,
             status: order.status,
             tableNumber: order.tableNumber,
             orderType: order.orderType,
@@ -225,8 +270,16 @@ export default function RestaurantOrderManagement() {
       });
       
       setHasUnsavedChanges(false);
+      setSnackbarMessage('Order changes saved successfully!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
     } catch (error) {
       console.error('Error updating order items:', error);
+      setSnackbarMessage('Failed to save order changes. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -355,6 +408,15 @@ export default function RestaurantOrderManagement() {
                   <Typography variant="subtitle1">
                     Order Items
                   </Typography>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Add />}
+                    onClick={() => setAddItemDialogOpen(true)}
+                    color="primary"
+                    size="small"
+                  >
+                    Add Item
+                  </Button>
                   {hasUnsavedChanges && (
                     <Button
                       variant="contained"
@@ -383,7 +445,7 @@ export default function RestaurantOrderManagement() {
                         <TableRow key={index}>
                           <TableCell>
                             <Typography variant="body2" fontWeight="bold">
-                              {typeof item.menuItemId === 'string' ? `Item ${item.menuItemId}` : item.menuItemId?.name || 'Unknown Item'}
+                              {getMenuItemName(item.menuItemId)}
                             </Typography>
                             {item.specialInstructions && (
                               <Typography variant="caption" color="text.secondary">
@@ -541,15 +603,41 @@ export default function RestaurantOrderManagement() {
         </Box>
 
         {/* Item Status Update Dialog */}
-        <Dialog open={itemStatusDialogOpen} onClose={() => setItemStatusDialogOpen(false)}>
+        <Dialog open={itemStatusDialogOpen} onClose={() => {
+          setItemStatusDialogOpen(false);
+          setSelectedItemIndex(null);
+          setNewItemStatus('');
+          setStatusUpdateQuantity(1);
+        }}>
           <DialogTitle>Update Item Status</DialogTitle>
           <DialogContent>
+            {selectedItemIndex !== null && (
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Updating: {getMenuItemName(editingItems[selectedItemIndex]?.menuItemId)} 
+                (Current: {editingItems[selectedItemIndex]?.quantity}x {editingItems[selectedItemIndex]?.status})
+              </Typography>
+            )}
+            
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Quantity to Update"
+              type="number"
+              value={statusUpdateQuantity}
+              onChange={(e) => setStatusUpdateQuantity(parseInt(e.target.value) || 1)}
+              inputProps={{ 
+                min: 1, 
+                max: selectedItemIndex !== null ? editingItems[selectedItemIndex]?.quantity : 1 
+              }}
+              helperText={`Max: ${selectedItemIndex !== null ? editingItems[selectedItemIndex]?.quantity : 1}`}
+            />
+            
             <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Item Status</InputLabel>
+              <InputLabel>New Status</InputLabel>
               <Select
                 value={newItemStatus}
                 onChange={(e: SelectChangeEvent) => setNewItemStatus(e.target.value)}
-                label="Item Status"
+                label="New Status"
               >
                 <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="preparing">Preparing</MenuItem>
@@ -559,16 +647,93 @@ export default function RestaurantOrderManagement() {
             </FormControl>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setItemStatusDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              setItemStatusDialogOpen(false);
+              setSelectedItemIndex(null);
+              setNewItemStatus('');
+              setStatusUpdateQuantity(1);
+            }}>Cancel</Button>
             <Button 
               onClick={handleItemStatusUpdate}
-              disabled={updateItemLoading}
+              disabled={!newItemStatus || statusUpdateQuantity < 1}
               variant="contained"
             >
-              {updateItemLoading ? 'Updating...' : 'Update'}
+              Update Status
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Add Item Dialog */}
+        <Dialog open={addItemDialogOpen} onClose={() => setAddItemDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Add New Item</DialogTitle>
+          <DialogContent>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Menu Item</InputLabel>
+              <Select
+                value={selectedMenuItemId}
+                onChange={(e) => setSelectedMenuItemId(e.target.value)}
+                label="Menu Item"
+              >
+                {menuData?.menuItems?.map((item: any) => (
+                  <MenuItem key={item.id} value={item.id}>
+                    {item.name} - {formatCurrencyFromRestaurant(item.price, restaurant)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Quantity"
+              type="number"
+              value={newItemQuantity}
+              onChange={(e) => setNewItemQuantity(parseInt(e.target.value) || 1)}
+              inputProps={{ min: 1 }}
+            />
+            
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Special Instructions"
+              multiline
+              rows={3}
+              value={newItemSpecialInstructions}
+              onChange={(e) => setNewItemSpecialInstructions(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddItemDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={handleAddNewItem}
+              variant="contained"
+              disabled={!selectedMenuItemId}
+            >
+              Add Item
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Save Confirmation Dialog */}
+        <ConfirmationDialog
+          open={saveConfirmationOpen}
+          onClose={() => setSaveConfirmationOpen(false)}
+          onConfirm={confirmSaveChanges}
+          title="Save Order Changes"
+          message="Are you sure you want to save these changes to the order? This action cannot be undone."
+          confirmText="Save Changes"
+          cancelText="Cancel"
+          confirmColor="success"
+          loading={isSaving}
+        />
+
+        {/* Snackbar for notifications */}
+        <AppSnackbar
+          open={snackbarOpen}
+          onClose={() => setSnackbarOpen(false)}
+          message={snackbarMessage}
+          severity={snackbarSeverity}
+        />
       </Box>
     </Layout>
   );
