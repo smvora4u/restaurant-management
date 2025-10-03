@@ -234,6 +234,10 @@ export default function RestaurantOrderManagement() {
     return menuItem?.name || `Item ${menuItemId}`;
   };
 
+  const canCancelItem = (itemStatus: string) => {
+    return !['served', 'completed'].includes(itemStatus);
+  };
+
   const handleSaveOrderChanges = () => {
     setSaveConfirmationOpen(true);
   };
@@ -695,7 +699,7 @@ export default function RestaurantOrderManagement() {
                   {(() => {
                     const nextStatus = getNextStatus(order.status as any);
                     const canComplete = canCompleteOrder(editingItems);
-                    const canCancel = canCancelOrder(order.status as any);
+                    const canCancel = canCancelOrder(order.status as any, editingItems);
                     
                     return (
                       <>
@@ -760,18 +764,22 @@ export default function RestaurantOrderManagement() {
                   >
                     {['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'].map(status => {
                       const isValid = isValidStatusTransition(order.status as any, status as any);
+                      const isCancelled = status === 'cancelled';
+                      const cannotCancel = isCancelled && !canCancelOrder(order.status as any, editingItems);
+                      
                       return (
                         <MenuItem 
                           key={status} 
                           value={status}
-                          disabled={!isValid}
+                          disabled={!isValid || cannotCancel}
                           sx={{ 
-                            opacity: isValid ? 1 : 0.5,
-                            fontStyle: isValid ? 'normal' : 'italic'
+                            opacity: (isValid && !cannotCancel) ? 1 : 0.5,
+                            fontStyle: (isValid && !cannotCancel) ? 'normal' : 'italic'
                           }}
                         >
                           {status.charAt(0).toUpperCase() + status.slice(1)}
                           {!isValid && ' (Invalid)'}
+                          {cannotCancel && ' (Cannot cancel - items served)'}
                         </MenuItem>
                       );
                     })}
@@ -982,18 +990,22 @@ export default function RestaurantOrderManagement() {
                   
                   return validStatuses.map(status => {
                     const isValid = isValidStatusTransition(currentItem.status as any, status as any);
+                    const isCancelled = status === 'cancelled';
+                    const cannotCancel = isCancelled && !canCancelItem(currentItem.status);
+                    
                     return (
                       <MenuItem 
                         key={status} 
                         value={status}
-                        disabled={!isValid}
+                        disabled={!isValid || cannotCancel}
                         sx={{ 
-                          opacity: isValid ? 1 : 0.5,
-                          fontStyle: isValid ? 'normal' : 'italic'
+                          opacity: (isValid && !cannotCancel) ? 1 : 0.5,
+                          fontStyle: (isValid && !cannotCancel) ? 'normal' : 'italic'
                         }}
                       >
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                         {!isValid && ' (Invalid transition)'}
+                        {cannotCancel && ' (Cannot cancel served item)'}
                       </MenuItem>
                     );
                   });

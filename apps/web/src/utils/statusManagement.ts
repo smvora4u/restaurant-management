@@ -54,13 +54,13 @@ export const calculateOrderStatus = (items: Array<{ status: ItemStatus }>): Orde
     return 'ready';
   }
 
-  // If any items are preparing, order is preparing
-  if (preparingCount > 0) {
+  // If all items are preparing, order is preparing
+  if (preparingCount === totalItems) {
     return 'preparing';
   }
 
-  // If any items are confirmed, order is confirmed
-  if (confirmedCount > 0) {
+  // If all items are confirmed, order is confirmed
+  if (confirmedCount === totalItems) {
     return 'confirmed';
   }
 
@@ -69,10 +69,12 @@ export const calculateOrderStatus = (items: Array<{ status: ItemStatus }>): Orde
     return 'pending';
   }
 
-  // Mixed statuses - determine the most advanced status
-  if (readyCount > 0) return 'ready';
-  if (preparingCount > 0) return 'preparing';
+  // Mixed statuses - determine the LEAST advanced status (most work still needed)
+  // This ensures the order reflects the earliest stage of work remaining
+  if (pendingCount > 0) return 'pending';
   if (confirmedCount > 0) return 'confirmed';
+  if (preparingCount > 0) return 'preparing';
+  if (readyCount > 0) return 'ready';
   
   return 'pending';
 };
@@ -110,9 +112,9 @@ export const isValidStatusTransition = (
   const currentIndex = statusHierarchy.indexOf(currentStatus);
   const newIndex = statusHierarchy.indexOf(newStatus);
 
-  // Cancelled can be set from any status
+  // Cannot cancel served or completed items/orders
   if (newStatus === 'cancelled') {
-    return true;
+    return !['served', 'completed'].includes(currentStatus);
   }
 
   // Can't go backwards in the hierarchy
@@ -178,10 +180,20 @@ export const canCompleteOrder = (items: Array<{ status: ItemStatus }>): boolean 
 
 /**
  * Checks if an order can be cancelled
- * Order can be cancelled if not already completed or cancelled
+ * Order can be cancelled if not already completed, cancelled, or if any items are served
  */
-export const canCancelOrder = (orderStatus: OrderStatus): boolean => {
-  return !['completed', 'cancelled'].includes(orderStatus);
+export const canCancelOrder = (orderStatus: OrderStatus, items?: Array<{ status: ItemStatus }>): boolean => {
+  // Cannot cancel if order is already completed or cancelled
+  if (['completed', 'cancelled'].includes(orderStatus)) {
+    return false;
+  }
+  
+  // Cannot cancel if any items are served
+  if (items && items.some(item => item.status === 'served')) {
+    return false;
+  }
+  
+  return true;
 };
 
 /**
