@@ -52,7 +52,6 @@ import {
 } from '../graphql/mutations/orders';
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
 import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
-import { getStatusColor } from '../utils/statusColors';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 
 export default function RestaurantOrderManagement() {
@@ -76,6 +75,8 @@ export default function RestaurantOrderManagement() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [isSaving, setIsSaving] = useState(false);
+  const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID_FOR_RESTAURANT, {
@@ -103,6 +104,7 @@ export default function RestaurantOrderManagement() {
       console.error('Error updating order status:', error);
     }
   });
+
 
 
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function RestaurantOrderManagement() {
         variables: {
           id: orderId,
           input: {
+            restaurantId: restaurant?.id,
             status: newStatus,
             tableNumber: order.tableNumber,
             orderType: order.orderType,
@@ -153,7 +156,8 @@ export default function RestaurantOrderManagement() {
               price: item.price,
               status: item.status,
               specialInstructions: item.specialInstructions
-            }))
+            })),
+            totalAmount: order.totalAmount
           }
         }
       });
@@ -232,6 +236,54 @@ export default function RestaurantOrderManagement() {
 
   const handleSaveOrderChanges = () => {
     setSaveConfirmationOpen(true);
+  };
+
+  const handleCancelOrder = () => {
+    setCancelConfirmationOpen(true);
+  };
+
+  const confirmCancelOrder = async () => {
+    if (!orderId || !order) return;
+    
+    setIsCancelling(true);
+    setCancelConfirmationOpen(false);
+    
+    try {
+      await updateOrderStatus({
+        variables: {
+          id: orderId,
+          input: {
+            restaurantId: restaurant?.id,
+            status: 'cancelled',
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: order.items.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: order.totalAmount
+          }
+        }
+      });
+      
+      setSnackbarMessage('Order cancelled successfully!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      setSnackbarMessage('Failed to cancel order. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      setIsCancelling(false);
+    }
   };
 
   const confirmSaveChanges = async () => {
@@ -404,8 +456,8 @@ export default function RestaurantOrderManagement() {
                       </Typography>
                       <Typography variant="body1" fontWeight="bold">
                         {order.customerName || 'Walk-in Customer'}
-                      </Typography>
-                      {order.customerPhone && (
+                  </Typography>
+                  {order.customerPhone && (
                         <Typography variant="body2" color="text.secondary">
                           📞 {order.customerPhone}
                         </Typography>
@@ -450,7 +502,7 @@ export default function RestaurantOrderManagement() {
                       </Typography>
                       <Typography variant="body2" color="warning.700">
                         {order.notes}
-                      </Typography>
+                    </Typography>
                     </Box>
                   )}
                   
@@ -461,7 +513,7 @@ export default function RestaurantOrderManagement() {
                       </Typography>
                       <Typography variant="body2" color="info.700">
                         {order.specialRequests}
-                      </Typography>
+                    </Typography>
                     </Box>
                   )}
                 </Box>
@@ -471,8 +523,8 @@ export default function RestaurantOrderManagement() {
                 {/* Order Items */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="subtitle1">
-                    Order Items
-                  </Typography>
+                  Order Items
+                </Typography>
                   <Button
                     variant="outlined"
                     startIcon={<Add />}
@@ -556,17 +608,17 @@ export default function RestaurantOrderManagement() {
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => {
-                                  setSelectedItemIndex(index);
-                                  setNewItemStatus(item.status || 'pending');
-                                  setItemStatusDialogOpen(true);
-                                }}
-                              >
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                setSelectedItemIndex(index);
+                                setNewItemStatus(item.status || 'pending');
+                                setItemStatusDialogOpen(true);
+                              }}
+                            >
                                 Status
-                              </Button>
+                            </Button>
                               <IconButton
                                 size="small"
                                 color="error"
@@ -682,15 +734,13 @@ export default function RestaurantOrderManagement() {
                           <Button
                             variant="outlined"
                             color="error"
-                            onClick={() => {
-                              setNewStatus('cancelled');
-                              handleStatusUpdate();
-                            }}
-                            disabled={updateLoading}
+                            onClick={handleCancelOrder}
+                            disabled={updateLoading || isCancelling}
                             startIcon={<Cancel />}
                             size="small"
+                            sx={{ mt: 1 }}
                           >
-                            Cancel Order
+                            {isCancelling ? 'Cancelling...' : 'Cancel Order'}
                           </Button>
                         )}
                       </>
@@ -801,9 +851,9 @@ export default function RestaurantOrderManagement() {
                   </Box>
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary">
                       Type:
-                    </Typography>
+                </Typography>
                     <Chip 
                       label={order.orderType} 
                       size="small" 
@@ -814,16 +864,16 @@ export default function RestaurantOrderManagement() {
                   
                   {/* Table & Customer */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary">
                       Table:
                     </Typography>
                     <Typography variant="body2" fontWeight="medium">
                       {order.tableNumber ? `#${order.tableNumber}` : 'N/A'}
-                    </Typography>
+                </Typography>
                   </Box>
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary">
                       Customer:
                     </Typography>
                     <Typography variant="body2" fontWeight="medium" sx={{ maxWidth: '60%', textAlign: 'right' }}>
@@ -835,20 +885,20 @@ export default function RestaurantOrderManagement() {
                   <Divider />
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
                     Timing
-                  </Typography>
+                </Typography>
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary">
                       Created:
                     </Typography>
                     <Typography variant="body2" fontWeight="medium">
                       {formatFullDateTime(order.createdAt)}
-                    </Typography>
+                </Typography>
                   </Box>
                   
                   {order.updatedAt !== order.createdAt && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary">
                         Updated:
                       </Typography>
                       <Typography variant="body2" fontWeight="medium">
@@ -1030,6 +1080,31 @@ export default function RestaurantOrderManagement() {
           cancelText="Cancel"
           confirmColor="success"
           loading={isSaving}
+        />
+
+        {/* Cancel Order Confirmation Dialog */}
+        <ConfirmationDialog
+          open={cancelConfirmationOpen}
+          onClose={() => setCancelConfirmationOpen(false)}
+          onConfirm={confirmCancelOrder}
+          title="Cancel Order"
+          message={
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Are you sure you want to cancel this order? The order will be marked as cancelled and cannot be reactivated.
+              </Typography>
+              <Typography variant="body2" color="warning.main" fontWeight="bold">
+                Order #{order.id.slice(-8)} - {order.customerName || 'Walk-in Customer'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                This action will change the order status to "cancelled" and notify the customer.
+              </Typography>
+            </Box>
+          }
+          confirmText="Cancel Order"
+          cancelText="Keep Order"
+          confirmColor="error"
+          loading={isCancelling}
         />
 
         {/* Snackbar for notifications */}
