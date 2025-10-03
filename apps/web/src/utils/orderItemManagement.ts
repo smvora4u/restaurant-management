@@ -2,11 +2,13 @@
  * Utility functions for managing order items with quantity-wise status tracking
  */
 
+import { ItemStatus } from './statusColors';
+
 export interface OrderItem {
   menuItemId: string | { id: string; name?: string };
   quantity: number;
   price: number;
-  status: string;
+  status: ItemStatus;
   specialInstructions?: string;
 }
 
@@ -164,7 +166,7 @@ export const removeOrderItem = (items: OrderItem[], index: number): OrderItem[] 
 export const updateOrderItemStatusWithMerge = (
   items: OrderItem[],
   index: number,
-  newStatus: string
+  newStatus: ItemStatus
 ): OrderItem[] => {
   const currentItem = items[index];
   const menuItemId = typeof currentItem.menuItemId === 'string' 
@@ -207,7 +209,7 @@ export const updateOrderItemStatusWithMerge = (
 export const updatePartialQuantityStatus = (
   items: OrderItem[],
   index: number,
-  newStatus: string,
+  newStatus: ItemStatus,
   quantityToUpdate: number
 ): OrderItem[] => {
   const currentItem = items[index];

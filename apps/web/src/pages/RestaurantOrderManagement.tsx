@@ -51,6 +51,8 @@ import {
   UPDATE_ORDER
 } from '../graphql/mutations/orders';
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
+import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
+import { getStatusColor } from '../utils/statusColors';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 
 export default function RestaurantOrderManagement() {
@@ -168,7 +170,7 @@ export default function RestaurantOrderManagement() {
       const updatedItems = updatePartialQuantityStatus(
         editingItems, 
         selectedItemIndex, 
-        newItemStatus, 
+        newItemStatus as any, 
         statusUpdateQuantity
       );
       
@@ -207,7 +209,7 @@ export default function RestaurantOrderManagement() {
       menuItemId: selectedMenuItemId,
       quantity: newItemQuantity,
       price: selectedMenuItem.price,
-      status: 'pending', // Will be overridden by addNewOrderItem
+      status: 'pending' as const, // Will be overridden by addNewOrderItem
       specialInstructions: newItemSpecialInstructions
     };
     
@@ -244,12 +246,25 @@ export default function RestaurantOrderManagement() {
         return total + (item.price * item.quantity);
       }, 0);
 
+      // Sync order status based on item statuses
+      const syncedOrder = syncOrderStatus({
+        id: order.id,
+        status: order.status,
+        items: editingItems.map((item: any) => ({
+          menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+          quantity: item.quantity,
+          price: item.price,
+          status: item.status,
+          specialInstructions: item.specialInstructions
+        }))
+      });
+
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
             restaurantId: restaurant?.id,
-            status: order.status,
+            status: syncedOrder.status, // Use synced status
             tableNumber: order.tableNumber,
             orderType: order.orderType,
             customerName: order.customerName,
@@ -257,20 +272,14 @@ export default function RestaurantOrderManagement() {
             notes: order.notes,
             sessionId: order.sessionId,
             userId: order.userId,
-            items: editingItems.map((item: any) => ({
-              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-              quantity: item.quantity,
-              price: item.price,
-              status: item.status,
-              specialInstructions: item.specialInstructions
-            })),
+            items: syncedOrder.items,
             totalAmount: totalAmount
           }
         }
       });
       
       setHasUnsavedChanges(false);
-      setSnackbarMessage('Order changes saved successfully!');
+      setSnackbarMessage(`Order changes saved successfully! Order status updated to: ${syncedOrder.status}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
     } catch (error) {
@@ -382,22 +391,78 @@ export default function RestaurantOrderManagement() {
                 <Divider sx={{ my: 2 }} />
 
                 {/* Customer Information */}
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
+                <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Restaurant />
                     Customer Information
                   </Typography>
-                  <Typography variant="body2">
-                    <strong>Name:</strong> {order.customerName || 'Walk-in'}
-                  </Typography>
-                  {order.customerPhone && (
-                    <Typography variant="body2">
-                      <strong>Phone:</strong> {order.customerPhone}
-                    </Typography>
+                  
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Customer Details
+                      </Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        {order.customerName || 'Walk-in Customer'}
+                      </Typography>
+                      {order.customerPhone && (
+                        <Typography variant="body2" color="text.secondary">
+                          📞 {order.customerPhone}
+                        </Typography>
+                      )}
+                      {order.customerEmail && (
+                        <Typography variant="body2" color="text.secondary">
+                          ✉️ {order.customerEmail}
+                        </Typography>
+                      )}
+                    </Box>
+                    
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Order Details
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Chip 
+                          label={order.orderType} 
+                          size="small" 
+                          variant="outlined"
+                          color="primary"
+                        />
+                        {order.tableNumber && (
+                          <Chip 
+                            label={`Table ${order.tableNumber}`} 
+                            size="small" 
+                            variant="outlined"
+                            color="secondary"
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        🕒 {formatFullDateTime(order.createdAt)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  {order.notes && (
+                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: '1px solid', borderColor: 'warning.200' }}>
+                      <Typography variant="body2" color="warning.800" fontWeight="medium">
+                        📝 Special Notes:
+                      </Typography>
+                      <Typography variant="body2" color="warning.700">
+                        {order.notes}
+                      </Typography>
+                    </Box>
                   )}
-                  {order.tableNumber && (
-                    <Typography variant="body2">
-                      <strong>Table:</strong> {order.tableNumber}
-                    </Typography>
+                  
+                  {order.specialRequests && (
+                    <Box sx={{ mt: 1, p: 1.5, bgcolor: 'info.50', borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
+                      <Typography variant="body2" color="info.800" fontWeight="medium">
+                        🎯 Special Requests:
+                      </Typography>
+                      <Typography variant="body2" color="info.700">
+                        {order.specialRequests}
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
 
@@ -417,6 +482,9 @@ export default function RestaurantOrderManagement() {
                   >
                     Add Item
                   </Button>
+                </Box>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   {hasUnsavedChanges && (
                     <Button
                       variant="contained"
@@ -545,21 +613,118 @@ export default function RestaurantOrderManagement() {
                   Order Actions
                 </Typography>
 
-                {/* Status Update */}
+                {/* Current Order Status */}
+                <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Current Status
+                  </Typography>
+                  <Chip
+                    label={order.status}
+                    color={getStatusColor(order.status)}
+                    icon={getStatusIcon(order.status)}
+                    sx={{ mb: 1 }}
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {(() => {
+                      const calculatedStatus = calculateOrderStatus(editingItems);
+                      return calculatedStatus !== order.status 
+                        ? `Will update to: ${calculatedStatus}` 
+                        : 'Status is in sync';
+                    })()}
+                  </Typography>
+                </Box>
+
+                {/* Quick Status Actions */}
+                <Typography variant="subtitle2" gutterBottom>
+                  Quick Actions
+                </Typography>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                  {(() => {
+                    const nextStatus = getNextStatus(order.status as any);
+                    const canComplete = canCompleteOrder(editingItems);
+                    const canCancel = canCancelOrder(order.status as any);
+                    
+                    return (
+                      <>
+                        {nextStatus && (
+                          <Button
+                            variant="outlined"
+                            onClick={() => {
+                              setNewStatus(nextStatus);
+                              handleStatusUpdate();
+                            }}
+                            disabled={updateLoading}
+                            startIcon={<Update />}
+                            size="small"
+                          >
+                            Mark as {nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1)}
+                          </Button>
+                        )}
+                        
+                        {canComplete && (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={() => {
+                              setNewStatus('completed');
+                              handleStatusUpdate();
+                            }}
+                            disabled={updateLoading}
+                            startIcon={<CheckCircle />}
+                            size="small"
+                          >
+                            Complete Order
+                          </Button>
+                        )}
+                        
+                        {canCancel && (
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={() => {
+                              setNewStatus('cancelled');
+                              handleStatusUpdate();
+                            }}
+                            disabled={updateLoading}
+                            startIcon={<Cancel />}
+                            size="small"
+                          >
+                            Cancel Order
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Manual Status Update */}
                 <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Update Status</InputLabel>
+                  <InputLabel>Manual Status Update</InputLabel>
                   <Select
                     value={newStatus}
                     onChange={(e: SelectChangeEvent) => setNewStatus(e.target.value)}
-                    label="Update Status"
+                    label="Manual Status Update"
                   >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="confirmed">Confirmed</MenuItem>
-                    <MenuItem value="preparing">Preparing</MenuItem>
-                    <MenuItem value="ready">Ready</MenuItem>
-                    <MenuItem value="served">Served</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                    {['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'].map(status => {
+                      const isValid = isValidStatusTransition(order.status as any, status as any);
+                      return (
+                        <MenuItem 
+                          key={status} 
+                          value={status}
+                          disabled={!isValid}
+                          sx={{ 
+                            opacity: isValid ? 1 : 0.5,
+                            fontStyle: isValid ? 'normal' : 'italic'
+                          }}
+                        >
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                          {!isValid && ' (Invalid)'}
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
 
@@ -571,32 +736,154 @@ export default function RestaurantOrderManagement() {
                   startIcon={<Update />}
                   sx={{ mb: 2 }}
                 >
-                  {updateLoading ? 'Updating...' : 'Update Order Status'}
+                  {updateLoading ? 'Updating...' : 'Update Status'}
                 </Button>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Order Statistics */}
+                <Typography variant="subtitle2" gutterBottom>
+                  Order Statistics
+                </Typography>
+                
+                {(() => {
+                  const summary = getItemStatusSummary(editingItems);
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Total Items:</strong> {summary.total}
+                      </Typography>
+                      {summary.pending > 0 && (
+                        <Typography variant="body2" color="warning.main">
+                          • {summary.pending} pending
+                        </Typography>
+                      )}
+                      {summary.preparing > 0 && (
+                        <Typography variant="body2" color="info.main">
+                          • {summary.preparing} preparing
+                        </Typography>
+                      )}
+                      {summary.ready > 0 && (
+                        <Typography variant="body2" color="primary.main">
+                          • {summary.ready} ready
+                        </Typography>
+                      )}
+                      {summary.served > 0 && (
+                        <Typography variant="body2" color="success.main">
+                          • {summary.served} served
+                        </Typography>
+                      )}
+                      {summary.cancelled > 0 && (
+                        <Typography variant="body2" color="error.main">
+                          • {summary.cancelled} cancelled
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })()}
 
                 <Divider sx={{ my: 2 }} />
 
                 {/* Order Information */}
                 <Typography variant="subtitle2" gutterBottom>
-                  Order Information
+                  Order Details
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Order ID:</strong> {order.id}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Type:</strong> {order.orderType}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Status:</strong> {order.status}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Items:</strong> {order.items.length}
-                </Typography>
-                {order.specialRequests && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Special Requests:</strong> {order.specialRequests}
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {/* Order ID & Type */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Order ID:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="bold" fontFamily="monospace">
+                      #{order.id.slice(-8)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Type:
+                    </Typography>
+                    <Chip 
+                      label={order.orderType} 
+                      size="small" 
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Box>
+                  
+                  {/* Table & Customer */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Table:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {order.tableNumber ? `#${order.tableNumber}` : 'N/A'}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Customer:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium" sx={{ maxWidth: '60%', textAlign: 'right' }}>
+                      {order.customerName || 'Walk-in'}
+                    </Typography>
+                  </Box>
+                  
+                  {/* Timing Information */}
+                  <Divider />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                    Timing
                   </Typography>
-                )}
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Created:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {formatFullDateTime(order.createdAt)}
+                    </Typography>
+                  </Box>
+                  
+                  {order.updatedAt !== order.createdAt && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Updated:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {formatFullDateTime(order.updatedAt)}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Financial Information */}
+                  <Divider />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                    Financial
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Items:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="medium">
+                      {editingItems.length}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Total:
+                    </Typography>
+                    <Typography variant="body2" fontWeight="bold" color="primary.main">
+                      {formatCurrencyFromRestaurant(
+                        editingItems.reduce((total, item) => total + (item.price * item.quantity), 0), 
+                        restaurant
+                      )}
+                    </Typography>
+                  </Box>
+                </Box>
               </CardContent>
             </Card>
           </Box>
@@ -639,10 +926,28 @@ export default function RestaurantOrderManagement() {
                 onChange={(e: SelectChangeEvent) => setNewItemStatus(e.target.value)}
                 label="New Status"
               >
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="preparing">Preparing</MenuItem>
-                <MenuItem value="ready">Ready</MenuItem>
-                <MenuItem value="served">Served</MenuItem>
+                {selectedItemIndex !== null && (() => {
+                  const currentItem = editingItems[selectedItemIndex];
+                  const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled'];
+                  
+                  return validStatuses.map(status => {
+                    const isValid = isValidStatusTransition(currentItem.status as any, status as any);
+                    return (
+                      <MenuItem 
+                        key={status} 
+                        value={status}
+                        disabled={!isValid}
+                        sx={{ 
+                          opacity: isValid ? 1 : 0.5,
+                          fontStyle: isValid ? 'normal' : 'italic'
+                        }}
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {!isValid && ' (Invalid transition)'}
+                      </MenuItem>
+                    );
+                  });
+                })()}
               </Select>
             </FormControl>
           </DialogContent>
