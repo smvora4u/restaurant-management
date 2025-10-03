@@ -15,7 +15,10 @@ import {
   ShoppingCart,
   TableRestaurant,
   TrendingUp,
-  QrCode
+  QrCode,
+  TakeoutDining,
+  DeliveryDining,
+  OpenInNew
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
@@ -240,6 +243,76 @@ export default function RestaurantDashboard() {
                 onClick={() => navigate('/restaurant/tables')}
               >
                 Manage Tables
+              </Button>
+            </Box>
+          </Box>
+        </Card>
+
+        {/* Consumer Page Links */}
+        <Card sx={{ mb: 4 }}>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+              Customer Ordering Pages
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Share these links with customers for ordering
+            </Typography>
+            
+            {/* Table Ordering Links */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+                Table Ordering
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {tablesLoading ? (
+                  <CircularProgress size={20} />
+                ) : tables.length > 0 ? (
+                  tables.map((table: any) => (
+                    <Button
+                      key={table.id}
+                      variant="contained"
+                      size="small"
+                      startIcon={<TableRestaurant />}
+                      endIcon={<OpenInNew />}
+                      component="a"
+                      href={`/consumer/${restaurant.slug}/${table.number}`}
+                      target="_blank"
+                      sx={{ minWidth: 'auto', textDecoration: 'none' }}
+                    >
+                      Table {table.number}
+                    </Button>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No tables created yet
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Takeout and Delivery Links */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                startIcon={<TakeoutDining />}
+                endIcon={<OpenInNew />}
+                component="a"
+                href={`/parcel/${restaurant.slug}/takeout`}
+                target="_blank"
+                sx={{ textDecoration: 'none' }}
+              >
+                Takeout Orders
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<DeliveryDining />}
+                endIcon={<OpenInNew />}
+                component="a"
+                href={`/parcel/${restaurant.slug}/delivery`}
+                target="_blank"
+                sx={{ textDecoration: 'none' }}
+              >
+                Delivery Orders
               </Button>
             </Box>
           </Box>

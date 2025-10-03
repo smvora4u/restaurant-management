@@ -25,7 +25,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  SelectChangeEvent
+  SelectChangeEvent,
+  TextField
 } from '@mui/material';
 import {
   ArrowBack,
@@ -34,7 +35,11 @@ import {
   AccessTime,
   CheckCircle,
   Cancel,
-  Update
+  Update,
+  Add,
+  Remove,
+  Delete,
+  Save
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../utils/dateFormatting';
@@ -55,6 +60,8 @@ export default function RestaurantOrderManagement() {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [newItemStatus, setNewItemStatus] = useState('');
+  const [editingItems, setEditingItems] = useState<any[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID_FOR_RESTAURANT, {
@@ -111,6 +118,14 @@ export default function RestaurantOrderManagement() {
     setRestaurant(parsedRestaurant);
   }, [navigate]);
 
+  // Initialize editing items when order data loads
+  useEffect(() => {
+    if (data?.order?.items) {
+      setEditingItems([...data.order.items]);
+      setHasUnsavedChanges(false);
+    }
+  }, [data]);
+
   const handleStatusUpdate = async () => {
     if (!orderId || !newStatus || !order) return;
     
@@ -155,6 +170,63 @@ export default function RestaurantOrderManagement() {
       });
     } catch (error) {
       console.error('Error updating item status:', error);
+    }
+  };
+
+  const handleQuantityChange = (index: number, newQuantity: number) => {
+    if (newQuantity < 0) return;
+    
+    const updatedItems = [...editingItems];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      quantity: newQuantity
+    };
+    setEditingItems(updatedItems);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    const updatedItems = editingItems.filter((_, i) => i !== index);
+    setEditingItems(updatedItems);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSaveOrderChanges = async () => {
+    if (!orderId || !order) return;
+    
+    try {
+      // Calculate new total amount
+      const totalAmount = editingItems.reduce((total, item) => {
+        return total + (item.price * item.quantity);
+      }, 0);
+
+      await updateOrderStatus({
+        variables: {
+          id: orderId,
+          input: {
+            status: order.status,
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: editingItems.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: totalAmount
+          }
+        }
+      });
+      
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Error updating order items:', error);
     }
   };
 
@@ -279,9 +351,22 @@ export default function RestaurantOrderManagement() {
                 <Divider sx={{ my: 2 }} />
 
                 {/* Order Items */}
-                <Typography variant="subtitle1" gutterBottom>
-                  Order Items
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="subtitle1">
+                    Order Items
+                  </Typography>
+                  {hasUnsavedChanges && (
+                    <Button
+                      variant="contained"
+                      startIcon={<Save />}
+                      onClick={handleSaveOrderChanges}
+                      color="success"
+                      size="small"
+                    >
+                      Save Changes
+                    </Button>
+                  )}
+                </Box>
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
@@ -294,7 +379,7 @@ export default function RestaurantOrderManagement() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {order.items.map((item: any, index: number) => (
+                      {editingItems.map((item: any, index: number) => (
                         <TableRow key={index}>
                           <TableCell>
                             <Typography variant="body2" fontWeight="bold">
@@ -306,7 +391,31 @@ export default function RestaurantOrderManagement() {
                               </Typography>
                             )}
                           </TableCell>
-                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleQuantityChange(index, Math.max(0, item.quantity - 1))}
+                                disabled={item.quantity <= 0}
+                              >
+                                <Remove />
+                              </IconButton>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 0)}
+                                sx={{ width: 60 }}
+                                inputProps={{ min: 0, style: { textAlign: 'center' } }}
+                              />
+                              <IconButton
+                                size="small"
+                                onClick={() => handleQuantityChange(index, item.quantity + 1)}
+                              >
+                                <Add />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
                           <TableCell>{formatCurrencyFromRestaurant(item.price * item.quantity, restaurant)}</TableCell>
                           <TableCell>
                             <Chip
@@ -316,17 +425,26 @@ export default function RestaurantOrderManagement() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => {
-                                setSelectedItemIndex(index);
-                                setNewItemStatus(item.status || 'pending');
-                                setItemStatusDialogOpen(true);
-                              }}
-                            >
-                              Update
-                            </Button>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => {
+                                  setSelectedItemIndex(index);
+                                  setNewItemStatus(item.status || 'pending');
+                                  setItemStatusDialogOpen(true);
+                                }}
+                              >
+                                Status
+                              </Button>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveItem(index)}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -339,7 +457,15 @@ export default function RestaurantOrderManagement() {
                 {/* Order Summary */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="h6">
-                    Total: {formatCurrencyFromRestaurant(order.totalAmount, restaurant)}
+                    Total: {formatCurrencyFromRestaurant(
+                      editingItems.reduce((total, item) => total + (item.price * item.quantity), 0), 
+                      restaurant
+                    )}
+                    {hasUnsavedChanges && (
+                      <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
+                        (Modified)
+                      </Typography>
+                    )}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Created: {formatFullDateTime(order.createdAt)}
