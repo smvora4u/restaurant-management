@@ -11,6 +11,7 @@ const authLink = setContext((_, { headers }) => {
   const restaurantToken = localStorage.getItem('restaurantToken');
   const staffToken = localStorage.getItem('staffToken');
   
+  
   // Get restaurant context for consumer pages (only if no admin/staff token)
   const currentRestaurant = localStorage.getItem('currentRestaurant');
   let restaurantContext = {};

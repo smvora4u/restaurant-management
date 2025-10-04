@@ -86,7 +86,9 @@ export default function RestaurantDashboard() {
       navigate('/restaurant/login');
       return;
     }
-    setRestaurant(JSON.parse(restaurantData));
+    if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
+      setRestaurant(JSON.parse(restaurantData));
+    }
   }, [navigate]);
 
 

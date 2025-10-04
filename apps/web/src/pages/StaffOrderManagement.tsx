@@ -1,23 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  Button,
-  IconButton,
-  MenuItem,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Alert,
   CircularProgress,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,56 +14,101 @@ import {
   FormControl,
   InputLabel,
   Select,
-  SelectChangeEvent
+  MenuItem,
+  Button
 } from '@mui/material';
-import {
-  ArrowBack,
-  ShoppingCart,
-  Restaurant,
-  AccessTime,
-  CheckCircle,
-  Cancel,
-  Update
-} from '@mui/icons-material';
-import { useQuery, useMutation } from '@apollo/client';
-import { formatFullDateTime } from '../utils/dateFormatting';
-import { formatCurrencyFromRestaurant } from '../utils/currency';
+import { useQuery } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
-import { 
-  GET_ORDER_BY_ID_FOR_STAFF, 
-  UPDATE_ORDER_STATUS_FOR_STAFF, 
-  UPDATE_ORDER_ITEM_STATUS_FOR_STAFF 
-} from '../graphql';
+import OrderHeader from '../components/orders/OrderHeader';
+import OrderItemsTable from '../components/orders/OrderItemsTable';
+import { ConfirmationDialog, AppSnackbar } from '../components/common';
+import { useOrderManagement } from '../hooks/useOrderManagement';
+import { useOrderStatus } from '../hooks/useOrderStatus';
+import { GET_ORDER_BY_ID_FOR_STAFF } from '../graphql/queries/staff';
+import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
+  
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
-  const [newStatus, setNewStatus] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [completeConfirmationOpen, setCompleteConfirmationOpen] = useState(false);
+  const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
 
   // Queries
-  const { data: orderData, loading: orderLoading, refetch } = useQuery(GET_ORDER_BY_ID_FOR_STAFF, {
+  const { data: orderData, loading: orderLoading, error: orderError, refetch } = useQuery(GET_ORDER_BY_ID_FOR_STAFF, {
     variables: { id: orderId },
     skip: !orderId
   });
 
-  // Mutations
-  const [updateOrderStatus, { loading: updateLoading }] = useMutation(UPDATE_ORDER_STATUS_FOR_STAFF, {
-    onCompleted: () => {
-      setStatusDialogOpen(false);
+  // Handle query errors
+  useEffect(() => {
+    if (orderError) {
+      console.error('GraphQL Error:', orderError);
+      setSnackbarMessage(`Error loading order: ${orderError.message}`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  }, [orderError]);
+
+  const { data: menuData } = useQuery(GET_MENU_ITEMS);
+
+  // Custom hooks for order management
+  const {
+    editingItems,
+    hasUnsavedChanges,
+    isSaving,
+    initializeEditing,
+    handleQuantityChange,
+    handleRemoveItem,
+    handleAddItem,
+    handleUpdateItemStatus,
+    saveChanges,
+    canCompleteOrder,
+    canCancelOrder
+  } = useOrderManagement({
+    orderId: orderId!,
+    originalOrder: orderData?.order,
+    restaurantId: staff?.restaurantId,
+    onSuccess: () => {
+      setSnackbarMessage('Order updated successfully!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
       refetch();
+    },
+    onError: (error) => {
+      setSnackbarMessage(`Error updating order: ${error.message}`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     }
   });
 
-  const [updateOrderItemStatus, { loading: updateItemLoading }] = useMutation(UPDATE_ORDER_ITEM_STATUS_FOR_STAFF, {
-    onCompleted: () => {
-      setItemStatusDialogOpen(false);
-      setSelectedItemIndex(null);
+  const {
+    statusDialogOpen,
+    newStatus,
+    isUpdating,
+    setStatusDialogOpen,
+    setNewStatus,
+    openStatusDialog,
+    handleStatusUpdate,
+    handleCompleteOrder,
+    handleCancelOrder
+  } = useOrderStatus({
+    orderId: orderId!,
+    onSuccess: () => {
+      setSnackbarMessage('Order status updated successfully!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
       refetch();
+    },
+    onError: (error) => {
+      setSnackbarMessage(`Error updating status: ${error.message}`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     }
   });
 
@@ -86,68 +120,67 @@ export default function StaffOrderManagement() {
       return;
     }
     setStaff(JSON.parse(staffData));
-    if (restaurantData) {
+    if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
       setRestaurant(JSON.parse(restaurantData));
     }
   }, [navigate]);
 
-  const handleStatusUpdate = async () => {
-    if (!orderId || !newStatus) return;
-    
+  // Initialize editing when order data loads
+  useEffect(() => {
+    if (orderData?.order?.items) {
+      initializeEditing(orderData.order.items);
+    }
+  }, [orderData?.order?.items, initializeEditing]);
+
+  const handleBack = () => {
+    navigate('/staff/dashboard');
+  };
+
+  const handleStatusUpdateClick = () => {
+    if (orderData?.order) {
+      openStatusDialog(orderData.order.status);
+    }
+  };
+
+
+  const handleSaveChanges = async () => {
     try {
-      await updateOrderStatus({
-        variables: {
-          id: orderId,
-          status: newStatus
-        }
-      });
+      await saveChanges();
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error('Error saving changes:', error);
     }
   };
 
-  const handleItemStatusUpdate = async () => {
-    if (!orderId || selectedItemIndex === null || !newStatus) return;
-    
+  const handleCompleteOrderClick = () => {
+    setCompleteConfirmationOpen(true);
+  };
+
+  const handleCancelOrderClick = () => {
+    setCancelConfirmationOpen(true);
+  };
+
+  const confirmCompleteOrder = async () => {
+    setCompleteConfirmationOpen(false);
     try {
-      await updateOrderItemStatus({
-        variables: {
-          orderId: orderId,
-          itemIndex: selectedItemIndex,
-          status: newStatus
-        }
-      });
+      await handleCompleteOrder();
     } catch (error) {
-      console.error('Error updating item status:', error);
+      console.error('Error completing order:', error);
     }
   };
 
-  const openItemStatusDialog = (itemIndex: number) => {
-    setSelectedItemIndex(itemIndex);
-    setItemStatusDialogOpen(true);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'cancelled': return 'error';
-      case 'preparing': return 'info';
-      case 'ready': return 'primary';
-      case 'confirmed': return 'secondary';
-      case 'served': return 'success';
-      default: return 'default';
+  const confirmCancelOrder = async () => {
+    setCancelConfirmationOpen(false);
+    try {
+      await handleCancelOrder();
+    } catch (error) {
+      console.error('Error cancelling order:', error);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle />;
-      case 'cancelled': return <Cancel />;
-      case 'preparing': return <AccessTime />;
-      case 'ready': return <Restaurant />;
-      case 'served': return <CheckCircle />;
-      default: return <ShoppingCart />;
+  const handleAddItemWrapper = (menuItemId: string, quantity: number, specialInstructions: string) => {
+    const menuItem = menuData?.menuItems?.find((item: any) => item.id === menuItemId);
+    if (menuItem) {
+      handleAddItem(menuItemId, quantity, specialInstructions, menuItem.price);
     }
   };
 
@@ -159,286 +192,132 @@ export default function StaffOrderManagement() {
     );
   }
 
-  const order = orderData?.orderByIdForStaff;
-
   if (orderLoading) {
     return (
-      <StaffLayout staffPermissions={staff.permissions}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+      <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
           <CircularProgress />
         </Box>
       </StaffLayout>
     );
   }
 
-  if (!order) {
+  if (orderError || !orderData?.order) {
     return (
-      <StaffLayout staffPermissions={staff.permissions}>
-        <Alert severity="error">Order not found</Alert>
+      <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">
+            <Typography variant="h6" gutterBottom>
+              Order Not Found
+            </Typography>
+            <Typography>
+              The order you're looking for doesn't exist or you don't have permission to view it.
+            </Typography>
+            <Button onClick={handleBack} sx={{ mt: 2 }}>
+              Back to Dashboard
+            </Button>
+          </Alert>
+        </Box>
       </StaffLayout>
     );
   }
 
+  const order = orderData.order;
+  const menuItems = menuData?.menuItems || [];
+
   return (
-    <StaffLayout staffPermissions={staff.permissions}>
-      <Box>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/staff/dashboard')} sx={{ mr: 2 }}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h4" component="h1">
-            Order Management
-          </Typography>
-        </Box>
+    <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
+      <Box sx={{ p: 3 }}>
+        {/* Order Header */}
+        <OrderHeader
+          order={order}
+          restaurant={restaurant}
+          onBack={handleBack}
+          onStatusUpdate={handleStatusUpdateClick}
+          onSaveChanges={handleSaveChanges}
+          hasUnsavedChanges={hasUnsavedChanges}
+          isSaving={isSaving}
+          canCompleteOrder={canCompleteOrder(order.status)}
+          canCancelOrder={canCancelOrder(order.status)}
+          onCompleteOrder={handleCompleteOrderClick}
+          onCancelOrder={handleCancelOrderClick}
+        />
 
-        <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
-          {/* Order Details */}
-          <Box sx={{ flex: 1 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Order Details
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Order ID
-                  </Typography>
-                  <Typography variant="body1">
-                    {order.id.slice(-8)}
-                  </Typography>
-                </Box>
+        {/* Order Items Table */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <OrderItemsTable
+              items={editingItems}
+              restaurant={restaurant}
+              menuItems={menuItems}
+              onUpdateItemStatus={handleUpdateItemStatus}
+              onUpdateItemQuantity={handleQuantityChange}
+              onRemoveItem={handleRemoveItem}
+              onAddItem={handleAddItemWrapper}
+              isEditing={true}
+            />
+          </CardContent>
+        </Card>
 
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Order Type
-                  </Typography>
-                  <Chip
-                    label={order.orderType}
-                    size="small"
-                    color="primary"
-                  />
-                </Box>
-
-                {order.tableNumber && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Table Number
-                    </Typography>
-                    <Typography variant="body1">
-                      {order.tableNumber}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Customer
-                  </Typography>
-                  <Typography variant="body1">
-                    {order.customerName || 'Walk-in Customer'}
-                  </Typography>
-                  {order.customerPhone && (
-                    <Typography variant="body2" color="text.secondary">
-                      {order.customerPhone}
-                    </Typography>
-                  )}
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Amount
-                  </Typography>
-                  <Typography variant="h6" color="primary">
-                    {formatCurrencyFromRestaurant(order.totalAmount, restaurant)}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Current Status
-                  </Typography>
-                  <Chip
-                    icon={getStatusIcon(order.status)}
-                    label={order.status}
-                    size="small"
-                    color={getStatusColor(order.status)}
-                  />
-                </Box>
-
-                {order.notes && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Notes
-                    </Typography>
-                    <Typography variant="body1">
-                      {order.notes}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Created At
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatFullDateTime(order.createdAt)}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Last Updated
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatFullDateTime(order.updatedAt)}
-                  </Typography>
-                </Box>
-
-                {/* Update Order Status Button */}
-                <Button
-                  variant="contained"
-                  startIcon={<Update />}
-                  onClick={() => setStatusDialogOpen(true)}
-                  fullWidth
-                  sx={{ mt: 2 }}
-                >
-                  Update Order Status
-                </Button>
-              </CardContent>
-            </Card>
-          </Box>
-
-          {/* Order Items */}
-          <Box sx={{ flex: 1 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Order Items
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell>Qty</TableCell>
-                        <TableCell>Price</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Action</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {order.items.map((item: any, index: number) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Box>
-                              <Typography variant="subtitle2">
-                                Item #{item.menuItemId.slice(-6)}
-                              </Typography>
-                              {item.specialInstructions && (
-                                <Typography variant="caption" color="text.secondary">
-                                  {item.specialInstructions}
-                                </Typography>
-                              )}
-                            </Box>
-                          </TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>{formatCurrencyFromRestaurant(item.price, restaurant)}</TableCell>
-                          <TableCell>
-                            <Chip
-                              icon={getStatusIcon(item.status)}
-                              label={item.status}
-                              size="small"
-                              color={getStatusColor(item.status)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => openItemStatusDialog(index)}
-                            >
-                              Update
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-          </Box>
-        </Box>
-
-        {/* Update Order Status Dialog */}
-        <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
+        {/* Status Update Dialog */}
+        <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Update Order Status</DialogTitle>
           <DialogContent>
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>New Status</InputLabel>
-              <Select
-                value={newStatus}
-                onChange={(e: SelectChangeEvent) => setNewStatus(e.target.value)}
-                label="New Status"
-              >
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="confirmed">Confirmed</MenuItem>
-                <MenuItem value="preparing">Preparing</MenuItem>
-                <MenuItem value="ready">Ready</MenuItem>
-                <MenuItem value="served">Served</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
+            <Box sx={{ pt: 2 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>New Status</InputLabel>
+                <Select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  label="New Status"
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="confirmed">Confirmed</MenuItem>
+                  <MenuItem value="preparing">Preparing</MenuItem>
+                  <MenuItem value="ready">Ready</MenuItem>
+                  <MenuItem value="served">Served</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setStatusDialogOpen(false)}>Cancel</Button>
             <Button 
-              onClick={handleStatusUpdate} 
+              onClick={() => handleStatusUpdate(order.status)} 
               variant="contained"
-              disabled={updateLoading || !newStatus}
+              disabled={isUpdating}
             >
-              {updateLoading ? <CircularProgress size={20} /> : 'Update'}
+              {isUpdating ? 'Updating...' : 'Update Status'}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Update Item Status Dialog */}
-        <Dialog open={itemStatusDialogOpen} onClose={() => setItemStatusDialogOpen(false)}>
-          <DialogTitle>Update Item Status</DialogTitle>
-          <DialogContent>
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>New Status</InputLabel>
-              <Select
-                value={newStatus}
-                onChange={(e: SelectChangeEvent) => setNewStatus(e.target.value)}
-                label="New Status"
-              >
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="confirmed">Confirmed</MenuItem>
-                <MenuItem value="preparing">Preparing</MenuItem>
-                <MenuItem value="ready">Ready</MenuItem>
-                <MenuItem value="served">Served</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setItemStatusDialogOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={handleItemStatusUpdate} 
-              variant="contained"
-              disabled={updateItemLoading || !newStatus}
-            >
-              {updateItemLoading ? <CircularProgress size={20} /> : 'Update'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* Confirmation Dialogs */}
+        <ConfirmationDialog
+          open={completeConfirmationOpen}
+          title="Complete Order"
+          message="Are you sure you want to complete this order? This action cannot be undone."
+          onConfirm={confirmCompleteOrder}
+          onClose={() => setCompleteConfirmationOpen(false)}
+        />
+
+        <ConfirmationDialog
+          open={cancelConfirmationOpen}
+          title="Cancel Order"
+          message="Are you sure you want to cancel this order? This action cannot be undone."
+          onConfirm={confirmCancelOrder}
+          onClose={() => setCancelConfirmationOpen(false)}
+        />
+
+        {/* Snackbar for notifications */}
+        <AppSnackbar
+          open={snackbarOpen}
+          message={snackbarMessage}
+          severity={snackbarSeverity}
+          onClose={() => setSnackbarOpen(false)}
+        />
       </Box>
     </StaffLayout>
   );

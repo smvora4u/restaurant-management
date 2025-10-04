@@ -172,3 +172,15 @@ export const GET_USER_TABLE_ORDERS = gql`
     }
   }
 `;
+
+export const GET_AVAILABLE_TABLES = gql`
+  query GetAvailableTables {
+    availableTables {
+      id
+      number
+      capacity
+      status
+      location
+    }
+  }
+`;

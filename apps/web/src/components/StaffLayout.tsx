@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -13,17 +13,30 @@ import {
   ListItemText,
   IconButton,
   Divider,
+  Chip,
+  Avatar,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import ResponsiveContainer, { ResponsiveContainerConfigs } from './ResponsiveContainer';
 import {
   Menu as MenuIcon,
   Person as PersonIcon,
   Dashboard as DashboardIcon,
+  Logout,
 } from '@mui/icons-material';
 
 interface StaffLayoutProps {
   children: ReactNode;
   staffPermissions: string[];
+  staff?: {
+    name: string;
+    role: string;
+  };
+  restaurant?: {
+    name: string;
+    address?: string;
+  };
 }
 
 const drawerWidth = 240;
@@ -48,8 +61,9 @@ const getMenuItems = (permissions: string[]) => {
   return [...allowedItems, ...allowedConditionalItems];
 };
 
-export default function StaffLayout({ children, staffPermissions }: StaffLayoutProps) {
+export default function StaffLayout({ children, staffPermissions, staff, restaurant }: StaffLayoutProps) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -64,13 +78,34 @@ export default function StaffLayout({ children, staffPermissions }: StaffLayoutP
     setMobileOpen(false);
   };
 
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('staff');
+    localStorage.removeItem('restaurant');
+    navigate('/login');
+  };
+
   const drawer = (
     <Box>
       <Toolbar>
         <PersonIcon sx={{ mr: 2 }} />
-        <Typography variant="h6" noWrap component="div">
-          Staff Portal
-        </Typography>
+        <Box>
+          <Typography variant="h6" noWrap component="div">
+            Staff Portal
+          </Typography>
+          {restaurant && (
+            <Typography variant="caption" color="text.secondary">
+              {restaurant.name}
+            </Typography>
+          )}
+        </Box>
       </Toolbar>
       <Divider />
       <List>
@@ -108,9 +143,44 @@ export default function StaffLayout({ children, staffPermissions }: StaffLayoutP
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Staff Management System
-          </Typography>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" noWrap component="div">
+              Staff Management System
+            </Typography>
+            {restaurant && (
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                {restaurant.name}
+                {restaurant.address && ` • ${restaurant.address}`}
+              </Typography>
+            )}
+          </Box>
+          
+          {/* Staff Info and Logout */}
+          {staff && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Chip
+                label={staff.role.toUpperCase()}
+                color="secondary"
+                size="small"
+                sx={{ color: 'white', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+              />
+              <IconButton onClick={handleMenuClick}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                  {staff.name.charAt(0).toUpperCase()}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                <MenuItem onClick={handleLogout}>
+                  <Logout sx={{ mr: 1 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </Box>
+          )}
         </Toolbar>
       </AppBar>
 

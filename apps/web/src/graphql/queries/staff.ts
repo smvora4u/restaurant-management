@@ -53,7 +53,7 @@ export const GET_ORDERS_FOR_STAFF = gql`
 
 export const GET_ORDER_BY_ID_FOR_STAFF = gql`
   query GetOrderByIdForStaff($id: ID!) {
-    orderByIdForStaff(id: $id) {
+    order(id: $id) {
       id
       tableNumber
       orderType

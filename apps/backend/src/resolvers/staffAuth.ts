@@ -1,22 +1,46 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Staff } from '../models/index.js';
+import mongoose from 'mongoose';
+import { Staff, Restaurant } from '../models/index.js';
 import { StaffInput } from '../types/index.js';
 
 export const staffAuthResolvers = {
   Mutation: {
     loginStaff: async (_: any, { email, password }: { email: string; password: string }) => {
       try {
+        console.log('Attempting staff login for:', email);
+        
         const staff = await Staff.findOne({ email, isActive: true });
+        console.log('Found staff:', staff ? 'Yes' : 'No');
         
         if (!staff) {
-          throw new Error('Staff not found or inactive');
+          // Check if staff exists but is inactive
+          const inactiveStaff = await Staff.findOne({ email });
+          if (inactiveStaff) {
+            throw new Error('Staff account is inactive');
+          }
+          throw new Error('Staff not found');
         }
 
         const isValidPassword = await bcrypt.compare(password, staff.password);
+        console.log('Password valid:', isValidPassword);
         
         if (!isValidPassword) {
           throw new Error('Invalid password');
+        }
+
+        // Fetch restaurant data
+        console.log('Looking for restaurant with ID:', staff.restaurantId);
+        const restaurant = await Restaurant.findById(staff.restaurantId);
+        console.log('Found restaurant:', restaurant ? 'Yes' : 'No');
+        
+        if (!restaurant) {
+          console.log('ERROR: Staff member has invalid restaurantId:', staff.restaurantId);
+          throw new Error('Staff member is associated with a non-existent restaurant. Please contact administrator.');
+        }
+        
+        if (!restaurant.isActive) {
+          throw new Error('Restaurant is inactive. Staff cannot login.');
         }
 
         // Generate JWT token
@@ -44,6 +68,15 @@ export const staffAuthResolvers = {
             isActive: staff.isActive,
             createdAt: staff.createdAt,
             updatedAt: staff.updatedAt
+          },
+          restaurant: {
+            id: restaurant._id,
+            name: restaurant.name,
+            email: restaurant.email,
+            slug: restaurant.slug,
+            address: restaurant.address,
+            phone: restaurant.phone,
+            isActive: restaurant.isActive
           }
         };
       } catch (error) {
@@ -53,10 +86,28 @@ export const staffAuthResolvers = {
 
     createStaff: async (_: any, { input }: { input: StaffInput }) => {
       try {
+        // Validate and convert restaurantId to ObjectId
+        let restaurantId;
+        try {
+          restaurantId = new mongoose.Types.ObjectId(input.restaurantId);
+        } catch (error) {
+          throw new Error('Invalid restaurant ID format');
+        }
+
+        // Validate that the restaurant exists
+        const restaurant = await Restaurant.findById(restaurantId);
+        if (!restaurant) {
+          throw new Error('Restaurant not found');
+        }
+        
+        if (!restaurant.isActive) {
+          throw new Error('Cannot create staff for inactive restaurant');
+        }
+
         // Check if staff with email already exists for this restaurant
         const existingStaff = await Staff.findOne({ 
           email: input.email, 
-          restaurantId: input.restaurantId 
+          restaurantId: restaurantId 
         });
         
         if (existingStaff) {
@@ -75,6 +126,7 @@ export const staffAuthResolvers = {
 
         const staff = new Staff({
           ...input,
+          restaurantId: restaurantId, // Use the validated ObjectId
           permissions,
           role: input.role || 'waiter'
         });

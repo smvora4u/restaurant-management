@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -36,12 +36,14 @@ import {
   Person as PersonIcon,
   Note as NoteIcon,
   AccessTime as TimeIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
 import { formatDate, formatTimeAgo } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { GET_ORDERS, GET_MENU_ITEMS } from '../graphql';
+import CreateOrderDialog from '../components/orders/CreateOrderDialog';
 
 interface MenuItem {
   id: string;
@@ -104,6 +106,8 @@ export default function OrderListPage() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
+  const [restaurant, setRestaurant] = useState<any>(null);
 
   const { data, loading, error, refetch } = useQuery<OrdersData>(GET_ORDERS, {
     errorPolicy: 'all',
@@ -113,6 +117,20 @@ export default function OrderListPage() {
   const { data: menuData } = useQuery<MenuItemsData>(GET_MENU_ITEMS, {
     errorPolicy: 'ignore',
   });
+
+  // Get restaurant data
+  useEffect(() => {
+    const restaurantData = localStorage.getItem('restaurant');
+    if (restaurantData) {
+      setRestaurant(JSON.parse(restaurantData));
+    }
+  }, []);
+
+  const handleOrderCreated = (newOrder: any) => {
+    setCreateOrderDialogOpen(false);
+    // Navigate to the new order
+    navigate(`/restaurant/orders/${newOrder.id}`);
+  };
 
   // Filter orders based on current filter state
   const filteredOrders = useMemo(() => {
@@ -312,10 +330,10 @@ export default function OrderListPage() {
                 gap: 2,
                 gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }
               }}>
-                {order.items.map((item) => {
+                {order.items.map((item, index) => {
                   const menuItem = getMenuItemDetails(item.menuItemId);
                   return (
-                    <Card key={item.menuItemId} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Card key={`${order.id}-${item.menuItemId}-${index}`} variant="outlined" sx={{ borderRadius: 2 }}>
                       <CardContent sx={{ p: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                           <Box sx={{ flex: 1 }}>
@@ -540,9 +558,18 @@ export default function OrderListPage() {
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Orders
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4">
+          Orders
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateOrderDialogOpen(true)}
+        >
+          Create New Order
+        </Button>
+      </Box>
 
       {/* Summary Cards */}
       <Box sx={{
@@ -716,7 +743,7 @@ export default function OrderListPage() {
             <Box>
               {paginatedOrders.map((order) => (
                 <Accordion
-                  key={order.id}
+                  key={`mobile-${order.id}`}
                   expanded={expandedOrderId === order.id}
                   onChange={() => handleAccordionChange(order.id)}
                   sx={{ mb: 1 }}
@@ -832,7 +859,7 @@ export default function OrderListPage() {
               </Box>
               {paginatedOrders.map((order) => (
                 <Accordion
-                  key={order.id}
+                  key={`desktop-${order.id}`}
                   expanded={expandedOrderId === order.id}
                   onChange={() => handleAccordionChange(order.id)}
                   sx={{ mb: 1 }}
@@ -936,6 +963,14 @@ export default function OrderListPage() {
           />
         </CardContent>
       </Card>
+
+      {/* Create Order Dialog */}
+      <CreateOrderDialog
+        open={createOrderDialogOpen}
+        onClose={() => setCreateOrderDialogOpen(false)}
+        onOrderCreated={handleOrderCreated}
+        restaurant={restaurant}
+      />
       </Box>
     </Layout>
   );

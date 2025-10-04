@@ -59,6 +59,7 @@ export const typeDefs = `#graphql
   type StaffAuthPayload {
     token: String!
     staff: Staff!
+    restaurant: Restaurant!
   }
 
   type PlatformAnalytics {
@@ -148,6 +149,7 @@ export const typeDefs = `#graphql
     menuItem(id: ID!): MenuItem
     tables: [Table!]!
     table(id: ID!): Table
+    availableTables: [Table!]!
     orders: [Order!]!
     order(id: ID!): Order
     orderByTable(tableNumber: Int!): Order

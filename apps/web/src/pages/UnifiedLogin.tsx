@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useMutation } from '@apollo/client';
 import { LOGIN_RESTAURANT, LOGIN_ADMIN, LOGIN_STAFF } from '../graphql';
+import { client } from '../apollo/client';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -107,9 +108,13 @@ export default function UnifiedLogin() {
 
   // Mutations for each user type
   const [loginRestaurant, { loading: restaurantLoading }] = useMutation(LOGIN_RESTAURANT, {
-    onCompleted: (data) => {
+    onCompleted: async (data) => {
       localStorage.setItem('restaurantToken', data.loginRestaurant.token);
       localStorage.setItem('restaurant', JSON.stringify(data.loginRestaurant.restaurant));
+      
+      // Clear Apollo Client cache to ensure fresh data with new auth
+      await client.clearStore();
+      
       navigate('/restaurant/dashboard');
     },
     onError: (error) => {
@@ -118,9 +123,13 @@ export default function UnifiedLogin() {
   });
 
   const [loginAdmin, { loading: adminLoading }] = useMutation(LOGIN_ADMIN, {
-    onCompleted: (data) => {
+    onCompleted: async (data) => {
       localStorage.setItem('adminToken', data.loginAdmin.token);
       localStorage.setItem('admin', JSON.stringify(data.loginAdmin.admin));
+      
+      // Clear Apollo Client cache to ensure fresh data with new auth
+      await client.clearStore();
+      
       navigate('/admin/dashboard');
     },
     onError: (error) => {
@@ -129,9 +138,14 @@ export default function UnifiedLogin() {
   });
 
   const [loginStaff, { loading: staffLoading }] = useMutation(LOGIN_STAFF, {
-    onCompleted: (data) => {
+    onCompleted: async (data) => {
       localStorage.setItem('staffToken', data.loginStaff.token);
       localStorage.setItem('staff', JSON.stringify(data.loginStaff.staff));
+      localStorage.setItem('restaurant', JSON.stringify(data.loginStaff.restaurant));
+      
+      // Clear Apollo Client cache to ensure fresh data with new auth
+      await client.clearStore();
+      
       navigate('/staff/dashboard');
     },
     onError: (error) => {

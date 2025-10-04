@@ -73,6 +73,15 @@ export const LOGIN_STAFF = gql`
         restaurantId
         isActive
       }
+      restaurant {
+        id
+        name
+        email
+        slug
+        address
+        phone
+        isActive
+      }
     }
   }
 `;

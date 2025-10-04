@@ -81,16 +81,17 @@ export default function RestaurantOrderManagement() {
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID_FOR_RESTAURANT, {
     variables: { id: orderId },
-    skip: !orderId,
-    onError: (error) => {
+    skip: !orderId
+  });
+
+  // Handle query errors
+  useEffect(() => {
+    if (error) {
       console.error('GraphQL Error:', error);
       console.error('Error details:', error.message);
       console.error('Network error:', error.networkError);
-    },
-    onCompleted: (data) => {
-      console.log('Query completed successfully:', data);
     }
-  });
+  }, [error]);
 
   const { data: menuData } = useQuery(GET_MENU_ITEMS);
 
@@ -120,9 +121,11 @@ export default function RestaurantOrderManagement() {
       return;
     }
     
-    const parsedRestaurant = JSON.parse(restaurantData);
-    console.log('Parsed restaurant data:', parsedRestaurant);
-    setRestaurant(parsedRestaurant);
+    if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
+      const parsedRestaurant = JSON.parse(restaurantData);
+      console.log('Parsed restaurant data:', parsedRestaurant);
+      setRestaurant(parsedRestaurant);
+    }
   }, [navigate]);
 
   // Initialize editing items when order data loads
@@ -289,6 +292,7 @@ export default function RestaurantOrderManagement() {
       setIsCancelling(false);
     }
   };
+
 
   const confirmSaveChanges = async () => {
     if (!orderId || !order) return;
@@ -1126,6 +1130,7 @@ export default function RestaurantOrderManagement() {
           message={snackbarMessage}
           severity={snackbarSeverity}
         />
+
       </Box>
     </Layout>
   );

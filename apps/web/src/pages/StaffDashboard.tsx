@@ -6,11 +6,6 @@ import {
   CardContent,
   Typography,
   Button,
-  IconButton,
-  Menu,
-  MenuItem,
-  Avatar,
-  Chip,
   Table,
   TableBody,
   TableCell,
@@ -21,10 +16,10 @@ import {
   Alert,
   CircularProgress,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Chip
 } from '@mui/material';
 import {
-  Logout,
   ShoppingCart,
   Restaurant,
   TrendingUp,
@@ -32,7 +27,8 @@ import {
   CheckCircle,
   Cancel,
   Search,
-  FilterList
+  FilterList,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
@@ -41,10 +37,10 @@ import StaffLayout from '../components/StaffLayout';
 import { DataFreshnessIndicator } from '../components/common';
 import { useDataFreshness } from '../hooks/useDataFreshness';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
+import CreateOrderDialog from '../components/orders/CreateOrderDialog';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [staff, setStaff] = useState<any>(null);
@@ -56,6 +52,7 @@ export default function StaffDashboard() {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
+  const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
 
   // Queries
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS_FOR_STAFF, {
@@ -95,6 +92,17 @@ export default function StaffDashboard() {
     }
   };
 
+  const handleOrderCreated = (order: any) => {
+    setCreateOrderDialogOpen(false);
+    setSnackbar({
+      open: true,
+      message: `Order #${order.id.slice(-8)} created successfully!`,
+      severity: 'success'
+    });
+    refetchOrders();
+    navigate(`/staff/orders/${order.id}`);
+  };
+
   useEffect(() => {
     const staffData = localStorage.getItem('staff');
     const restaurantData = localStorage.getItem('restaurant');
@@ -103,24 +111,11 @@ export default function StaffDashboard() {
       return;
     }
     setStaff(JSON.parse(staffData));
-    if (restaurantData) {
+    if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
       setRestaurant(JSON.parse(restaurantData));
     }
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('staffToken');
-    localStorage.removeItem('staff');
-    navigate('/staff/login');
-  };
-
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -185,39 +180,34 @@ export default function StaffDashboard() {
   // const totalRevenue = orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
 
   return (
-    <StaffLayout staffPermissions={staff.permissions}>
+    <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
       <Box>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1">
-            Staff Dashboard - {staff.name}
-          </Typography>
+          <Box>
+            <Typography variant="h4" component="h1">
+              Staff Dashboard - {staff.name}
+            </Typography>
+            {restaurant && (
+              <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 1 }}>
+                Managing: <strong>{restaurant.name}</strong>
+                {restaurant.address && ` • ${restaurant.address}`}
+              </Typography>
+            )}
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOrderDialogOpen(true)}
+            >
+              Create New Order
+            </Button>
             <DataFreshnessIndicator
               dataStaleWarning={dataStaleWarning}
               onRefresh={refetchAllData}
               position="header"
             />
-            <Chip
-              label={staff.role.toUpperCase()}
-              color="secondary"
-              size="small"
-            />
-            <IconButton onClick={handleMenuClick}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                {staff.name.charAt(0).toUpperCase()}
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-            >
-              <MenuItem onClick={handleLogout}>
-                <Logout sx={{ mr: 1 }} />
-                Logout
-              </MenuItem>
-            </Menu>
           </Box>
         </Box>
 
@@ -435,6 +425,14 @@ export default function StaffDashboard() {
           {snackbar.message}
         </Alert>
       )}
+
+      {/* Create Order Dialog */}
+      <CreateOrderDialog
+        open={createOrderDialogOpen}
+        onClose={() => setCreateOrderDialogOpen(false)}
+        onOrderCreated={handleOrderCreated}
+        restaurant={restaurant}
+      />
     </StaffLayout>
   );
 }

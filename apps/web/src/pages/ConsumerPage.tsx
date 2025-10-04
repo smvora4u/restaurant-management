@@ -99,10 +99,14 @@ export default function ConsumerPage() {
         localStorage.setItem('currentRestaurant', JSON.stringify(data.restaurantBySlug));
       }
     },
-    onError: (error) => {
-      console.error('Error fetching restaurant:', error);
-    }
   });
+
+  // Handle restaurant query errors
+  useEffect(() => {
+    if (restaurantError) {
+      console.error('Error fetching restaurant:', restaurantError);
+    }
+  }, [restaurantError]);
 
   // Set timeout to prevent showing error too quickly
   useEffect(() => {
@@ -133,8 +137,8 @@ export default function ConsumerPage() {
     variables: { tableNumber: tableNumber ? parseInt(tableNumber) : 0 },
     skip: !tableNumber || !isValidTable || !restaurant,
     onCompleted: (data) => {
-      if (data?.orderByTable && data.orderByTable.status !== 'completed') {
-        console.log('ConsumerPage: Table is occupied with incomplete order:', data.orderByTable);
+      if (data?.orderByTable && ['pending', 'confirmed', 'preparing', 'ready'].includes(data.orderByTable.status)) {
+        console.log('ConsumerPage: Table is occupied with active order:', data.orderByTable);
         
         // Check if current user is the owner of this order
         const currentUser = localStorage.getItem('currentUser');
@@ -157,15 +161,13 @@ export default function ConsumerPage() {
           console.log('ConsumerPage: Table is occupied by another user, showing warning');
           setIsTableOccupied(true);
           setShowTableOccupiedMessage(true);
+          setExistingTableOrder(data.orderByTable);
         } else {
           console.log('ConsumerPage: Current user owns the existing order, allowing access');
           // Don't set isTableOccupied to true, allow the user to continue
         }
       }
     },
-    onError: (error) => {
-      console.log('ConsumerPage: No existing order found for table:', error);
-    }
   });
 
   // Suppress unused variable warning - tableOrderData is used in onCompleted callback
@@ -193,9 +195,6 @@ export default function ConsumerPage() {
         }
       }
     },
-    onError: (error) => {
-      console.log('ConsumerPage: No existing table orders found for user:', error);
-    }
   });
 
   // Check for existing user on page load

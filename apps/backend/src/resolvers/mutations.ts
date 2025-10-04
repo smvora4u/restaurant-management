@@ -82,10 +82,58 @@ export const mutationResolvers = {
   
   // Order mutations
   createOrder: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
-    if (!context.restaurant) {
+    if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
-    const order = new Order({ ...input, restaurantId: context.restaurant.id });
+
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    
+    // Validate table availability for dine-in orders
+    if (input.orderType === 'dine-in' && input.tableNumber) {
+      // Check if table exists
+      const table = await Table.findOne({ 
+        number: input.tableNumber, 
+        restaurantId: restaurantId 
+      });
+      
+      if (!table) {
+        throw new Error(`Table ${input.tableNumber} does not exist`);
+      }
+
+      // Check if table already has an active order
+      const existingOrder = await Order.findOne({
+        restaurantId: restaurantId,
+        tableNumber: input.tableNumber,
+        orderType: 'dine-in',
+        status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
+      });
+
+      if (existingOrder) {
+        throw new Error(`Table ${input.tableNumber} already has an active order`);
+      }
+    }
+
+    // Validate menu items exist and are available
+    if (input.items && input.items.length > 0) {
+      for (const item of input.items) {
+        const menuItem = await MenuItem.findOne({
+          _id: item.menuItemId,
+          restaurantId: restaurantId,
+          available: true
+        });
+        
+        if (!menuItem) {
+          throw new Error(`Menu item ${item.menuItemId} not found or unavailable`);
+        }
+      }
+    }
+
+    const order = new Order({ 
+      ...input, 
+      restaurantId: restaurantId,
+      status: input.status || 'pending'
+    });
+    
     return await order.save();
   },
   updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
