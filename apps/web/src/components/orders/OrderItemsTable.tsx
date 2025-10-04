@@ -26,7 +26,8 @@ import {
   Edit,
   Delete,
   Add,
-  Remove
+  Remove,
+  Update
 } from '@mui/icons-material';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { ItemStatus } from '../../utils/statusColors';
@@ -41,6 +42,9 @@ interface OrderItemsTableProps {
   onAddItem: (menuItemId: string, quantity: number, specialInstructions: string) => void;
   isEditing?: boolean;
   onToggleEdit?: () => void;
+  onSaveChanges?: () => void;
+  hasUnsavedChanges?: boolean;
+  isSaving?: boolean;
 }
 
 const getStatusColor = (status: ItemStatus) => {
@@ -74,7 +78,10 @@ export default function OrderItemsTable({
   onRemoveItem,
   onAddItem,
   isEditing = false,
-  onToggleEdit
+  onToggleEdit,
+  onSaveChanges,
+  hasUnsavedChanges = false,
+  isSaving = false
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -135,6 +142,18 @@ export default function OrderItemsTable({
               startIcon={<Edit />}
             >
               {isEditing ? 'Done Editing' : 'Edit Items'}
+            </Button>
+          )}
+          {onSaveChanges && hasUnsavedChanges && (
+            <Button
+              variant="contained"
+              startIcon={<Update />}
+              onClick={onSaveChanges}
+              color="success"
+              size="small"
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           )}
           <Button

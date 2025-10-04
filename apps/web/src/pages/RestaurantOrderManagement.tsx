@@ -6,15 +6,8 @@ import {
   CardContent,
   Typography,
   Button,
-  IconButton,
   MenuItem,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Alert,
   CircularProgress,
   Divider,
@@ -27,25 +20,22 @@ import {
   Select,
   SelectChangeEvent,
   TextField,
-  Tooltip
+  IconButton
 } from '@mui/material';
 import {
-  ArrowBack,
   ShoppingCart,
   Restaurant,
   AccessTime,
   CheckCircle,
   Cancel,
   Update,
-  Add,
-  Remove,
-  Delete,
-  Save
+  ArrowBack
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import Layout from '../components/Layout';
+import OrderItemsTable from '../components/orders/OrderItemsTable';
 import { GET_ORDER_BY_ID_FOR_RESTAURANT } from '../graphql/queries/restaurant';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { 
@@ -61,10 +51,6 @@ export default function RestaurantOrderManagement() {
   
   const [restaurant, setRestaurant] = useState<any>(null);
   const [newStatus, setNewStatus] = useState('');
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
-  const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
-  const [newItemStatus, setNewItemStatus] = useState('');
-  const [statusUpdateQuantity, setStatusUpdateQuantity] = useState(1);
   const [editingItems, setEditingItems] = useState<any[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
@@ -95,6 +81,7 @@ export default function RestaurantOrderManagement() {
   }, [error]);
 
   const { data: menuData } = useQuery(GET_MENU_ITEMS);
+  const menuItems = menuData?.menuItems || [];
 
   // Mutations
   const [updateOrderStatus, { loading: updateLoading }] = useMutation(UPDATE_ORDER, {
@@ -170,30 +157,6 @@ export default function RestaurantOrderManagement() {
     }
   };
 
-  const handleItemStatusUpdate = async () => {
-    if (selectedItemIndex === null || !newItemStatus) return;
-    
-    try {
-      // Use the new partial quantity status update logic
-      const updatedItems = updatePartialQuantityStatus(
-        editingItems, 
-        selectedItemIndex, 
-        newItemStatus as any, 
-        statusUpdateQuantity
-      );
-      
-      setEditingItems(updatedItems);
-      setHasUnsavedChanges(true);
-      
-      // Close dialog and reset state
-      setItemStatusDialogOpen(false);
-      setSelectedItemIndex(null);
-      setNewItemStatus('');
-      setStatusUpdateQuantity(1);
-    } catch (error) {
-      console.error('Error updating item status:', error);
-    }
-  };
 
   const handleQuantityChange = (index: number, newQuantity: number) => {
     const updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
@@ -236,16 +199,6 @@ export default function RestaurantOrderManagement() {
     setNewItemQuantity(1);
     setNewItemSpecialInstructions('');
     setAddItemDialogOpen(false);
-  };
-
-  const getMenuItemName = (menuItemId: string) => {
-    if (!menuData?.menuItems) return `Item ${menuItemId}`;
-    const menuItem = menuData.menuItems.find((item: any) => item.id === menuItemId);
-    return menuItem?.name || `Item ${menuItemId}`;
-  };
-
-  const canCancelItem = (itemStatus: string) => {
-    return !['served', 'completed'].includes(itemStatus);
   };
 
   const handleSaveOrderChanges = () => {
@@ -535,127 +488,45 @@ export default function RestaurantOrderManagement() {
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Order Items */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="subtitle1">
-                  Order Items
-                </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Add />}
-                    onClick={() => setAddItemDialogOpen(true)}
-                    color="primary"
-                    size="small"
-                  >
-                    Add Item
-                  </Button>
-                </Box>
-                
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  {hasUnsavedChanges && (
-                    <Button
-                      variant="contained"
-                      startIcon={<Save />}
-                      onClick={handleSaveOrderChanges}
-                      color="success"
-                      size="small"
-                    >
-                      Save Changes
-                    </Button>
-                  )}
-                </Box>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell>Quantity</TableCell>
-                        <TableCell>Price</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {editingItems.map((item: any, index: number) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="bold">
-                              {getMenuItemName(item.menuItemId)}
-                            </Typography>
-                            {item.specialInstructions && (
-                              <Typography variant="caption" color="text.secondary">
-                                {item.specialInstructions}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQuantityChange(index, Math.max(0, item.quantity - 1))}
-                                disabled={item.quantity <= 0}
-                              >
-                                <Remove />
-                              </IconButton>
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 0)}
-                                sx={{ width: 60 }}
-                                inputProps={{ min: 0, style: { textAlign: 'center' } }}
-                              />
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQuantityChange(index, item.quantity + 1)}
-                              >
-                                <Add />
-                              </IconButton>
-                            </Box>
-                          </TableCell>
-                          <TableCell>{formatCurrencyFromRestaurant(item.price * item.quantity, restaurant)}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={item.status || 'pending'}
-                              size="small"
-                              color={getStatusColor(item.status || 'pending')}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => {
-                                setSelectedItemIndex(index);
-                                setNewItemStatus(item.status || 'pending');
-                                setItemStatusDialogOpen(true);
-                              }}
-                            >
-                                Status
-                            </Button>
-                              <Tooltip 
-                                title={item.status !== 'pending' ? 'Cannot delete item once status changes from pending' : 'Delete item'}
-                                arrow
-                              >
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => handleRemoveItem(index)}
-                                    disabled={item.status !== 'pending'}
-                                  >
-                                    <Delete />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+
+                {/* Order Items Table */}
+                <OrderItemsTable
+                  items={editingItems}
+                  restaurant={restaurant}
+                  menuItems={menuItems}
+                  onUpdateItemStatus={(itemIndex, status, quantity) => {
+                    // Handle status update directly since OrderItemsTable manages its own dialog
+                    const updatedItems = updatePartialQuantityStatus(
+                      editingItems, 
+                      itemIndex, 
+                      status as any, 
+                      quantity || editingItems[itemIndex]?.quantity || 1
+                    );
+                    setEditingItems(updatedItems);
+                    setHasUnsavedChanges(true);
+                  }}
+                  onUpdateItemQuantity={handleQuantityChange}
+                  onRemoveItem={handleRemoveItem}
+                  onAddItem={(menuItemId, quantity, specialInstructions) => {
+                    const selectedMenuItem = menuItems.find((item: any) => item.id === menuItemId);
+                    if (selectedMenuItem) {
+                      const newItem = {
+                        menuItemId,
+                        quantity,
+                        price: selectedMenuItem.price,
+                        status: 'pending',
+                        specialInstructions
+                      };
+                      const updatedItems = [...editingItems, newItem];
+                      setEditingItems(updatedItems);
+                      setHasUnsavedChanges(true);
+                    }
+                  }}
+                  isEditing={true}
+                  onSaveChanges={handleSaveOrderChanges}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  isSaving={isSaving}
+                />
 
                 <Divider sx={{ my: 2 }} />
 
@@ -966,88 +837,6 @@ export default function RestaurantOrderManagement() {
           </Box>
         </Box>
 
-        {/* Item Status Update Dialog */}
-        <Dialog open={itemStatusDialogOpen} onClose={() => {
-          setItemStatusDialogOpen(false);
-          setSelectedItemIndex(null);
-          setNewItemStatus('');
-          setStatusUpdateQuantity(1);
-        }}>
-          <DialogTitle>Update Item Status</DialogTitle>
-          <DialogContent>
-            {selectedItemIndex !== null && (
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Updating: {getMenuItemName(editingItems[selectedItemIndex]?.menuItemId)} 
-                (Current: {editingItems[selectedItemIndex]?.quantity}x {editingItems[selectedItemIndex]?.status})
-              </Typography>
-            )}
-            
-            <TextField
-              fullWidth
-              margin="normal"
-              label="Quantity to Update"
-              type="number"
-              value={statusUpdateQuantity}
-              onChange={(e) => setStatusUpdateQuantity(parseInt(e.target.value) || 1)}
-              inputProps={{ 
-                min: 1, 
-                max: selectedItemIndex !== null ? editingItems[selectedItemIndex]?.quantity : 1 
-              }}
-              helperText={`Max: ${selectedItemIndex !== null ? editingItems[selectedItemIndex]?.quantity : 1}`}
-            />
-            
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>New Status</InputLabel>
-              <Select
-                value={newItemStatus}
-                onChange={(e: SelectChangeEvent) => setNewItemStatus(e.target.value)}
-                label="New Status"
-              >
-                {selectedItemIndex !== null && (() => {
-                  const currentItem = editingItems[selectedItemIndex];
-                  const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled'];
-                  
-                  return validStatuses.map(status => {
-                    const isValid = isValidStatusTransition(currentItem.status as any, status as any);
-                    const isCancelled = status === 'cancelled';
-                    const cannotCancel = isCancelled && !canCancelItem(currentItem.status);
-                    
-                    return (
-                      <MenuItem 
-                        key={status} 
-                        value={status}
-                        disabled={!isValid || cannotCancel}
-                        sx={{ 
-                          opacity: (isValid && !cannotCancel) ? 1 : 0.5,
-                          fontStyle: (isValid && !cannotCancel) ? 'normal' : 'italic'
-                        }}
-                      >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                        {!isValid && ' (Invalid transition)'}
-                        {cannotCancel && ' (Cannot cancel served item)'}
-                      </MenuItem>
-                    );
-                  });
-                })()}
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setItemStatusDialogOpen(false);
-              setSelectedItemIndex(null);
-              setNewItemStatus('');
-              setStatusUpdateQuantity(1);
-            }}>Cancel</Button>
-            <Button 
-              onClick={handleItemStatusUpdate}
-              disabled={!newItemStatus || statusUpdateQuantity < 1}
-              variant="contained"
-            >
-              Update Status
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Add Item Dialog */}
         <Dialog open={addItemDialogOpen} onClose={() => setAddItemDialogOpen(false)} maxWidth="sm" fullWidth>
