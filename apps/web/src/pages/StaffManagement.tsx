@@ -27,7 +27,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Snackbar
 } from '@mui/material';
 import {
   ArrowBack,
@@ -64,6 +65,11 @@ export default function StaffManagement() {
     permissions: [] as string[]
   });
   const [restaurant, setRestaurant] = useState<any>(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Queries
   const { data: staffData, loading: staffLoading, refetch } = useQuery(GET_STAFF_BY_RESTAURANT, {
@@ -77,6 +83,18 @@ export default function StaffManagement() {
       setOpenDialog(false);
       resetForm();
       refetch();
+      setSnackbar({
+        open: true,
+        message: 'Staff member created successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error creating staff: ${error.message}`,
+        severity: 'error'
+      });
     }
   });
 
@@ -85,12 +103,36 @@ export default function StaffManagement() {
       setOpenDialog(false);
       resetForm();
       refetch();
+      setSnackbar({
+        open: true,
+        message: 'Staff member updated successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error updating staff: ${error.message}`,
+        severity: 'error'
+      });
     }
   });
 
   const [deactivateStaff] = useMutation(DEACTIVATE_STAFF, {
     onCompleted: () => {
       refetch();
+      setSnackbar({
+        open: true,
+        message: 'Staff member deactivated successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error deactivating staff: ${error.message}`,
+        severity: 'error'
+      });
     }
   });
 
@@ -153,37 +195,37 @@ export default function StaffManagement() {
       return;
     }
 
-    try {
-      if (dialogMode === 'create') {
-        const input = {
-          ...formData,
-          restaurantId: restaurant.id,
-          permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
-        };
-        await createStaff({ variables: { input } });
-      } else {
-        // For editing, don't include restaurantId - it shouldn't change
-        if (!selectedStaff || !selectedStaff.id) {
-          console.error('No staff member selected for editing');
-          return;
-        }
-        
-        const input = {
-          name: formData.name,
-          email: formData.email,
-          role: formData.role,
-          permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role),
-          password: formData.password || undefined
-        };
-        await updateStaff({ 
-          variables: { 
-            id: selectedStaff.id, 
-            input: input
-          } 
+    if (dialogMode === 'create') {
+      const input = {
+        ...formData,
+        restaurantId: restaurant.id,
+        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
+      };
+      createStaff({ variables: { input } });
+    } else {
+      // For editing, don't include restaurantId - it shouldn't change
+      if (!selectedStaff || !selectedStaff.id) {
+        setSnackbar({
+          open: true,
+          message: 'No staff member selected for editing',
+          severity: 'error'
         });
+        return;
       }
-    } catch (error) {
-      console.error('Error saving staff:', error);
+      
+      const input = {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role),
+        password: formData.password || undefined
+      };
+      updateStaff({ 
+        variables: { 
+          id: selectedStaff.id, 
+          input: input
+        } 
+      });
     }
   };
 
@@ -469,6 +511,22 @@ export default function StaffManagement() {
             Deactivate
           </MenuItem>
         </Menu>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Layout>
   );

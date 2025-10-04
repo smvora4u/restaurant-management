@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Table,
@@ -24,7 +24,6 @@ import {
 import {
   Edit,
   Delete,
-  Update,
   Add,
   Remove
 } from '@mui/icons-material';

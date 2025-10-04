@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_ORDER } from '../graphql/mutations/orders';
 import { handleQuantityChange, removeOrderItem, addNewOrderItem } from '../utils/orderItemManagement';
-import { syncOrderStatus, calculateOrderStatus } from '../utils/statusManagement';
+import { calculateOrderStatus } from '../utils/statusManagement';
 
 interface UseOrderManagementProps {
   orderId: string;
