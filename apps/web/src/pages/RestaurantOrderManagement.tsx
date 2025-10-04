@@ -26,7 +26,8 @@ import {
   InputLabel,
   Select,
   SelectChangeEvent,
-  TextField
+  TextField,
+  Tooltip
 } from '@mui/material';
 import {
   ArrowBack,
@@ -201,6 +202,12 @@ export default function RestaurantOrderManagement() {
   };
 
   const handleRemoveItem = (index: number) => {
+    // Check if item status is not pending
+    if (editingItems[index] && editingItems[index].status !== 'pending') {
+      console.warn('Cannot remove item: Item status is not pending');
+      return; // Don't remove the item
+    }
+    
     const updatedItems = removeOrderItem(editingItems, index);
     setEditingItems(updatedItems);
     setHasUnsavedChanges(true);
@@ -627,13 +634,21 @@ export default function RestaurantOrderManagement() {
                             >
                                 Status
                             </Button>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleRemoveItem(index)}
+                              <Tooltip 
+                                title={item.status !== 'pending' ? 'Cannot delete item once status changes from pending' : 'Delete item'}
+                                arrow
                               >
-                                <Delete />
-                              </IconButton>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleRemoveItem(index)}
+                                    disabled={item.status !== 'pending'}
+                                  >
+                                    <Delete />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
                             </Box>
                           </TableCell>
                         </TableRow>

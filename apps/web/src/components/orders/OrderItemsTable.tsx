@@ -19,7 +19,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField
+  TextField,
+  Tooltip
 } from '@mui/material';
 import {
   Edit,
@@ -242,13 +243,21 @@ export default function OrderItemsTable({
                   </TableCell>
                   {isEditing && (
                     <TableCell>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => onRemoveItem(index)}
+                      <Tooltip 
+                        title={item.status !== 'pending' ? 'Cannot delete item once status changes from pending' : 'Delete item'}
+                        arrow
                       >
-                        <Delete />
-                      </IconButton>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => onRemoveItem(index)}
+                            disabled={item.status !== 'pending'}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                     </TableCell>
                   )}
                 </TableRow>
