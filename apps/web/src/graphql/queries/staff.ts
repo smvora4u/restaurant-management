@@ -51,28 +51,4 @@ export const GET_ORDERS_FOR_STAFF = gql`
   }
 `;
 
-export const GET_ORDER_BY_ID_FOR_STAFF = gql`
-  query GetOrderByIdForStaff($id: ID!) {
-    order(id: $id) {
-      id
-      tableNumber
-      orderType
-      status
-      totalAmount
-      customerName
-      customerPhone
-      notes
-      sessionId
-      userId
-      createdAt
-      updatedAt
-      items {
-        menuItemId
-        quantity
-        price
-        status
-        specialInstructions
-      }
-    }
-  }
-`;
+// Note: GET_ORDER_BY_ID_FOR_STAFF is now consolidated into GET_ORDER_BY_ID in orders.ts

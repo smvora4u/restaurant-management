@@ -46,7 +46,6 @@ export const useOrderManagement = ({ orderId, originalOrder, restaurantId, onSuc
     setEditingItems(prev => {
       // Check if item status is not pending
       if (prev[index] && prev[index].status !== 'pending') {
-        console.warn('Cannot remove item: Item status is not pending');
         return prev; // Return unchanged items
       }
       

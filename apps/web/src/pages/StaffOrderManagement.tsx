@@ -24,7 +24,7 @@ import OrderItemsTable from '../components/orders/OrderItemsTable';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { useOrderManagement } from '../hooks/useOrderManagement';
 import { useOrderStatus } from '../hooks/useOrderStatus';
-import { GET_ORDER_BY_ID_FOR_STAFF } from '../graphql/queries/staff';
+import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 
 export default function StaffOrderManagement() {
@@ -40,7 +40,7 @@ export default function StaffOrderManagement() {
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
 
   // Queries
-  const { data: orderData, loading: orderLoading, error: orderError, refetch } = useQuery(GET_ORDER_BY_ID_FOR_STAFF, {
+  const { data: orderData, loading: orderLoading, error: orderError, refetch } = useQuery(GET_ORDER_BY_ID, {
     variables: { id: orderId },
     skip: !orderId
   });

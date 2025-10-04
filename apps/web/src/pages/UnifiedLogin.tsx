@@ -28,39 +28,7 @@ import {
 import { useMutation } from '@apollo/client';
 import { LOGIN_RESTAURANT, LOGIN_ADMIN, LOGIN_STAFF } from '../graphql';
 import { client } from '../apollo/client';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`login-tabpanel-${index}`}
-      aria-labelledby={`login-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ pt: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `login-tab-${index}`,
-    'aria-controls': `login-tabpanel-${index}`,
-  };
-}
+import { TabPanel, a11yProps } from '../components/common';
 
 type UserType = 'restaurant' | 'admin' | 'staff';
 
@@ -329,7 +297,7 @@ export default function UnifiedLogin() {
 
           {/* Tab Content */}
           <CardContent sx={{ p: 4 }}>
-            <TabPanel value={activeTab} index={activeTab}>
+            <TabPanel value={activeTab} index={activeTab} sx={{ pt: 3 }}>
               <Fade in={true} timeout={300}>
                 <Box>
                   {/* User Type Description */}

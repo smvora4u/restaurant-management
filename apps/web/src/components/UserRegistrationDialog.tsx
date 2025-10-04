@@ -89,7 +89,6 @@ export default function UserRegistrationDialog({
       
       if (mostRecentOrder) {
         // User has incomplete order, continue with that order
-        console.log('Found incomplete order for mobile number:', mostRecentOrder.id);
         orderToRestore = mostRecentOrder;
         
         // Create user object with the order's customer info
@@ -103,7 +102,6 @@ export default function UserRegistrationDialog({
         };
       } else {
         // No incomplete order, create new user and order
-        console.log('No incomplete order found, creating new user');
         
         user = {
           id: userId,
@@ -154,7 +152,6 @@ export default function UserRegistrationDialog({
         }
       } catch (createError: any) {
         // If user creation fails (e.g., duplicate), continue with local user
-        console.log('User creation failed, using local user:', createError.message);
       }
       
       // Store user info in localStorage with mobile number as key

@@ -126,7 +126,6 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
     // Sort by createdAt and get the most recent
     allOrders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     currentUserOrder = allOrders[0];
-    console.log('InvoiceTab: Using most recent order as fallback:', currentUserOrder?.id);
   }
 
   const { data, loading, error, refetch } = orderId ? orderQuery : tableQuery;
@@ -144,7 +143,6 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
   // Refetch data when refreshTrigger changes (order created/updated)
   useEffect(() => {
     if (combinedRefetch && refreshTrigger !== undefined) {
-      console.log('InvoiceTab: Refreshing due to trigger change', refreshTrigger);
       combinedRefetch();
     }
   }, [refreshTrigger, combinedRefetch]);

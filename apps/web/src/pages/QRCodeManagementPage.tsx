@@ -162,7 +162,6 @@ export default function QRCodeManagementPage() {
         // Refetch tables to include the new table
         await refetch();
         
-        console.log(`Table ${tableNumber} created automatically`);
       } catch (error) {
         console.error('Error creating table:', error);
         // Don't throw error, just log it - QR code can still be generated

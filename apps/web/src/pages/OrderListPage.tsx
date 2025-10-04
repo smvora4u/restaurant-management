@@ -222,14 +222,6 @@ export default function OrderListPage() {
   const totalItems = filteredOrders.reduce((sum, order) => sum + order.items.length, 0);
 
   const renderOrderDetails = (order: Order) => {
-    // Debug: Log the actual date values to see what we're receiving
-    console.log('Order dates debug:', {
-      orderId: order.id,
-      createdAt: order.createdAt,
-      createdAtType: typeof order.createdAt,
-      updatedAt: order.updatedAt,
-      updatedAtType: typeof order.updatedAt
-    });
 
     return (
       <AccordionDetails>

@@ -66,38 +66,8 @@ import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
-import { ConfirmationDialog, DataFreshnessIndicator } from '../components/common';
+import { ConfirmationDialog, DataFreshnessIndicator, TabPanel, a11yProps } from '../components/common';
 import { useDataFreshness } from '../hooks/useDataFreshness';
-
-
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`admin-tabpanel-${index}`}
-      aria-labelledby={`admin-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `admin-tab-${index}`,
-    'aria-controls': `admin-tabpanel-${index}`,
-  };
-}
 
 
 export default function AdminDashboard() {
@@ -722,7 +692,7 @@ export default function AdminDashboard() {
           </Box>
 
           {/* Restaurants Tab */}
-          <TabPanel value={activeTab} index={0}>
+          <TabPanel value={activeTab} index={0} sx={{ p: 3 }}>
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <TextField
                 placeholder="Search restaurants..."
@@ -858,7 +828,7 @@ export default function AdminDashboard() {
           </TabPanel>
 
           {/* Orders Tab */}
-          <TabPanel value={activeTab} index={1}>
+          <TabPanel value={activeTab} index={1} sx={{ p: 3 }}>
             <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
               <TextField
                 placeholder="Search orders..."
@@ -1020,7 +990,7 @@ export default function AdminDashboard() {
           </TabPanel>
 
           {/* Staff Tab */}
-          <TabPanel value={activeTab} index={2}>
+          <TabPanel value={activeTab} index={2} sx={{ p: 3 }}>
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Staff Management
@@ -1148,7 +1118,7 @@ export default function AdminDashboard() {
           </TabPanel>
 
           {/* Analytics Tab */}
-          <TabPanel value={activeTab} index={3}>
+          <TabPanel value={activeTab} index={3} sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Platform Analytics
             </Typography>
@@ -1220,7 +1190,7 @@ export default function AdminDashboard() {
           </TabPanel>
 
           {/* Settings Tab */}
-          <TabPanel value={activeTab} index={4}>
+          <TabPanel value={activeTab} index={4} sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               System Settings
             </Typography>

@@ -134,7 +134,6 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     // Sort by createdAt and get the most recent
     allOrders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     currentUserOrder = allOrders[0];
-    console.log('MenuTab: Using most recent order as fallback:', currentUserOrder?.id);
     
     // Update the parent component with the found order ID
     if (currentUserOrder?.id && onOrderCreated) {
@@ -142,15 +141,6 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     }
   }
   
-  // Debug logging
-  console.log('MenuTab: Order lookup debug:', {
-    orderId,
-    mobileOrders: mobileOrders.length,
-    sessionOrders: sessionOrders.length,
-    currentUserOrder: currentUserOrder?.id,
-    currentUser: currentUser?.mobileNumber,
-    isParcelOrder
-  });
   
   const currentOrderData = tableOrderData?.orderByTable || parcelOrderData?.orderById || currentUserOrder;
   const refetch = refetchTableOrder || refetchParcelOrder || refetchMobileOrders || refetchSessionOrders;

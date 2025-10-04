@@ -25,39 +25,7 @@ import ConsumerLayout from '../components/ConsumerLayout';
 import MenuTab from '../components/consumer/MenuTab';
 import InvoiceTab from '../components/consumer/InvoiceTab';
 import UserRegistrationDialog from '../components/UserRegistrationDialog';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`consumer-tabpanel-${index}`}
-      aria-labelledby={`consumer-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, overflow: 'visible' }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `consumer-tab-${index}`,
-    'aria-controls': `consumer-tabpanel-${index}`,
-  };
-}
+import { TabPanel, a11yProps } from '../components/common';
 
 
 
@@ -92,7 +60,6 @@ export default function ConsumerPage() {
     variables: { slug: restaurantSlug || '' },
     skip: !restaurantSlug,
     onCompleted: (data) => {
-      console.log('Restaurant query completed:', data);
       if (data?.restaurantBySlug) {
         setRestaurant(data.restaurantBySlug);
         // Store restaurant data in localStorage for context
@@ -121,16 +88,6 @@ export default function ConsumerPage() {
     }
   }, [restaurantSlug, restaurant, restaurantLoading]);
 
-  // Debug logging
-  console.log('ConsumerPage render:', { 
-    restaurantSlug, 
-    tableNumber, 
-    orderType, 
-    restaurant, 
-    restaurantLoading, 
-    restaurantError,
-    queryTimeout
-  });
 
   // Query to check for existing table orders
   useQuery(GET_ORDER_BY_TABLE, {
@@ -138,7 +95,6 @@ export default function ConsumerPage() {
     skip: !tableNumber || !isValidTable || !restaurant,
     onCompleted: (data) => {
       if (data?.orderByTable && ['pending', 'confirmed', 'preparing', 'ready'].includes(data.orderByTable.status)) {
-        console.log('ConsumerPage: Table is occupied with active order:', data.orderByTable);
         
         // Check if current user is the owner of this order
         const currentUser = localStorage.getItem('currentUser');
@@ -150,7 +106,6 @@ export default function ConsumerPage() {
             // Check if user's mobile number matches the order's customer phone
             if (user.mobileNumber && data.orderByTable.customerPhone === user.mobileNumber) {
               isOwner = true;
-              console.log('ConsumerPage: Current user is the owner of the existing order');
             }
           } catch (err) {
             console.error('Error parsing current user:', err);
@@ -158,12 +113,10 @@ export default function ConsumerPage() {
         }
         
         if (!isOwner) {
-          console.log('ConsumerPage: Table is occupied by another user, showing warning');
           setIsTableOccupied(true);
           setShowTableOccupiedMessage(true);
           setExistingTableOrder(data.orderByTable);
         } else {
-          console.log('ConsumerPage: Current user owns the existing order, allowing access');
           // Don't set isTableOccupied to true, allow the user to continue
         }
       }
@@ -187,7 +140,6 @@ export default function ConsumerPage() {
           
           // If user is trying to access a different table than their existing order
           if (existingOrder.tableNumber !== currentTableNumber) {
-            console.log('ConsumerPage: User has existing order on different table:', existingOrder);
             setExistingTableOrder(existingOrder);
             setShowRedirectMessage(true);
             setRedirectCountdown(5);
@@ -199,7 +151,6 @@ export default function ConsumerPage() {
 
   // Check for existing user on page load
   useEffect(() => {
-    console.log('ConsumerPage: Checking for existing user...', { orderType, isValidParcel });
     
     if (isValidParcel) {
       // For takeout/delivery orders, check for existing user session
@@ -208,7 +159,6 @@ export default function ConsumerPage() {
       
       // If this is a different order type than what was saved, clear the session
       if (savedOrderType && savedOrderType !== orderType) {
-        console.log('ConsumerPage: Different order type detected, clearing session');
         localStorage.removeItem('currentUser');
         localStorage.removeItem('lastOrderType');
         setShowUserRegistration(true);
@@ -219,7 +169,6 @@ export default function ConsumerPage() {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          console.log('ConsumerPage: Found saved user for takeout order:', user);
           setCurrentUser(user);
           setIsUserRegistered(true);
           
@@ -227,7 +176,6 @@ export default function ConsumerPage() {
           if (user.mobileNumber) {
             const existingOrderId = localStorage.getItem(`user_order_${user.mobileNumber}`);
             if (existingOrderId) {
-              console.log('ConsumerPage: Found existing order for user mobile:', existingOrderId);
               setParcelOrderId(existingOrderId);
             }
           }
@@ -238,7 +186,6 @@ export default function ConsumerPage() {
           setIsUserRegistered(true);
         }
       } else {
-        console.log('ConsumerPage: No saved user found for takeout order, showing registration dialog');
         setShowUserRegistration(true);
         setIsUserRegistered(true);
       }
@@ -248,7 +195,6 @@ export default function ConsumerPage() {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          console.log('ConsumerPage: Found saved user for table order:', user);
           setCurrentUser(user);
           setIsUserRegistered(true);
         } catch (err) {
@@ -258,7 +204,6 @@ export default function ConsumerPage() {
           setIsUserRegistered(true);
         }
       } else {
-        console.log('ConsumerPage: No saved user found for table order, showing registration dialog');
         setShowUserRegistration(true);
         setIsUserRegistered(true);
       }
@@ -276,7 +221,6 @@ export default function ConsumerPage() {
       // Redirect to existing table order
       if (existingTableOrder) {
         const redirectUrl = `/consumer/${restaurantSlug}/${existingTableOrder.tableNumber}`;
-        console.log('ConsumerPage: Redirecting to existing table order:', redirectUrl);
         window.location.href = redirectUrl;
       }
     }
@@ -299,7 +243,6 @@ export default function ConsumerPage() {
       // Check if this is a new QR code scan by comparing with saved session
       const savedSessionId = localStorage.getItem('lastSessionId');
       if (savedSessionId && savedSessionId !== existingSessionId) {
-        console.log('ConsumerPage: New QR code detected, clearing user session');
         localStorage.removeItem('currentUser');
         localStorage.removeItem('lastOrderType');
         setCurrentUser(null);
@@ -365,7 +308,6 @@ export default function ConsumerPage() {
   };
 
   const handleUserRegistered = (user: any, orderId?: string) => {
-    console.log('ConsumerPage: User registered:', user, 'with orderId:', orderId);
     setCurrentUser(user);
     setIsUserRegistered(true);
     setShowUserRegistration(false);
@@ -377,7 +319,6 @@ export default function ConsumerPage() {
     
     // If an order ID was provided (incomplete order found), use it
     if (orderId && isValidParcel) {
-      console.log('ConsumerPage: Restoring incomplete order:', orderId);
       setParcelOrderId(orderId);
       // Store the order ID for this user
       localStorage.setItem(`user_order_${user.mobileNumber}`, orderId);
@@ -385,7 +326,6 @@ export default function ConsumerPage() {
       // Check if user has an existing order by mobile number
       const existingOrderId = localStorage.getItem(`user_order_${user.mobileNumber}`);
       if (existingOrderId) {
-        console.log('ConsumerPage: Found existing order for user mobile:', existingOrderId);
         setParcelOrderId(existingOrderId);
       }
     }
@@ -482,7 +422,6 @@ export default function ConsumerPage() {
 
   // Show loading only if we're still checking for user or table orders, but not if table is occupied or redirecting (show dialog instead)
   if ((!isUserRegistered && !showUserRegistration) || (isValidTable && userTableOrdersLoading && !isTableOccupied && !showRedirectMessage)) {
-    console.log('ConsumerPage: Showing loading screen - isUserRegistered:', isUserRegistered, 'showUserRegistration:', showUserRegistration, 'userTableOrdersLoading:', userTableOrdersLoading, 'isTableOccupied:', isTableOccupied, 'showRedirectMessage:', showRedirectMessage);
     return (
       <Box
         sx={{
@@ -596,17 +535,6 @@ export default function ConsumerPage() {
     );
   }
 
-  // Debug logging
-  console.log('ConsumerPage: Current state:', {
-    orderId,
-    parcelOrderId,
-    orderIdValue,
-    currentUser: currentUser?.mobileNumber,
-    isValidParcel,
-    orderType,
-    showUserRegistration,
-    isUserRegistered
-  });
 
   return (
     <>
@@ -670,7 +598,11 @@ export default function ConsumerPage() {
             </Box>
 
             <Box sx={{ backgroundColor: '#fff', minHeight: '60vh', overflow: 'visible' }}>
-              <TabPanel value={activeTab} index={0}>
+              <TabPanel 
+                value={activeTab} 
+                index={0}
+                sx={{ p: { xs: 2, sm: 3, md: 4 }, overflow: 'visible' }}
+              >
                 <MenuTab 
                   tableNumber={tableNum} 
                   orderId={orderIdValue} 
@@ -682,7 +614,11 @@ export default function ConsumerPage() {
                 />
               </TabPanel>
 
-              <TabPanel value={activeTab} index={1}>
+              <TabPanel 
+                value={activeTab} 
+                index={1}
+                sx={{ p: { xs: 2, sm: 3, md: 4 }, overflow: 'visible' }}
+              >
                 <InvoiceTab 
                   tableNumber={tableNum} 
                   orderId={orderIdValue} 

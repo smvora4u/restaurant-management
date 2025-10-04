@@ -36,7 +36,7 @@ import { formatFullDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import Layout from '../components/Layout';
 import OrderItemsTable from '../components/orders/OrderItemsTable';
-import { GET_ORDER_BY_ID_FOR_RESTAURANT } from '../graphql/queries/restaurant';
+import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { 
   UPDATE_ORDER
@@ -66,7 +66,7 @@ export default function RestaurantOrderManagement() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   // Queries
-  const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID_FOR_RESTAURANT, {
+  const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID, {
     variables: { id: orderId },
     skip: !orderId
   });
@@ -100,18 +100,13 @@ export default function RestaurantOrderManagement() {
     const restaurantData = localStorage.getItem('restaurant');
     const restaurantToken = localStorage.getItem('restaurantToken');
     
-    console.log('Restaurant data from localStorage:', restaurantData);
-    console.log('Restaurant token from localStorage:', restaurantToken);
-    
     if (!restaurantData || !restaurantToken) {
-      console.log('Missing restaurant data or token, redirecting to login');
       navigate('/restaurant/login');
       return;
     }
     
     if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
       const parsedRestaurant = JSON.parse(restaurantData);
-      console.log('Parsed restaurant data:', parsedRestaurant);
       setRestaurant(parsedRestaurant);
     }
   }, [navigate]);
@@ -167,7 +162,6 @@ export default function RestaurantOrderManagement() {
   const handleRemoveItem = (index: number) => {
     // Check if item status is not pending
     if (editingItems[index] && editingItems[index].status !== 'pending') {
-      console.warn('Cannot remove item: Item status is not pending');
       return; // Don't remove the item
     }
     

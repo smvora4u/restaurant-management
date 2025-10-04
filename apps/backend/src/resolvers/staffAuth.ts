@@ -8,10 +8,7 @@ export const staffAuthResolvers = {
   Mutation: {
     loginStaff: async (_: any, { email, password }: { email: string; password: string }) => {
       try {
-        console.log('Attempting staff login for:', email);
-        
         const staff = await Staff.findOne({ email, isActive: true });
-        console.log('Found staff:', staff ? 'Yes' : 'No');
         
         if (!staff) {
           // Check if staff exists but is inactive
@@ -23,19 +20,15 @@ export const staffAuthResolvers = {
         }
 
         const isValidPassword = await bcrypt.compare(password, staff.password);
-        console.log('Password valid:', isValidPassword);
         
         if (!isValidPassword) {
           throw new Error('Invalid password');
         }
 
         // Fetch restaurant data
-        console.log('Looking for restaurant with ID:', staff.restaurantId);
         const restaurant = await Restaurant.findById(staff.restaurantId);
-        console.log('Found restaurant:', restaurant ? 'Yes' : 'No');
         
         if (!restaurant) {
-          console.log('ERROR: Staff member has invalid restaurantId:', staff.restaurantId);
           throw new Error('Staff member is associated with a non-existent restaurant. Please contact administrator.');
         }
         
