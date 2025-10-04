@@ -195,7 +195,7 @@ export const typeDefs = `#graphql
     
     # Staff Management
     createStaff(input: StaffInput!): Staff!
-    updateStaff(id: ID!, input: StaffInput!): Staff!
+    updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
     deactivateStaff(id: ID!): Staff!
     
     # Staff Order Management
@@ -237,6 +237,14 @@ export const typeDefs = `#graphql
     email: String!
     password: String!
     restaurantId: ID!
+    role: String
+    permissions: [String!]
+  }
+
+  input UpdateStaffInput {
+    name: String
+    email: String
+    password: String
     role: String
     permissions: [String!]
   }

@@ -16,7 +16,7 @@ export const CREATE_STAFF = gql`
 `;
 
 export const UPDATE_STAFF = gql`
-  mutation UpdateStaff($id: ID!, $input: StaffInput!) {
+  mutation UpdateStaff($id: ID!, $input: UpdateStaffInput!) {
     updateStaff(id: $id, input: $input) {
       id
       name

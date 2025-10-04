@@ -149,16 +149,38 @@ export const staffAuthResolvers = {
       }
     },
 
-    updateStaff: async (_: any, { id, input }: { id: string; input: Partial<StaffInput> }) => {
+    updateStaff: async (_: any, { id, input }: { id: string; input: any }) => {
       try {
+        // Find the staff member first
+        const existingStaff = await Staff.findById(id);
+        if (!existingStaff) {
+          throw new Error('Staff not found');
+        }
+
+        // Prepare update data
+        const updateData: any = {
+          ...input,
+          updatedAt: new Date()
+        };
+
+        // Handle password update - hash if provided
+        if (input.password && input.password.trim() !== '') {
+          // Hash the password manually since findByIdAndUpdate doesn't trigger pre-save hook
+          updateData.password = await bcrypt.hash(input.password, 10);
+        } else {
+          // Don't update password if empty
+          delete updateData.password;
+        }
+
+        // Update the staff member
         const staff = await Staff.findByIdAndUpdate(
           id,
-          { ...input, updatedAt: new Date() },
+          updateData,
           { new: true }
         );
 
         if (!staff) {
-          throw new Error('Staff not found');
+          throw new Error('Failed to update staff');
         }
 
         return {

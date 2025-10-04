@@ -123,6 +123,7 @@ export default function StaffManagement() {
   const handleOpenDialog = (mode: 'create' | 'edit', staffMember?: any) => {
     setDialogMode(mode);
     if (mode === 'edit' && staffMember) {
+      setSelectedStaff(staffMember); // Set the selected staff member
       setFormData({
         name: staffMember.name,
         email: staffMember.email,
@@ -131,6 +132,7 @@ export default function StaffManagement() {
         permissions: staffMember.permissions
       });
     } else {
+      setSelectedStaff(null); // Clear selected staff for create mode
       resetForm();
     }
     setOpenDialog(true);
@@ -151,20 +153,32 @@ export default function StaffManagement() {
       return;
     }
 
-    const input = {
-      ...formData,
-      restaurantId: restaurant.id,
-      permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
-    };
-
     try {
       if (dialogMode === 'create') {
+        const input = {
+          ...formData,
+          restaurantId: restaurant.id,
+          permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
+        };
         await createStaff({ variables: { input } });
       } else {
+        // For editing, don't include restaurantId - it shouldn't change
+        if (!selectedStaff || !selectedStaff.id) {
+          console.error('No staff member selected for editing');
+          return;
+        }
+        
+        const input = {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role),
+          password: formData.password || undefined
+        };
         await updateStaff({ 
           variables: { 
             id: selectedStaff.id, 
-            input: { ...input, password: formData.password || undefined }
+            input: input
           } 
         });
       }
@@ -435,7 +449,11 @@ export default function StaffManagement() {
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={() => { handleOpenDialog('edit', selectedStaff); handleMenuClose(); }}>
+          <MenuItem onClick={() => { 
+            const staffToEdit = selectedStaff; // Store the selected staff before closing menu
+            handleMenuClose(); // Close menu first
+            handleOpenDialog('edit', staffToEdit); // Then open edit dialog
+          }}>
             <Edit sx={{ mr: 1 }} />
             Edit
           </MenuItem>
