@@ -26,6 +26,7 @@ import { useOrderManagement } from '../hooks/useOrderManagement';
 import { useOrderStatus } from '../hooks/useOrderStatus';
 import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
+import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
@@ -109,6 +110,20 @@ export default function StaffOrderManagement() {
       setSnackbarMessage(`Error updating status: ${error.message}`);
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+    }
+  });
+
+  // Set up real-time subscriptions
+  useOrderSubscriptions({
+    restaurantId: staff?.restaurantId || '',
+    onOrderUpdated: (_updatedOrder) => {
+      refetch();
+    },
+    onOrderItemStatusUpdated: (_updatedOrder) => {
+      refetch();
+    },
+    onNewOrder: (newOrder) => {
+      console.log('New order received:', newOrder);
     }
   });
 

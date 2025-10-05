@@ -1,5 +1,6 @@
 import { MenuItem, Table, Order, Reservation, User } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
+import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder } from './subscriptions.js';
 
 export const mutationResolvers = {
   // Menu Item mutations
@@ -134,17 +135,23 @@ export const mutationResolvers = {
       status: input.status || 'pending'
     });
     
-    return await order.save();
+    const savedOrder = await order.save();
+    await publishNewOrder(savedOrder);
+    return savedOrder;
   },
   updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
-    return await Order.findOneAndUpdate(
+    const updatedOrder = await Order.findOneAndUpdate(
       { _id: id, restaurantId: context.restaurant.id }, 
       { ...input, updatedAt: new Date() }, 
       { new: true }
     );
+    if (updatedOrder) {
+      await publishOrderUpdated(updatedOrder);
+    }
+    return updatedOrder;
   },
   updateOrderItemStatus: async (_: any, { orderId, itemIndex, status }: { orderId: string; itemIndex: number; status: string }, context: GraphQLContext) => {
     if (!context.restaurant) {
@@ -183,7 +190,9 @@ export const mutationResolvers = {
     }
     
     order.updatedAt = new Date();
-    return await order.save();
+    const savedOrder = await order.save();
+    await publishOrderItemStatusUpdated(savedOrder);
+    return savedOrder;
   },
   deleteOrder: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant) {

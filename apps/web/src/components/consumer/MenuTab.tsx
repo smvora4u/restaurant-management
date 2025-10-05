@@ -41,6 +41,7 @@ import {
 } from '../../graphql/queries/orders';
 import { getStatusChipColor } from '../../utils/statusColors';
 import { formatCurrencyFromContext } from '../../utils/currency';
+import { useOrderSubscriptions } from '../../hooks/useOrderSubscriptions';
 
 
 interface MenuItem {
@@ -144,6 +145,44 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   
   const currentOrderData = tableOrderData?.orderByTable || parcelOrderData?.orderById || currentUserOrder;
   const refetch = refetchTableOrder || refetchParcelOrder || refetchMobileOrders || refetchSessionOrders;
+
+  // Get restaurant ID for subscriptions
+  const getRestaurantId = () => {
+    if (currentOrderData?.restaurantId) {
+      return currentOrderData.restaurantId;
+    }
+    // Try to get from localStorage as fallback
+    const currentRestaurant = localStorage.getItem('currentRestaurant');
+    if (currentRestaurant) {
+      try {
+        const restaurant = JSON.parse(currentRestaurant);
+        return restaurant.id;
+      } catch (error) {
+        console.error('Error parsing restaurant context:', error);
+      }
+    }
+    return null;
+  };
+
+  const restaurantId = getRestaurantId();
+
+  // Set up real-time subscriptions
+  useOrderSubscriptions({
+    restaurantId: restaurantId || '',
+    onOrderUpdated: (_updatedOrder) => {
+      if (refetch) {
+        refetch();
+      }
+    },
+    onOrderItemStatusUpdated: (_updatedOrder) => {
+      if (refetch) {
+        refetch();
+      }
+    },
+    onNewOrder: (newOrder) => {
+      console.log('New order received:', newOrder);
+    }
+  });
 
 
   const handleAddToCart = (itemId: string) => {

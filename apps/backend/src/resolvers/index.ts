@@ -5,6 +5,7 @@ import { adminAuthResolvers } from './adminAuth.js';
 import { adminQueries, adminMutations } from './adminManagement.js';
 import { staffAuthResolvers } from './staffAuth.js';
 import { staffManagementResolvers } from './staffManagement.js';
+import { subscriptionResolvers } from './subscriptions.js';
 
 export const resolvers = {
   Query: {
@@ -19,5 +20,8 @@ export const resolvers = {
     ...adminMutations,
     ...staffAuthResolvers.Mutation,
     ...staffManagementResolvers.Mutation,
+  },
+  Subscription: {
+    ...subscriptionResolvers.Subscription,
   },
 };

@@ -44,6 +44,7 @@ import {
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
 import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
+import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
@@ -91,6 +92,44 @@ export default function RestaurantOrderManagement() {
     },
     onError: (error) => {
       console.error('Error updating order status:', error);
+    }
+  });
+
+  // Get restaurant ID for subscriptions
+  const restaurantId = data?.orderById?.restaurantId || '';
+  console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
+
+  // Also try to get restaurant ID from localStorage as fallback
+  const getRestaurantIdFromAuth = () => {
+    const restaurantData = localStorage.getItem('restaurant');
+    if (restaurantData) {
+      try {
+        const restaurant = JSON.parse(restaurantData);
+        return restaurant.id;
+      } catch (error) {
+        console.error('Error parsing restaurant data:', error);
+      }
+    }
+    return '';
+  };
+
+  const authRestaurantId = getRestaurantIdFromAuth();
+  const finalRestaurantId = restaurantId || authRestaurantId;
+  console.log('Restaurant page - final restaurantId:', finalRestaurantId);
+
+  // Set up real-time subscriptions
+  useOrderSubscriptions({
+    restaurantId: finalRestaurantId,
+    onOrderUpdated: (updatedOrder) => {
+      console.log('Restaurant page - Order updated received:', updatedOrder);
+      refetch();
+    },
+    onOrderItemStatusUpdated: (updatedOrder) => {
+      console.log('Restaurant page - Order item status updated received:', updatedOrder);
+      refetch();
+    },
+    onNewOrder: (newOrder) => {
+      console.log('Restaurant page - New order received:', newOrder);
     }
   });
 

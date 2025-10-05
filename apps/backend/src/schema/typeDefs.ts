@@ -334,4 +334,10 @@ export const typeDefs = `#graphql
     success: Boolean!
     message: String!
   }
+
+  type Subscription {
+    orderUpdated(restaurantId: ID!): Order!
+    orderItemStatusUpdated(restaurantId: ID!): Order!
+    newOrder(restaurantId: ID!): Order!
+  }
 `;
