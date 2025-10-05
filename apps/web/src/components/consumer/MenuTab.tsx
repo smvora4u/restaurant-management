@@ -275,22 +275,20 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           return item;
         }).filter((item: OrderItem) => item.quantity > 0); // Remove items with 0 quantity
 
-        // Create a map of modified existing items for easy lookup
-        const modifiedItemsMap = new Map<string, OrderItem>();
-        modifiedExistingItems.forEach((item: OrderItem) => {
-          modifiedItemsMap.set(item.menuItemId, item);
-        });
-
         // Merge modified existing items with new cart items
         const mergedItems = [...modifiedExistingItems];
         
         cartItems.forEach(cartItem => {
-          const existingItem = modifiedItemsMap.get(cartItem.menuItemId);
-          if (existingItem) {
-            // Update quantity of existing item
-            existingItem.quantity += cartItem.quantity;
+          // Find existing pending item with same menuItemId
+          const existingPendingItem = mergedItems.find(item => 
+            item.menuItemId === cartItem.menuItemId && item.status === 'pending'
+          );
+          
+          if (existingPendingItem) {
+            // Merge with existing pending item
+            existingPendingItem.quantity += cartItem.quantity;
           } else {
-            // Add new item
+            // Add new item (no existing pending item found)
             mergedItems.push(cartItem);
           }
         });
