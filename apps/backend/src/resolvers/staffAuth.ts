@@ -219,5 +219,33 @@ export const staffAuthResolvers = {
         throw new Error(`Failed to deactivate staff: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    ,
+    activateStaff: async (_: any, { id }: { id: string }) => {
+      try {
+        const staff = await Staff.findByIdAndUpdate(
+          id,
+          { isActive: true, updatedAt: new Date() },
+          { new: true }
+        );
+
+        if (!staff) {
+          throw new Error('Staff not found');
+        }
+
+        return {
+          id: staff._id,
+          name: staff.name,
+          email: staff.email,
+          role: staff.role,
+          permissions: staff.permissions,
+          restaurantId: staff.restaurantId,
+          isActive: staff.isActive,
+          createdAt: staff.createdAt,
+          updatedAt: staff.updatedAt
+        };
+      } catch (error) {
+        throw new Error(`Failed to activate staff: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
 };

@@ -65,6 +65,7 @@ import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
+import { CREATE_STAFF, UPDATE_STAFF, DEACTIVATE_STAFF, ACTIVATE_STAFF } from '../graphql/mutations/staff';
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
 import { ConfirmationDialog, DataFreshnessIndicator, TabPanel, a11yProps } from '../components/common';
 import { useDataFreshness } from '../hooks/useDataFreshness';
@@ -105,6 +106,24 @@ export default function AdminDashboard() {
   
   // Staff management state
   const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
+  const [staffDialogOpen, setStaffDialogOpen] = useState(false);
+  const [staffDialogMode, setStaffDialogMode] = useState<'create' | 'edit'>('create');
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [staffFormData, setStaffFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'STAFF',
+    permissions: [] as string[],
+    isActive: true
+  });
+  const [staffToConfirm, setStaffToConfirm] = useState<any>(null);
+  const [staffConfirmOpen, setStaffConfirmOpen] = useState(false);
+  const [staffSnackbar, setStaffSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
   
   // Restaurant dialog state
   const [restaurantDialogOpen, setRestaurantDialogOpen] = useState(false);
@@ -133,6 +152,7 @@ export default function AdminDashboard() {
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
   const [sampleDataConfirmOpen, setSampleDataConfirmOpen] = useState(false);
   const [restaurantToAction, setRestaurantToAction] = useState<any>(null);
+  const [restaurantToggleReason, setRestaurantToggleReason] = useState('');
 
   // Queries
   const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS, {
@@ -185,6 +205,59 @@ export default function AdminDashboard() {
       });
     }
   });
+
+  // Staff mutations
+  const [createStaff, { loading: createStaffLoading }] = useMutation(CREATE_STAFF, {
+    onCompleted: () => {
+      setStaffDialogOpen(false);
+      setStaffSnackbar({ open: true, message: 'Staff created successfully!', severity: 'success' });
+    },
+    onError: (error) => {
+      setStaffSnackbar({ open: true, message: `Error creating staff: ${error.message}`, severity: 'error' });
+    },
+    refetchQueries: selectedRestaurant ? [{ query: GET_STAFF_BY_RESTAURANT, variables: { restaurantId: selectedRestaurant.id } }] : []
+  });
+
+  const [updateStaff, { loading: updateStaffLoading }] = useMutation(UPDATE_STAFF, {
+    onCompleted: () => {
+      setStaffDialogOpen(false);
+      setStaffSnackbar({ open: true, message: 'Staff updated successfully!', severity: 'success' });
+    },
+    onError: (error) => {
+      setStaffSnackbar({ open: true, message: `Error updating staff: ${error.message}`, severity: 'error' });
+    },
+    refetchQueries: selectedRestaurant ? [{ query: GET_STAFF_BY_RESTAURANT, variables: { restaurantId: selectedRestaurant.id } }] : []
+  });
+
+  const [deactivateStaff] = useMutation(DEACTIVATE_STAFF, {
+    onCompleted: () => {
+      setStaffConfirmOpen(false);
+      setStaffSnackbar({ open: true, message: 'Staff deactivated successfully!', severity: 'success' });
+    },
+    onError: (error) => {
+      setStaffSnackbar({ open: true, message: `Error updating staff: ${error.message}`, severity: 'error' });
+    },
+    refetchQueries: selectedRestaurant ? [{ query: GET_STAFF_BY_RESTAURANT, variables: { restaurantId: selectedRestaurant.id } }] : []
+  });
+  const [activateStaff] = useMutation(ACTIVATE_STAFF, {
+    onCompleted: () => {
+      setStaffConfirmOpen(false);
+      setStaffSnackbar({ open: true, message: 'Staff activated successfully!', severity: 'success' });
+    },
+    onError: (error) => {
+      setStaffSnackbar({ open: true, message: `Error activating staff: ${error.message}`, severity: 'error' });
+    },
+    refetchQueries: selectedRestaurant ? [{ query: GET_STAFF_BY_RESTAURANT, variables: { restaurantId: selectedRestaurant.id } }] : []
+  });
+
+  // Simple client-side audit logger (placeholder). Replace with backend call if needed.
+  const addAuditLog = (entry: { actorRole: string; action: string; entityType: string; entityId: string; reason?: string; details?: any }) => {
+    try {
+      const prev = JSON.parse(localStorage.getItem('auditLogs') || '[]');
+      const record = { ...entry, timestamp: new Date().toISOString() };
+      localStorage.setItem('auditLogs', JSON.stringify([record, ...prev].slice(0, 500)));
+    } catch {}
+  };
 
   const [updateRestaurant, { loading: updateRestaurantLoading }] = useMutation(UPDATE_RESTAURANT, {
     onCompleted: () => {
@@ -335,6 +408,15 @@ export default function AdminDashboard() {
         } 
       });
       
+      addAuditLog({
+        actorRole: 'ADMIN',
+        action: newStatus ? 'RESTAURANT_ACTIVATED' : 'RESTAURANT_DEACTIVATED',
+        entityType: 'RESTAURANT',
+        entityId: restaurantToAction.id,
+        reason: restaurantToggleReason,
+        details: { name: restaurantToAction.name, isActive: newStatus }
+      });
+
       setRestaurantSnackbar({
         open: true,
         message: `${restaurantToAction.name} has been ${newStatus ? 'activated' : 'deactivated'} successfully!`,
@@ -350,12 +432,14 @@ export default function AdminDashboard() {
     } finally {
       setDeactivateConfirmOpen(false);
       setRestaurantToAction(null);
+      setRestaurantToggleReason('');
     }
   };
 
   const handleCancelToggle = () => {
     setDeactivateConfirmOpen(false);
     setRestaurantToAction(null);
+    setRestaurantToggleReason('');
   };
 
   const handleCreateSampleData = (restaurantId: string) => {
@@ -395,6 +479,82 @@ export default function AdminDashboard() {
   const handleViewStaff = (restaurant: any) => {
     setSelectedRestaurant(restaurant);
     setActiveTab(2); // Switch to Staff tab
+  };
+
+  const handleOpenStaffDialog = (mode: 'create' | 'edit', staff?: any) => {
+    setStaffDialogMode(mode);
+    if (mode === 'edit' && staff) {
+      setEditingStaffId(staff.id);
+      setStaffFormData({
+        name: staff.name || '',
+        email: staff.email || '',
+        password: '',
+        role: staff.role || 'STAFF',
+        permissions: staff.permissions || [],
+        isActive: !!staff.isActive
+      });
+    } else {
+      setEditingStaffId(null);
+      setStaffFormData({ name: '', email: '', password: '', role: 'STAFF', permissions: [], isActive: true });
+    }
+    setStaffDialogOpen(true);
+  };
+
+  const handleCloseStaffDialog = () => {
+    setStaffDialogOpen(false);
+    setEditingStaffId(null);
+  };
+
+  const handleStaffFormChange = (field: string, value: any) => {
+    setStaffFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleStaffSubmit = () => {
+    if (!selectedRestaurant) {
+      setStaffSnackbar({ open: true, message: 'Select a restaurant first', severity: 'warning' });
+      return;
+    }
+    if (staffDialogMode === 'create') {
+      createStaff({ variables: { input: { ...staffFormData, restaurantId: selectedRestaurant.id } } });
+    } else if (editingStaffId) {
+      const { password, ...updateData } = staffFormData;
+      const input: any = { ...updateData };
+      if (password) input.password = password;
+      updateStaff({ variables: { id: editingStaffId, input } });
+    }
+  };
+
+  const handleDeactivateStaff = (staff: any) => {
+    setStaffToConfirm(staff);
+    setStaffConfirmOpen(true);
+  };
+
+  const [staffConfirmReason, setStaffConfirmReason] = useState('');
+  const confirmDeactivateStaff = async () => {
+    if (!staffToConfirm) return;
+    if (staffToConfirm.isActive) {
+      await deactivateStaff({ variables: { id: staffToConfirm.id } });
+      addAuditLog({
+        actorRole: 'ADMIN',
+        action: 'STAFF_DEACTIVATED',
+        entityType: 'STAFF',
+        entityId: staffToConfirm.id,
+        reason: staffConfirmReason,
+        details: { name: staffToConfirm.name, email: staffToConfirm.email }
+      });
+    } else {
+      await activateStaff({ variables: { id: staffToConfirm.id } });
+      addAuditLog({
+        actorRole: 'ADMIN',
+        action: 'STAFF_ACTIVATED',
+        entityType: 'STAFF',
+        entityId: staffToConfirm.id,
+        reason: staffConfirmReason,
+        details: { name: staffToConfirm.name, email: staffToConfirm.email }
+      });
+    }
+    setStaffToConfirm(null);
+    setStaffConfirmReason('');
   };
 
   // Restaurant dialog handlers
@@ -976,12 +1136,13 @@ export default function AdminDashboard() {
                         })()}
                       </TableCell>
                         <TableCell>
-                          <IconButton size="small">
-                            <Visibility />
-                          </IconButton>
-                          <IconButton size="small">
-                            <Edit />
-                          </IconButton>
+                          <Tooltip title="View Details">
+                            <span>
+                              <IconButton size="small">
+                                <Visibility />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1057,6 +1218,7 @@ export default function AdminDashboard() {
                   variant="contained"
                   startIcon={<PersonAdd />}
                   sx={{ mb: 2 }}
+                  onClick={() => handleOpenStaffDialog('create')}
                 >
                   Add Staff Member
                 </Button>
@@ -1111,12 +1273,16 @@ export default function AdminDashboard() {
                               {formatDate(staffMember.createdAt)}
                             </TableCell>
                             <TableCell>
-                              <IconButton size="small">
-                                <Edit />
-                              </IconButton>
-                              <IconButton size="small">
-                                <Delete />
-                              </IconButton>
+                              <Tooltip title="Edit Staff">
+                                <IconButton size="small" onClick={() => handleOpenStaffDialog('edit', staffMember)}>
+                                  <Edit />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={staffMember.isActive ? 'Deactivate Staff' : 'Activate Staff'}>
+                                <IconButton size="small" onClick={() => handleDeactivateStaff(staffMember)}>
+                                  <Delete />
+                                </IconButton>
+                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1377,6 +1543,96 @@ export default function AdminDashboard() {
         </DialogActions>
       </Dialog>
 
+      {/* Staff Dialog */}
+      <Dialog open={staffDialogOpen} onClose={handleCloseStaffDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{staffDialogMode === 'create' ? 'Add Staff Member' : 'Edit Staff Member'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Name"
+              value={staffFormData.name}
+              onChange={(e) => handleStaffFormChange('name', e.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={staffFormData.email}
+              onChange={(e) => handleStaffFormChange('email', e.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={staffFormData.password}
+              onChange={(e) => handleStaffFormChange('password', e.target.value)}
+              fullWidth
+              required={staffDialogMode === 'create'}
+              helperText={staffDialogMode === 'edit' ? 'Leave blank to keep current password' : 'Required for new staff'}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={staffFormData.role}
+                label="Role"
+                onChange={(e) => handleStaffFormChange('role', e.target.value)}
+              >
+                <MenuItem value="STAFF">Staff</MenuItem>
+                <MenuItem value="MANAGER">Manager</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStaffDialog}>Cancel</Button>
+          <Button 
+            onClick={handleStaffSubmit} 
+            variant="contained"
+            disabled={createStaffLoading || updateStaffLoading}
+          >
+            {createStaffLoading || updateStaffLoading ? <CircularProgress size={20} /> : (staffDialogMode === 'create' ? 'Create' : 'Update')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Staff Activate/Deactivate Confirmation */}
+      <ConfirmationDialog
+        open={staffConfirmOpen}
+        onClose={() => setStaffConfirmOpen(false)}
+        onConfirm={confirmDeactivateStaff}
+        title={staffToConfirm?.isActive ? 'Deactivate Staff' : 'Activate Staff'}
+        message={
+          <Box>
+            <Typography variant="body1">
+              Are you sure you want to {staffToConfirm?.isActive ? 'deactivate' : 'activate'} <strong>{staffToConfirm?.name}</strong>?
+            </Typography>
+            <TextField
+              fullWidth
+              label="Reason (optional)"
+              value={staffConfirmReason}
+              onChange={(e) => setStaffConfirmReason(e.target.value)}
+              sx={{ mt: 2 }}
+            />
+          </Box>
+        }
+        confirmText={staffToConfirm?.isActive ? 'Deactivate' : 'Activate'}
+        cancelText="Cancel"
+        confirmColor={staffToConfirm?.isActive ? 'error' : 'success'}
+      />
+
+      {/* Staff Snackbar */}
+      {staffSnackbar.open && (
+        <Alert
+          severity={staffSnackbar.severity}
+          onClose={() => setStaffSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ position: 'fixed', bottom: 80, right: 20, zIndex: 9999 }}
+        >
+          {staffSnackbar.message}
+        </Alert>
+      )}
+
       {/* Snackbar for notifications */}
       {restaurantSnackbar.open && (
         <Alert
@@ -1405,6 +1661,13 @@ export default function AdminDashboard() {
                 : "This will allow the restaurant to log in and access their dashboard."
               }
             </Typography>
+            <TextField
+              fullWidth
+              label="Reason (optional)"
+              value={restaurantToggleReason}
+              onChange={(e) => setRestaurantToggleReason(e.target.value)}
+              sx={{ mt: 2 }}
+            />
           </Box>
         }
         confirmText={restaurantToAction?.isActive ? "Deactivate" : "Activate"}

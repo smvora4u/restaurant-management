@@ -39,6 +39,15 @@ export const DEACTIVATE_STAFF = gql`
   }
 `;
 
+export const ACTIVATE_STAFF = gql`
+  mutation ActivateStaff($id: ID!) {
+    activateStaff(id: $id) {
+      id
+      isActive
+    }
+  }
+`;
+
 export const UPDATE_ORDER_STATUS_FOR_STAFF = gql`
   mutation UpdateOrderStatusForStaff($id: ID!, $status: String!) {
     updateOrderStatusForStaff(id: $id, status: $status) {

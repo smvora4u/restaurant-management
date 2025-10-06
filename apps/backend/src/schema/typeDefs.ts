@@ -197,6 +197,7 @@ export const typeDefs = `#graphql
     createStaff(input: StaffInput!): Staff!
     updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
     deactivateStaff(id: ID!): Staff!
+    activateStaff(id: ID!): Staff!
     
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
