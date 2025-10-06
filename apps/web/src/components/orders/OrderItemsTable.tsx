@@ -115,6 +115,10 @@ export default function OrderItemsTable({
 
   const handleAddItem = () => {
     if (selectedMenuItemId && newItemQuantity > 0) {
+      const menuItem = getMenuItemDetails(selectedMenuItemId);
+      if (!menuItem?.available) {
+        return; // silently ignore or optionally show feedback via parent in future
+      }
       onAddItem(selectedMenuItemId, newItemQuantity, newItemSpecialInstructions);
       setAddItemDialogOpen(false);
       setSelectedMenuItemId('');
@@ -351,8 +355,8 @@ export default function OrderItemsTable({
                 label="Menu Item"
               >
                 {menuItems.map((item: any) => (
-                  <MenuItem key={item.id} value={item.id}>
-                    {item.name} - {formatCurrencyFromRestaurant(item.price, restaurant)}
+                  <MenuItem key={item.id} value={item.id} disabled={!item.available}>
+                    {item.name} - {formatCurrencyFromRestaurant(item.price, restaurant)} {item.available ? '' : '(Unavailable)'}
                   </MenuItem>
                 ))}
               </Select>

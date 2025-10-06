@@ -56,7 +56,7 @@ export default function StaffOrderManagement() {
     }
   }, [orderError]);
 
-  const { data: menuData } = useQuery(GET_MENU_ITEMS);
+  const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
 
   // Custom hooks for order management
   const {

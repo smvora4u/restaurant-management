@@ -81,7 +81,7 @@ export default function RestaurantOrderManagement() {
     }
   }, [error]);
 
-  const { data: menuData } = useQuery(GET_MENU_ITEMS);
+  const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
   const menuItems = menuData?.menuItems || [];
 
   // Mutations

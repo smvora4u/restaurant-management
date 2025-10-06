@@ -84,7 +84,10 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   const [hasOrderModifications, setHasOrderModifications] = useState(false);
 
 
-  const { data, loading, error } = useQuery(GET_MENU_ITEMS);
+  const { data, loading, error } = useQuery(GET_MENU_ITEMS, {
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 5000
+  });
   const [createOrder, { loading: orderLoading }] = useMutation(CREATE_ORDER);
   const [updateOrder, { loading: updateLoading }] = useMutation(UPDATE_ORDER);
   
@@ -186,6 +189,11 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
 
 
   const handleAddToCart = (itemId: string) => {
+    const item = data?.menuItems?.find((mi: MenuItem) => mi.id === itemId);
+    if (!item || !item.available) {
+      setOrderError('This item is currently unavailable.');
+      return;
+    }
     setCart(prev => ({
       ...prev,
       [itemId]: (prev[itemId] || 0) + 1
@@ -292,12 +300,21 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           status: item.status || 'pending' // Include status field
         }));
 
+        const unavailableInCart = Object.entries(cart).filter(([itemId]) => {
+          const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId);
+          return !item || !item.available;
+        });
+        if (unavailableInCart.length > 0) {
+          setOrderError('Some items in your cart became unavailable. Please review your cart.');
+          return;
+        }
+
         const cartItems = Object.entries(cart).map(([itemId, quantity]) => {
-          const item = data.menuItems.find((item: MenuItem) => item.id === itemId);
+          const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId)!;
           return {
             menuItemId: itemId,
             quantity,
-            price: item?.price || 0,
+            price: item.price,
             status: 'pending'
           };
         });
@@ -446,12 +463,20 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
         }
       } else {
         // Create new order (for parcel orders or when no existing order)
+        const unavailableInCart = Object.entries(cart).filter(([itemId]) => {
+          const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId);
+          return !item || !item.available;
+        });
+        if (unavailableInCart.length > 0) {
+          setOrderError('Some items in your cart became unavailable. Please review your cart.');
+          return;
+        }
         const orderItems = Object.entries(cart).map(([itemId, quantity]) => {
-          const item = data.menuItems.find((item: MenuItem) => item.id === itemId);
+          const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId)!;
           return {
             menuItemId: itemId,
             quantity,
-            price: item?.price || 0,
+            price: item.price,
             status: 'pending'
           };
         });
