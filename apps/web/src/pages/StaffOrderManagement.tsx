@@ -270,6 +270,7 @@ export default function StaffOrderManagement() {
               onRemoveItem={handleRemoveItem}
               onAddItem={handleAddItemWrapper}
               isEditing={true}
+              restrictCancelToPending={true}
             />
           </CardContent>
         </Card>

@@ -45,6 +45,7 @@ interface OrderItemsTableProps {
   onSaveChanges?: () => void;
   hasUnsavedChanges?: boolean;
   isSaving?: boolean;
+  restrictCancelToPending?: boolean;
 }
 
 const getStatusColor = (status: ItemStatus) => {
@@ -81,7 +82,8 @@ export default function OrderItemsTable({
   onToggleEdit,
   onSaveChanges,
   hasUnsavedChanges = false,
-  isSaving = false
+  isSaving = false,
+  restrictCancelToPending = false
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -263,7 +265,7 @@ export default function OrderItemsTable({
                   {isEditing && (
                     <TableCell>
                       <Tooltip 
-                        title={item.status !== 'pending' ? 'Cannot delete item once status changes from pending' : 'Delete item'}
+                        title={(restrictCancelToPending && item.status !== 'pending') ? 'Cannot delete item once status changes from pending' : 'Delete item'}
                         arrow
                       >
                         <span>
@@ -271,7 +273,7 @@ export default function OrderItemsTable({
                             size="small"
                             color="error"
                             onClick={() => onRemoveItem(index)}
-                            disabled={item.status !== 'pending'}
+                            disabled={restrictCancelToPending ? (item.status !== 'pending') : false}
                           >
                             <Delete />
                           </IconButton>
