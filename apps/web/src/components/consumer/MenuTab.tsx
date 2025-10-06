@@ -652,6 +652,22 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                             fontWeight: 500
                           }}
                         />
+                        {!canEdit && (
+                          <Chip
+                            label={`Qty: ${currentQuantity}`}
+                            size="small"
+                            sx={{
+                              fontSize: '0.7rem',
+                              height: '20px',
+                              ml: 0.5,
+                              bgcolor: 'grey.100',
+                              color: 'text.primary',
+                              border: '1px solid',
+                              borderColor: 'grey.300',
+                              fontWeight: 600
+                            }}
+                          />
+                        )}
                       </Box>
                     }
                     secondary={`${formatCurrencyFromContext(item.price)} each`}
