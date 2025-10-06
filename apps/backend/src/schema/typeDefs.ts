@@ -340,5 +340,45 @@ export const typeDefs = `#graphql
     orderUpdated(restaurantId: ID!): Order!
     orderItemStatusUpdated(restaurantId: ID!): Order!
     newOrder(restaurantId: ID!): Order!
+    auditLogCreated: AuditLog!
+    restaurantUpdated: Restaurant!
+    staffUpdated(restaurantId: ID!): Staff!
+    platformAnalyticsUpdated: PlatformAnalytics!
+  }
+
+  type AuditLog {
+    id: ID!
+    actorRole: String!
+    actorId: ID
+    action: String!
+    entityType: String!
+    entityId: ID!
+    reason: String
+    details: JSON
+    restaurantId: ID
+    ip: String
+    userAgent: String
+    createdAt: String!
+  }
+
+  scalar JSON
+
+  input CreateAuditLogInput {
+    actorRole: String!
+    actorId: ID
+    action: String!
+    entityType: String!
+    entityId: ID!
+    reason: String
+    details: JSON
+    restaurantId: ID
+  }
+
+  extend type Query {
+    auditLogs(limit: Int, offset: Int, action: String, entityType: String, restaurantId: ID): [AuditLog!]!
+  }
+
+  extend type Mutation {
+    createAuditLog(input: CreateAuditLogInput!): AuditLog!
   }
 `;

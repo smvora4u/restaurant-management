@@ -8,6 +8,10 @@ export const pubsub = new PubSub();
 export const ORDER_UPDATED = 'ORDER_UPDATED';
 export const ORDER_ITEM_STATUS_UPDATED = 'ORDER_ITEM_STATUS_UPDATED';
 export const NEW_ORDER = 'NEW_ORDER';
+export const AUDIT_LOG_CREATED = 'AUDIT_LOG_CREATED';
+export const RESTAURANT_UPDATED = 'RESTAURANT_UPDATED';
+export const STAFF_UPDATED = 'STAFF_UPDATED';
+export const PLATFORM_ANALYTICS_UPDATED = 'PLATFORM_ANALYTICS_UPDATED';
 
 export const subscriptionResolvers = {
   Subscription: {
@@ -32,6 +36,18 @@ export const subscriptionResolvers = {
       },
       resolve: (payload: IOrder) => payload,
     },
+    auditLogCreated: {
+      subscribe: () => pubsub.asyncIterator([AUDIT_LOG_CREATED])
+    },
+    restaurantUpdated: {
+      subscribe: () => pubsub.asyncIterator([RESTAURANT_UPDATED])
+    },
+    staffUpdated: {
+      subscribe: () => pubsub.asyncIterator([STAFF_UPDATED])
+    },
+    platformAnalyticsUpdated: {
+      subscribe: () => pubsub.asyncIterator([PLATFORM_ANALYTICS_UPDATED])
+    }
   },
 };
 
@@ -48,4 +64,20 @@ export const publishOrderItemStatusUpdated = async (order: IOrder) => {
 export const publishNewOrder = async (order: IOrder) => {
   console.log('Publishing new order event for restaurant:', order.restaurantId);
   await pubsub.publish(NEW_ORDER, order);
+};
+
+export const publishAuditLogCreated = async (log: any) => {
+  await pubsub.publish(AUDIT_LOG_CREATED, log);
+};
+
+export const publishRestaurantUpdated = async (restaurant: any) => {
+  await pubsub.publish(RESTAURANT_UPDATED, restaurant);
+};
+
+export const publishStaffUpdated = async (staff: any) => {
+  await pubsub.publish(STAFF_UPDATED, staff);
+};
+
+export const publishPlatformAnalyticsUpdated = async (analytics: any) => {
+  await pubsub.publish(PLATFORM_ANALYTICS_UPDATED, analytics);
 };

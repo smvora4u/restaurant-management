@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import { Staff, Restaurant } from '../models/index.js';
+import { Staff, Restaurant, AuditLog } from '../models/index.js';
+import { publishAuditLogCreated, publishStaffUpdated } from './subscriptions.js';
 import { StaffInput } from '../types/index.js';
 
 export const staffAuthResolvers = {
@@ -192,7 +193,7 @@ export const staffAuthResolvers = {
       }
     },
 
-    deactivateStaff: async (_: any, { id }: { id: string }) => {
+    deactivateStaff: async (_: any, { id }: { id: string }, __: any, info?: any) => {
       try {
         const staff = await Staff.findByIdAndUpdate(
           id,
@@ -204,7 +205,7 @@ export const staffAuthResolvers = {
           throw new Error('Staff not found');
         }
 
-        return {
+        const result = {
           id: staff._id,
           name: staff.name,
           email: staff.email,
@@ -215,6 +216,29 @@ export const staffAuthResolvers = {
           createdAt: staff.createdAt,
           updatedAt: staff.updatedAt
         };
+        try {
+          const log = await AuditLog.create({
+            actorRole: 'ADMIN',
+            action: 'STAFF_DEACTIVATED',
+            entityType: 'STAFF',
+            entityId: String(staff._id),
+            restaurantId: String(staff.restaurantId)
+          });
+          publishAuditLogCreated({
+            id: log._id,
+            actorRole: log.actorRole,
+            actorId: log.actorId,
+            action: log.action,
+            entityType: log.entityType,
+            entityId: log.entityId,
+            reason: log.reason,
+            details: log.details,
+            restaurantId: log.restaurantId,
+            createdAt: log.createdAt
+          });
+          publishStaffUpdated(result);
+        } catch {}
+        return result;
       } catch (error) {
         throw new Error(`Failed to deactivate staff: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -232,7 +256,7 @@ export const staffAuthResolvers = {
           throw new Error('Staff not found');
         }
 
-        return {
+        const result = {
           id: staff._id,
           name: staff.name,
           email: staff.email,
@@ -243,6 +267,29 @@ export const staffAuthResolvers = {
           createdAt: staff.createdAt,
           updatedAt: staff.updatedAt
         };
+        try {
+          const log = await AuditLog.create({
+            actorRole: 'ADMIN',
+            action: 'STAFF_ACTIVATED',
+            entityType: 'STAFF',
+            entityId: String(staff._id),
+            restaurantId: String(staff.restaurantId)
+          });
+          publishAuditLogCreated({
+            id: log._id,
+            actorRole: log.actorRole,
+            actorId: log.actorId,
+            action: log.action,
+            entityType: log.entityType,
+            entityId: log.entityId,
+            reason: log.reason,
+            details: log.details,
+            restaurantId: log.restaurantId,
+            createdAt: log.createdAt
+          });
+          publishStaffUpdated(result);
+        } catch {}
+        return result;
       } catch (error) {
         throw new Error(`Failed to activate staff: ${error instanceof Error ? error.message : String(error)}`);
       }

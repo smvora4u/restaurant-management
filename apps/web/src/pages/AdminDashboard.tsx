@@ -61,7 +61,7 @@ import {
 import { useQuery, useMutation } from '@apollo/client';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
-import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin';
+import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS } from '../graphql/queries/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
@@ -69,6 +69,127 @@ import { CREATE_STAFF, UPDATE_STAFF, DEACTIVATE_STAFF, ACTIVATE_STAFF } from '..
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
 import { ConfirmationDialog, DataFreshnessIndicator, TabPanel, a11yProps } from '../components/common';
 import { useDataFreshness } from '../hooks/useDataFreshness';
+import { useQuery as useGqlQuery, useSubscription } from '@apollo/client';
+import { AUDIT_LOG_CREATED_SUBSCRIPTION, RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION } from '../graphql/subscriptions/admin';
+
+function AuditLogsPanel() {
+  const [action, setAction] = React.useState<string>('');
+  const [entityType, setEntityType] = React.useState<string>('');
+  const [restaurantIdFilter, setRestaurantIdFilter] = React.useState<string>('');
+  const [page, setPage] = React.useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
+
+  const { data, loading, refetch, client } = useGqlQuery(GET_AUDIT_LOGS, {
+    variables: { limit: rowsPerPage, offset: page * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined },
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 5000
+  });
+
+  useSubscription(AUDIT_LOG_CREATED_SUBSCRIPTION, {
+    onData: ({ data: subData }) => {
+      const newLog = subData.data?.auditLogCreated;
+      if (!newLog) return;
+      // Only refresh when the new log matches filters
+      const matches = (
+        (!action || newLog.action === action) &&
+        (!entityType || newLog.entityType === entityType) &&
+        (!restaurantIdFilter || newLog.restaurantId === restaurantIdFilter)
+      );
+      if (matches) {
+        void refetch();
+      }
+    }
+  });
+
+  const logs = data?.auditLogs || [];
+
+  const handleExportCsv = () => {
+    const headers = ['createdAt', 'actorRole', 'actorId', 'action', 'entityType', 'entityId', 'reason', 'restaurantId'];
+    const rows = logs.map((l: any) => [l.createdAt, l.actorRole || '', l.actorId || '', l.action, l.entityType, l.entityId, (l.reason || '').replace(/\n|\r/g, ' '), l.restaurantId || '']);
+    const csv = [headers.join(','), ...rows.map(r => r.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit-logs-${new Date().toISOString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+        <Typography variant="h6">Audit Logs</Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Action</InputLabel>
+            <Select label="Action" value={action} onChange={(e) => { setAction(e.target.value); void refetch({ limit: rowsPerPage, offset: 0, action: e.target.value || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="RESTAURANT_UPDATED">RESTAURANT_UPDATED</MenuItem>
+              <MenuItem value="STAFF_ACTIVATED">STAFF_ACTIVATED</MenuItem>
+              <MenuItem value="STAFF_DEACTIVATED">STAFF_DEACTIVATED</MenuItem>
+              <MenuItem value="ORDER_UPDATED">ORDER_UPDATED</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Entity</InputLabel>
+            <Select label="Entity" value={entityType} onChange={(e) => { setEntityType(e.target.value); void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: e.target.value || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="RESTAURANT">RESTAURANT</MenuItem>
+              <MenuItem value="STAFF">STAFF</MenuItem>
+              <MenuItem value="ORDER">ORDER</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField size="small" label="Restaurant ID" value={restaurantIdFilter} onChange={(e) => setRestaurantIdFilter(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); } }} />
+          <Button variant="outlined" onClick={() => { void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>Apply</Button>
+          <Button variant="outlined" onClick={handleExportCsv}>Export CSV</Button>
+          <Button variant="outlined" onClick={() => void refetch()}>Refresh</Button>
+        </Box>
+      </Box>
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Time</TableCell>
+              <TableCell>Actor</TableCell>
+              <TableCell>Action</TableCell>
+              <TableCell>Entity</TableCell>
+              <TableCell>Reason</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5}><LinearProgress /></TableCell></TableRow>
+            ) : logs.length === 0 ? (
+              <TableRow><TableCell colSpan={5}><Alert severity="info">No logs</Alert></TableCell></TableRow>
+            ) : (
+              logs.map((log: any) => (
+                <TableRow key={log.id}>
+                  <TableCell>{formatDateTime(log.createdAt).date} {formatDateTime(log.createdAt).time}</TableCell>
+                  <TableCell>{log.actorRole || 'SYSTEM'}</TableCell>
+                  <TableCell>{log.action}</TableCell>
+                  <TableCell>{log.entityType} #{String(log.entityId).slice(-6)}</TableCell>
+                  <TableCell>{log.reason || '-'}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <TablePagination
+        component="div"
+        rowsPerPageOptions={[10, 25, 50]}
+        count={-1}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => { setPage(newPage); void refetch({ limit: rowsPerPage, offset: newPage * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); }}
+        onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetch({ limit: newRpp, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); }}
+      />
+    </Box>
+  );
+}
 
 
 export default function AdminDashboard() {
@@ -159,22 +280,35 @@ export default function AdminDashboard() {
     fetchPolicy: 'cache-and-network',
     pollInterval: 5000
   });
+  useSubscription(PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION, { onData: () => refetchAnalytics() });
   const { data: restaurantsData, loading: restaurantsLoading, refetch: refetchRestaurants } = useQuery(GET_ALL_RESTAURANTS, {
     fetchPolicy: 'cache-and-network',
     pollInterval: 5000
   });
+  useSubscription(RESTAURANT_UPDATED_SUBSCRIPTION, { onData: () => refetchRestaurants() });
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ALL_ORDERS, {
     variables: { limit: orderRowsPerPage, offset: orderPage * orderRowsPerPage },
     fetchPolicy: 'cache-and-network',
     pollInterval: 5000
   });
   
-  const { data: staffData, loading: staffLoading } = useQuery(GET_STAFF_BY_RESTAURANT, {
+  const { data: staffData, loading: staffLoading, refetch: refetchStaff } = useQuery(GET_STAFF_BY_RESTAURANT, {
     variables: { restaurantId: selectedRestaurant?.id },
     skip: !selectedRestaurant,
     fetchPolicy: 'cache-and-network',
     // Only poll when a restaurant is selected
     pollInterval: selectedRestaurant ? 5000 : 0
+  });
+  useSubscription(STAFF_UPDATED_SUBSCRIPTION, {
+    variables: { restaurantId: selectedRestaurant?.id || '' },
+    skip: !selectedRestaurant,
+    onData: () => {
+      // Trigger refetch to reflect updates
+      if (selectedRestaurant) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        (async () => { try { await refetchStaff(); } catch {} })();
+      }
+    }
   });
 
   // Mutations
@@ -859,6 +993,7 @@ export default function AdminDashboard() {
               <Tab icon={<Group />} label="Staff" {...a11yProps(2)} />
               <Tab icon={<Assessment />} label="Analytics" {...a11yProps(3)} />
               <Tab icon={<Settings />} label="Settings" {...a11yProps(4)} />
+              <Tab icon={<Assessment />} label="Audit Logs" {...a11yProps(5)} />
             </Tabs>
           </Box>
 
@@ -1424,6 +1559,11 @@ export default function AdminDashboard() {
                 </Card>
               </Grid>
             </Grid>
+          </TabPanel>
+
+          {/* Audit Logs Tab */}
+          <TabPanel value={activeTab} index={5} sx={{ p: 3 }}>
+            <AuditLogsPanel />
           </TabPanel>
         </Card>
       </Container>

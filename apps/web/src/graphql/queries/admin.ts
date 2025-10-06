@@ -39,3 +39,20 @@ export const GET_ALL_ORDERS = gql`
   }
 `;
 
+export const GET_AUDIT_LOGS = gql`
+  query GetAuditLogs($limit: Int, $offset: Int, $action: String, $entityType: String, $restaurantId: ID) {
+    auditLogs(limit: $limit, offset: $offset, action: $action, entityType: $entityType, restaurantId: $restaurantId) {
+      id
+      actorRole
+      actorId
+      action
+      entityType
+      entityId
+      reason
+      details
+      restaurantId
+      createdAt
+    }
+  }
+`;  
+

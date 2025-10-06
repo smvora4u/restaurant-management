@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { Admin, Restaurant, Order } from '../models/index.js';
+import { Admin, Restaurant, Order, AuditLog } from '../models/index.js';
+import { publishAuditLogCreated, publishRestaurantUpdated, publishPlatformAnalyticsUpdated } from './subscriptions.js';
 import { GraphQLContext } from '../types/index.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
 import { generateUniqueSlug } from '../utils/slugGenerator.js';
@@ -105,7 +106,35 @@ export const adminMutations = {
         updateData.password = await bcrypt.hash(updateData.password, 12);
       }
       
-      return await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
+      const updated = await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
+      if (updated) {
+        // publish events
+        await publishRestaurantUpdated(updated);
+        await publishPlatformAnalyticsUpdated({});
+        try {
+          const log = await AuditLog.create({
+            actorRole: 'ADMIN',
+            actorId: context.admin.id,
+            action: 'RESTAURANT_UPDATED',
+            entityType: 'RESTAURANT',
+            entityId: String(updated._id),
+            details: { fields: Object.keys(updateData) }
+          });
+          publishAuditLogCreated({
+            id: log._id,
+            actorRole: log.actorRole,
+            actorId: log.actorId,
+            action: log.action,
+            entityType: log.entityType,
+            entityId: log.entityId,
+            reason: log.reason,
+            details: log.details,
+            restaurantId: log.restaurantId,
+            createdAt: log.createdAt
+          });
+        } catch {}
+      }
+      return updated;
     },
     
     deleteRestaurant: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
