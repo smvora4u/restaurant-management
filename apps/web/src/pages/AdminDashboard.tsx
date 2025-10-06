@@ -135,15 +135,26 @@ export default function AdminDashboard() {
   const [restaurantToAction, setRestaurantToAction] = useState<any>(null);
 
   // Queries
-  const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS);
-  const { data: restaurantsData, loading: restaurantsLoading, refetch: refetchRestaurants } = useQuery(GET_ALL_RESTAURANTS);
+  const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS, {
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 5000
+  });
+  const { data: restaurantsData, loading: restaurantsLoading, refetch: refetchRestaurants } = useQuery(GET_ALL_RESTAURANTS, {
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 5000
+  });
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ALL_ORDERS, {
-    variables: { limit: orderRowsPerPage, offset: orderPage * orderRowsPerPage }
+    variables: { limit: orderRowsPerPage, offset: orderPage * orderRowsPerPage },
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 5000
   });
   
   const { data: staffData, loading: staffLoading } = useQuery(GET_STAFF_BY_RESTAURANT, {
     variables: { restaurantId: selectedRestaurant?.id },
-    skip: !selectedRestaurant
+    skip: !selectedRestaurant,
+    fetchPolicy: 'cache-and-network',
+    // Only poll when a restaurant is selected
+    pollInterval: selectedRestaurant ? 5000 : 0
   });
 
   // Mutations
