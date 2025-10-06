@@ -73,6 +73,10 @@ export const useOrderManagement = ({ orderId, originalOrder, restaurantId, onSuc
   const handleUpdateItemStatus = useCallback((itemIndex: number, status: string, quantity?: number) => {
     setEditingItems(prev => {
       const updated = [...prev];
+      // Allow cancelling only from pending or confirmed
+      if (status === 'cancelled' && !['pending', 'confirmed'].includes(updated[itemIndex]?.status)) {
+        return prev; // no changes
+      }
       if (quantity && quantity < updated[itemIndex].quantity) {
         // Split the item if updating partial quantity
         const remainingQuantity = updated[itemIndex].quantity - quantity;

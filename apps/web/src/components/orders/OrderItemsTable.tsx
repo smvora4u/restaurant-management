@@ -305,7 +305,17 @@ export default function OrderItemsTable({
                 <MenuItem value="preparing">Preparing</MenuItem>
                 <MenuItem value="ready">Ready</MenuItem>
                 <MenuItem value="served">Served</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
+                {/* Allow cancelling only from pending or confirmed */}
+                <MenuItem 
+                  value="cancelled" 
+                  disabled={
+                    selectedItemIndex !== null 
+                      ? !['pending', 'confirmed'].includes(items[selectedItemIndex].status)
+                      : true
+                  }
+                >
+                  Cancelled
+                </MenuItem>
               </Select>
             </FormControl>
             

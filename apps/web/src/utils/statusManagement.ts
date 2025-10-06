@@ -39,38 +39,47 @@ export const calculateOrderStatus = (items: Array<{ status: ItemStatus }>): Orde
   const servedCount = statusCounts.served || 0;
   const cancelledCount = statusCounts.cancelled || 0;
 
-  // If any items are cancelled, check if all are cancelled
-  if (cancelledCount > 0) {
-    return cancelledCount === totalItems ? 'cancelled' : 'pending';
+  // If all items are cancelled -> order cancelled
+  if (cancelledCount === totalItems) {
+    return 'cancelled';
   }
 
+  // For status calculation, ignore cancelled items
+  const effectiveTotal = totalItems - cancelledCount;
+  const allServed = servedCount === effectiveTotal && effectiveTotal > 0;
+  const allReady = readyCount === effectiveTotal && effectiveTotal > 0;
+  const allPreparing = preparingCount === effectiveTotal && effectiveTotal > 0;
+  const allConfirmed = confirmedCount === effectiveTotal && effectiveTotal > 0;
+  const allPending = pendingCount === effectiveTotal && effectiveTotal > 0;
+
   // If all items are served, order is completed
-  if (servedCount === totalItems) {
+  if (allServed) {
     return 'completed';
   }
 
   // If all items are ready, order is ready
-  if (readyCount === totalItems) {
+  if (allReady) {
     return 'ready';
   }
 
   // If all items are preparing, order is preparing
-  if (preparingCount === totalItems) {
+  if (allPreparing) {
     return 'preparing';
   }
 
   // If all items are confirmed, order is confirmed
-  if (confirmedCount === totalItems) {
+  if (allConfirmed) {
     return 'confirmed';
   }
 
   // If all items are pending, order is pending
-  if (pendingCount === totalItems) {
+  if (allPending) {
     return 'pending';
   }
 
   // Mixed statuses - determine the LEAST advanced status (most work still needed)
   // This ensures the order reflects the earliest stage of work remaining
+  // Ignore cancelled items when determining mixed status
   if (pendingCount > 0) return 'pending';
   if (confirmedCount > 0) return 'confirmed';
   if (preparingCount > 0) return 'preparing';
@@ -114,7 +123,8 @@ export const isValidStatusTransition = (
 
   // Cannot cancel served or completed items/orders
   if (newStatus === 'cancelled') {
-    return !['served', 'completed'].includes(currentStatus);
+    // Allow cancelling only from pending or confirmed
+    return ['pending', 'confirmed'].includes(currentStatus as ItemStatus | OrderStatus);
   }
 
   // Can't go backwards in the hierarchy
