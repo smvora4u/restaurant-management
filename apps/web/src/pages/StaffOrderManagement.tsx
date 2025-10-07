@@ -17,7 +17,7 @@ import {
   MenuItem,
   Button
 } from '@mui/material';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
 import OrderHeader from '../components/orders/OrderHeader';
 import OrderItemsTable from '../components/orders/OrderItemsTable';
@@ -27,6 +27,7 @@ import { useOrderStatus } from '../hooks/useOrderStatus';
 import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
+import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
@@ -57,6 +58,21 @@ export default function StaffOrderManagement() {
   }, [orderError]);
 
   const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
+
+  // Mutation for marking order as paid
+  const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
+    onCompleted: () => {
+      setSnackbarMessage('Order marked as paid.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      refetch();
+    },
+    onError: (e) => {
+      setSnackbarMessage(e.message);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  });
 
   // Custom hooks for order management
   const {
@@ -257,6 +273,20 @@ export default function StaffOrderManagement() {
           onCompleteOrder={handleCompleteOrderClick}
           onCancelOrder={handleCancelOrderClick}
         />
+
+        {/* Staff Mark Paid (permission-gated) */}
+        {(staff?.permissions || []).includes('mark_order_paid') && (
+          <Box sx={{ mb: 2 }}>
+            <Button 
+              variant="contained" 
+              color="success"
+              disabled={paying || order.status !== 'completed' || order.paid}
+              onClick={() => markPaid({ variables: { id: order.id } })}
+            >
+              {order.paid ? 'Paid' : 'Mark Paid'}
+            </Button>
+          </Box>
+        )}
 
         {/* Order Items Table */}
         <Card sx={{ mb: 3 }}>

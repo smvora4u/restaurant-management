@@ -94,3 +94,15 @@ export const PAY_ORDER = gql`
     }
   }
 `;
+
+export const MARK_ORDER_PAID = gql`
+  mutation MarkOrderPaid($id: ID!) {
+    markOrderPaid(id: $id) {
+      id
+      status
+      paid
+      paidAt
+      totalAmount
+    }
+  }
+`;

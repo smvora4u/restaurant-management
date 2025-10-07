@@ -460,7 +460,7 @@ export default function StaffManagement() {
                   Permissions
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics'].map((permission) => (
+                  {['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics', 'mark_order_paid'].map((permission) => (
                     <Chip
                       key={permission}
                       label={permission.replace('_', ' ')}

@@ -44,6 +44,7 @@ import {
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
 import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
+import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 
 export default function RestaurantOrderManagement() {
@@ -65,6 +66,19 @@ export default function RestaurantOrderManagement() {
   const [isSaving, setIsSaving] = useState(false);
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
+    onCompleted: () => {
+      setSnackbarMessage('Order marked as paid.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      refetch();
+    },
+    onError: (e) => {
+      setSnackbarMessage(e.message);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  });
 
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID, {
@@ -670,6 +684,16 @@ export default function RestaurantOrderManagement() {
                             {isCancelling ? 'Cancelling...' : 'Cancel Order'}
                           </Button>
                         )}
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={() => markPaid({ variables: { id: order.id } })}
+                          disabled={paying || order.status !== 'completed' || order.paid}
+                          startIcon={<CheckCircle />}
+                          size="small"
+                        >
+                          {order.paid ? 'Paid' : 'Mark Paid'}
+                        </Button>
                       </>
                     );
                   })()}

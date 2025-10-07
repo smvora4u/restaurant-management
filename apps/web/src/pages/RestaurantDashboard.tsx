@@ -18,7 +18,8 @@ import {
   QrCode,
   TakeoutDining,
   DeliveryDining,
-  OpenInNew
+  OpenInNew,
+  Payment
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
@@ -26,8 +27,6 @@ import { GET_TABLES } from '../graphql/queries/tables';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { GET_ORDERS } from '../graphql/queries/orders';
 import Layout from '../components/Layout';
-import { DataFreshnessIndicator } from '../components/common';
-import { useDataFreshness } from '../hooks/useDataFreshness';
 
 
 export default function RestaurantDashboard() {
@@ -44,31 +43,17 @@ export default function RestaurantDashboard() {
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS);
   const { data: tablesData, loading: tablesLoading, refetch: refetchTables } = useQuery(GET_TABLES);
 
-  // Data freshness management
-  const {
-    dataStaleWarning,
-    refetchAllData: refetchAllDataHook
-  } = useDataFreshness({
-    onStaleData: () => {
-      setSnackbar({
-        open: true,
-        message: 'Data might be outdated. Consider refreshing.',
-        severity: 'warning'
-      });
-    }
-  });
-
-  // Enhanced refetch function
+  // Simple refetch function
   const refetchAllData = async () => {
     try {
-      await refetchAllDataHook([
-        () => refetchMenu(),
-        () => refetchOrders(),
-        () => refetchTables()
+      await Promise.all([
+        refetchMenu(),
+        refetchOrders(),
+        refetchTables()
       ]);
       setSnackbar({
         open: true,
-        message: 'All data refreshed successfully!',
+        message: 'Data refreshed successfully!',
         severity: 'success'
       });
     } catch (error) {
@@ -119,11 +104,6 @@ export default function RestaurantDashboard() {
             {restaurant.name} - Dashboard
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <DataFreshnessIndicator
-              dataStaleWarning={dataStaleWarning}
-              onRefresh={refetchAllData}
-              position="header"
-            />
             <Chip
               label="RESTAURANT"
               color="primary"
@@ -245,6 +225,13 @@ export default function RestaurantDashboard() {
                 onClick={() => navigate('/restaurant/tables')}
               >
                 Manage Tables
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Payment />}
+                onClick={() => navigate('/restaurant/fees')}
+              >
+                Fees & Payments
               </Button>
             </Box>
           </Box>

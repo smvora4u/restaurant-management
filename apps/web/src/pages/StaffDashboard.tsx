@@ -34,8 +34,6 @@ import { useQuery } from '@apollo/client';
 import { formatDate } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
-import { DataFreshnessIndicator } from '../components/common';
-import { useDataFreshness } from '../hooks/useDataFreshness';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
 
@@ -60,27 +58,13 @@ export default function StaffDashboard() {
     skip: !staff?.restaurantId
   });
 
-  // Data freshness management
-  const {
-    dataStaleWarning,
-    refetchAllData: refetchAllDataHook
-  } = useDataFreshness({
-    onStaleData: () => {
-      setSnackbar({
-        open: true,
-        message: 'Data might be outdated. Consider refreshing.',
-        severity: 'warning'
-      });
-    }
-  });
-
-  // Enhanced refetch function
+  // Simple refetch function
   const refetchAllData = async () => {
     try {
-      await refetchAllDataHook([() => refetchOrders()]);
+      await refetchOrders();
       setSnackbar({
         open: true,
-        message: 'All data refreshed successfully!',
+        message: 'Data refreshed successfully!',
         severity: 'success'
       });
     } catch (error) {
@@ -203,11 +187,6 @@ export default function StaffDashboard() {
             >
               Create New Order
             </Button>
-            <DataFreshnessIndicator
-              dataStaleWarning={dataStaleWarning}
-              onRefresh={refetchAllData}
-              position="header"
-            />
           </Box>
         </Box>
 

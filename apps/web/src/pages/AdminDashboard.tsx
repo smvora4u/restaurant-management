@@ -56,21 +56,23 @@ import {
   Settings,
   PersonAdd,
   SupervisorAccount,
-  ToggleOff
+  ToggleOff,
+  Payment
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
-import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS } from '../graphql/queries/admin';
+import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS, GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS, GET_SETTLEMENTS, GET_DUE_FEES_SUMMARY } from '../graphql/queries/admin';
+import { SET_RESTAURANT_FEE_CONFIG, GENERATE_WEEKLY_SETTLEMENT, UPDATE_FEE_PAYMENT_STATUS } from '../graphql/mutations/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
 import { CREATE_STAFF, UPDATE_STAFF, DEACTIVATE_STAFF, ACTIVATE_STAFF } from '../graphql/mutations/staff';
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
-import { ConfirmationDialog, DataFreshnessIndicator, TabPanel, a11yProps } from '../components/common';
-import { useDataFreshness } from '../hooks/useDataFreshness';
+import { ConfirmationDialog, TabPanel, a11yProps } from '../components/common';
 import { useQuery as useGqlQuery, useSubscription } from '@apollo/client';
 import { AUDIT_LOG_CREATED_SUBSCRIPTION, RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION } from '../graphql/subscriptions/admin';
+import { useFeeSubscriptions } from '../hooks/useFeeSubscriptions';
 
 function AuditLogsPanel() {
   const [action, setAction] = React.useState<string>('');
@@ -79,7 +81,7 @@ function AuditLogsPanel() {
   const [page, setPage] = React.useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
 
-  const { data, loading, refetch, client } = useGqlQuery(GET_AUDIT_LOGS, {
+  const { data, loading, refetch } = useGqlQuery(GET_AUDIT_LOGS, {
     variables: { limit: rowsPerPage, offset: page * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined },
     fetchPolicy: 'cache-and-network',
     pollInterval: 5000
@@ -106,7 +108,7 @@ function AuditLogsPanel() {
   const handleExportCsv = () => {
     const headers = ['createdAt', 'actorRole', 'actorId', 'action', 'entityType', 'entityId', 'reason', 'restaurantId'];
     const rows = logs.map((l: any) => [l.createdAt, l.actorRole || '', l.actorId || '', l.action, l.entityType, l.entityId, (l.reason || '').replace(/\n|\r/g, ' '), l.restaurantId || '']);
-    const csv = [headers.join(','), ...rows.map(r => r.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csv = [headers.join(','), ...rows.map((r: (string | number | boolean)[]) => r.map((f: string | number | boolean) => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -191,28 +193,692 @@ function AuditLogsPanel() {
   );
 }
 
+function FeesPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
+  const [mode, setMode] = React.useState<'fixed' | 'percentage'>('percentage');
+  const [amount, setAmount] = React.useState<number>(10);
+  const [freeOrders, setFreeOrders] = React.useState<number>(0);
+  const [page, setPage] = React.useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
+  const [snackbar, setSnackbar] = React.useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
+
+  const restaurantId = selectedRestaurant?.id || '';
+  const { data: cfgData, refetch: refetchCfg } = useGqlQuery(GET_RESTAURANT_FEE_CONFIG, {
+    variables: { restaurantId },
+    skip: !restaurantId,
+    fetchPolicy: 'cache-and-network'
+  });
+  const { data: ledgerData, loading: ledgerLoading, refetch: refetchLedger } = useGqlQuery(GET_FEE_LEDGERS, {
+    variables: { restaurantId, limit: rowsPerPage, offset: page * rowsPerPage },
+    skip: !restaurantId,
+    fetchPolicy: 'cache-and-network'
+  });
+  const [setFeeConfig, { loading: saving }] = useMutation(SET_RESTAURANT_FEE_CONFIG, {
+    onCompleted: () => { 
+      void refetchCfg();
+      setSnackbar({
+        open: true,
+        message: 'Fee configuration saved successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error saving fee configuration: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  const [updatePaymentStatus] = useMutation(UPDATE_FEE_PAYMENT_STATUS, {
+    onCompleted: () => {
+      void refetchLedger();
+      setSnackbar({
+        open: true,
+        message: 'Payment status updated successfully!',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error updating payment status: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
+  // Set up real-time fee subscriptions
+  useFeeSubscriptions({
+    restaurantId: selectedRestaurant?.id,
+    onFeeLedgerUpdated: () => {
+      console.log('Fee ledger updated - refetching data');
+      void refetchLedger();
+    },
+    onPaymentStatusUpdated: () => {
+      console.log('Payment status updated - refetching data');
+      void refetchLedger();
+    },
+    onDueFeesUpdated: () => {
+      console.log('Due fees updated - refetching data');
+      void refetchLedger();
+    },
+    fallbackRefetch: () => {
+      console.log('Fallback polling - refetching fee ledger data');
+      void refetchLedger();
+    }
+  });
+
+  React.useEffect(() => {
+    const cfg = cfgData?.restaurantFeeConfig;
+    if (cfg) {
+      setMode(cfg.mode);
+      setAmount(cfg.amount);
+      setFreeOrders(cfg.freeOrdersRemaining);
+    }
+  }, [cfgData?.restaurantFeeConfig]);
+
+  const handleSaveFeeConfig = () => {
+    // Validation
+    if (!selectedRestaurant) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a restaurant first',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    if (amount < 0) {
+      setSnackbar({
+        open: true,
+        message: 'Amount cannot be negative',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    if (freeOrders < 0) {
+      setSnackbar({
+        open: true,
+        message: 'Free orders cannot be negative',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    // Proceed with save
+    setFeeConfig({ 
+      variables: { 
+        restaurantId, 
+        mode, 
+        amount, 
+        freeOrdersRemaining: freeOrders 
+      } 
+    });
+  };
+
+  const [paymentStatusDialogOpen, setPaymentStatusDialogOpen] = React.useState(false);
+  const [selectedFeeLedgerId, setSelectedFeeLedgerId] = React.useState<string>('');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = React.useState<string>('paid');
+  const [paymentMethod, setPaymentMethod] = React.useState<string>('manual');
+  const [paymentTransactionId, setPaymentTransactionId] = React.useState<string>('');
+  const [paymentReason, setPaymentReason] = React.useState<string>('');
+
+  const handleMarkAsPaid = (feeLedgerId: string) => {
+    setSelectedFeeLedgerId(feeLedgerId);
+    setSelectedPaymentStatus('paid');
+    setPaymentMethod('manual');
+    setPaymentTransactionId(`MANUAL_${Date.now()}`);
+    setPaymentReason('');
+    setPaymentStatusDialogOpen(true);
+  };
+
+  const handleUpdatePaymentStatus = () => {
+    if (!paymentReason.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Please provide a reason for the payment status change',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    void updatePaymentStatus({
+      variables: {
+        feeLedgerId: selectedFeeLedgerId,
+        paymentStatus: selectedPaymentStatus,
+        paymentMethod,
+        paymentTransactionId,
+        reason: paymentReason
+      }
+    });
+    setPaymentStatusDialogOpen(false);
+  };
+
+  const ledgers = ledgerData?.feeLedgers?.data || [];
+  const totalCount = ledgerData?.feeLedgers?.totalCount || 0;
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>Fee Configuration</Typography>
+      {!restaurantId ? (
+        <Alert severity="info">Select a restaurant to configure fees</Alert>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 3 }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Mode</InputLabel>
+            <Select label="Mode" value={mode} onChange={(e) => setMode(e.target.value as any)}>
+              <MenuItem value="fixed">Fixed</MenuItem>
+              <MenuItem value="percentage">Percentage</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField size="small" label={mode === 'fixed' ? 'Amount' : 'Percentage'} type="number" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value || '0'))} />
+          <TextField size="small" label="Free Orders" type="number" value={freeOrders} onChange={(e) => setFreeOrders(parseInt(e.target.value || '0', 10))} />
+          <Button 
+            variant="contained" 
+            disabled={saving} 
+            onClick={handleSaveFeeConfig}
+            startIcon={saving ? <CircularProgress size={16} /> : undefined}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </Box>
+      )}
+
+      <Typography variant="h6" gutterBottom>Fee Ledgers</Typography>
+      {!restaurantId ? (
+        <Alert severity="info">Select a restaurant to view ledgers</Alert>
+      ) : (
+        <>
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Order</TableCell>
+                  <TableCell align="right">Order Total</TableCell>
+                  <TableCell>Fee</TableCell>
+                  <TableCell>Mode</TableCell>
+                  <TableCell>Rate</TableCell>
+                  <TableCell>Discount</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Payment Method</TableCell>
+                  <TableCell>Transaction ID</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {ledgerLoading ? (
+                  <TableRow><TableCell colSpan={11}><LinearProgress /></TableCell></TableRow>
+                ) : ledgers.length === 0 ? (
+                  <TableRow><TableCell colSpan={11}><Alert severity="info">No ledger entries</Alert></TableCell></TableRow>
+                ) : (
+                  ledgers.map((l: any) => (
+                    <TableRow key={l.id}>
+                      <TableCell>{formatDateTime(l.createdAt).date} {formatDateTime(l.createdAt).time}</TableCell>
+                      <TableCell>#{String(l.orderId).slice(-6)}</TableCell>
+                      <TableCell align="right">{l.currency} {l.orderTotal.toFixed(2)}</TableCell>
+                      <TableCell>{l.currency} {l.feeAmount.toFixed(2)}</TableCell>
+                      <TableCell>{l.feeMode}</TableCell>
+                      <TableCell>{l.feeMode === 'fixed' ? l.feeRate.toFixed(2) : `${l.feeRate}%`}</TableCell>
+                      <TableCell>{l.discountApplied ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={l.paymentStatus} 
+                          size="small" 
+                          color={
+                            l.paymentStatus === 'paid' ? 'success' : 
+                            l.paymentStatus === 'pending' ? 'warning' : 
+                            l.paymentStatus === 'failed' ? 'error' : 'default'
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>{l.paymentMethod || '-'}</TableCell>
+                      <TableCell>
+                        {l.paymentTransactionId ? (
+                          <Typography variant="caption" fontFamily="monospace">
+                            {l.paymentTransactionId.slice(-8)}
+                          </Typography>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {l.paymentStatus === 'pending' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleMarkAsPaid(l.id)}
+                          >
+                            Mark Paid
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            rowsPerPageOptions={[10, 25, 50]}
+            count={totalCount}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={(_, newPage) => { setPage(newPage); void refetchLedger({ restaurantId, limit: rowsPerPage, offset: newPage * rowsPerPage }); }}
+            onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetchLedger({ restaurantId, limit: newRpp, offset: 0 }); }}
+          />
+        </>
+      )}
+
+      {/* Payment Status Update Dialog */}
+      <Dialog open={paymentStatusDialogOpen} onClose={() => setPaymentStatusDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Update Payment Status</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Payment Status</InputLabel>
+              <Select
+                value={selectedPaymentStatus}
+                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+                label="Payment Status"
+              >
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="paid">Paid</MenuItem>
+                <MenuItem value="failed">Failed</MenuItem>
+                <MenuItem value="refunded">Refunded</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Payment Method</InputLabel>
+              <Select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                label="Payment Method"
+              >
+                <MenuItem value="manual">Manual (Admin)</MenuItem>
+                <MenuItem value="card">Credit/Debit Card</MenuItem>
+                <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                <MenuItem value="cash">Cash</MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Transaction ID"
+              value={paymentTransactionId}
+              onChange={(e) => setPaymentTransactionId(e.target.value)}
+              placeholder="Enter transaction ID or reference"
+            />
+            
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Reason for Change"
+              value={paymentReason}
+              onChange={(e) => setPaymentReason(e.target.value)}
+              placeholder="Explain why you're changing the payment status"
+              multiline
+              rows={3}
+              required
+            />
+            
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              This action will be logged in the audit trail. Please ensure you have proper authorization and documentation for this change.
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentStatusDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleUpdatePaymentStatus} variant="contained" color="primary">
+            Update Status
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      {snackbar.open && (
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
+        >
+          {snackbar.message}
+        </Alert>
+      )}
+    </Box>
+  );
+}
+
+function PaymentManagementPanel() {
+  const { data: dueFeesData, loading: dueFeesLoading, refetch: refetchDueFees } = useGqlQuery(GET_DUE_FEES_SUMMARY, {
+    fetchPolicy: 'cache-and-network'
+  });
+
+  const dueFeesSummary = dueFeesData?.dueFeesSummary || [];
+
+  // Set up real-time fee subscriptions for payment management
+  useFeeSubscriptions({
+    onFeeLedgerUpdated: () => {
+      console.log('Fee ledger updated - refetching due fees');
+      void refetchDueFees();
+    },
+    onPaymentStatusUpdated: () => {
+      console.log('Payment status updated - refetching due fees');
+      void refetchDueFees();
+    },
+    onDueFeesUpdated: () => {
+      console.log('Due fees updated - refetching due fees');
+      void refetchDueFees();
+    },
+    fallbackRefetch: () => {
+      console.log('Fallback polling - refetching due fees data');
+      void refetchDueFees();
+    }
+  });
+
+  const totalDueFees = dueFeesSummary.reduce((sum: number, item: any) => sum + item.totalDueFees, 0);
+  const totalPendingCount = dueFeesSummary.reduce((sum: number, item: any) => sum + item.pendingCount, 0);
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Payment Management Overview
+      </Typography>
+      
+      {/* Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Payment sx={{ mr: 1, color: 'error.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Total Due Fees
+                </Typography>
+              </Box>
+              <Typography variant="h5" color="error.main">
+                ${totalDueFees.toFixed(2)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Across all restaurants
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <TrendingUp sx={{ mr: 1, color: 'warning.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Pending Payments
+                </Typography>
+              </Box>
+              <Typography variant="h5" color="warning.main">
+                {totalPendingCount}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Individual fees
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Restaurant sx={{ mr: 1, color: 'info.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Restaurants with Due Fees
+                </Typography>
+              </Box>
+              <Typography variant="h5" color="info.main">
+                {dueFeesSummary.length}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Active restaurants
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Assessment sx={{ mr: 1, color: 'success.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Average Due Amount
+                </Typography>
+              </Box>
+              <Typography variant="h5" color="success.main">
+                ${dueFeesSummary.length > 0 ? (totalDueFees / dueFeesSummary.length).toFixed(2) : '0.00'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Per restaurant
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Due Fees Table */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Restaurants with Due Fees
+          </Typography>
+          
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Restaurant</TableCell>
+                  <TableCell align="right">Due Amount</TableCell>
+                  <TableCell align="right">Pending Count</TableCell>
+                  <TableCell>Last Payment</TableCell>
+                  <TableCell>Oldest Due</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {dueFeesLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : dueFeesSummary.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Alert severity="success">No restaurants have due fees!</Alert>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  dueFeesSummary.map((summary: any) => (
+                    <TableRow key={summary.restaurantId}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {summary.restaurantName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="bold" color="error.main">
+                          ${summary.totalDueFees.toFixed(2)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Chip 
+                          label={summary.pendingCount} 
+                          size="small" 
+                          color="warning"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {summary.lastPaymentDate ? (
+                          <Typography variant="caption">
+                            {formatDateTime(summary.lastPaymentDate).date}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            No payments yet
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {summary.oldestDueDate ? (
+                          <Typography variant="caption" color="error.main">
+                            {formatDateTime(summary.oldestDueDate).date}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            // Navigate to fees tab with this restaurant selected
+                            // This would require passing a callback to set the selected restaurant
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
+
+function SettlementsPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
+  const [page, setPage] = React.useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
+  const restaurantId = selectedRestaurant?.id || '';
+
+  const { data, loading, refetch } = useGqlQuery(GET_SETTLEMENTS, {
+    variables: { restaurantId, limit: rowsPerPage, offset: page * rowsPerPage },
+    skip: !restaurantId,
+    fetchPolicy: 'cache-and-network'
+  });
+  const [generate, { loading: generating }] = useMutation(GENERATE_WEEKLY_SETTLEMENT, {
+    onCompleted: () => void refetch(),
+  });
+
+  const settlements = data?.settlements || [];
+
+  const handleExportCsv = () => {
+    const headers = ['periodStart', 'periodEnd', 'currency', 'totalOrders', 'totalOrderAmount', 'totalFees', 'generatedAt'];
+    const rows = settlements.map((s: any) => [s.periodStart, s.periodEnd, s.currency, s.totalOrders, s.totalOrderAmount, s.totalFees, s.generatedAt]);
+    const csv = [headers.join(','), ...rows.map((r: (string|number)[]) => r.map((f) => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `settlements-${new Date().toISOString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+
+  const handleGenerateLastWeek = () => {
+    if (!restaurantId) return;
+    const today = new Date();
+    const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const start = new Date(end);
+    start.setUTCDate(end.getUTCDate() - 7);
+    void generate({ variables: { restaurantId, periodStart: start.toISOString(), periodEnd: end.toISOString() } });
+  };
+
+  if (!restaurantId) {
+    return <Alert severity="info">Select a restaurant to view settlements</Alert>;
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">Settlements</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" onClick={() => void refetch()}>Refresh</Button>
+          <Button variant="outlined" onClick={handleExportCsv}>Export CSV</Button>
+          <Button variant="contained" onClick={handleGenerateLastWeek} disabled={generating}>Generate Last Week</Button>
+        </Box>
+      </Box>
+
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Period</TableCell>
+              <TableCell align="right">Total Orders</TableCell>
+              <TableCell align="right">Total Amount</TableCell>
+              <TableCell align="right">Total Fees</TableCell>
+              <TableCell>Generated</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5}><LinearProgress /></TableCell></TableRow>
+            ) : settlements.length === 0 ? (
+              <TableRow><TableCell colSpan={5}><Alert severity="info">No settlements found</Alert></TableCell></TableRow>
+            ) : (
+              settlements.map((s: any) => (
+                <TableRow key={s.id}>
+                  <TableCell>{formatDateTime(s.periodStart).date} - {formatDateTime(s.periodEnd).date}</TableCell>
+                  <TableCell align="right">{s.totalOrders}</TableCell>
+                  <TableCell align="right">{s.currency} {s.totalOrderAmount.toFixed(2)}</TableCell>
+                  <TableCell align="right">{s.currency} {s.totalFees.toFixed(2)}</TableCell>
+                  <TableCell>{formatDateTime(s.generatedAt).date} {formatDateTime(s.generatedAt).time}</TableCell>
+                  <TableCell>
+                    <Button size="small" variant="outlined" onClick={() => window.open(`/settlements/${s.id}/pdf`, '_blank')}>PDF</Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <TablePagination
+        component="div"
+        rowsPerPageOptions={[10, 25, 50]}
+        count={-1}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => { setPage(newPage); void refetch({ restaurantId, limit: rowsPerPage, offset: newPage * rowsPerPage }); }}
+        onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetch({ restaurantId, limit: newRpp, offset: 0 }); }}
+      />
+    </Box>
+  );
+}
+
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [admin, setAdmin] = useState<any>(null);
-  
-  // Data freshness management
-  const {
-    dataStaleWarning,
-    checkDataFreshness,
-    updateDataFetchTime,
-    refetchAllData: refetchAllDataHook
-  } = useDataFreshness({
-    onStaleData: () => {
-      setRestaurantSnackbar({
-        open: true,
-        message: 'Data might be outdated. Consider refreshing.',
-        severity: 'warning'
-      });
-    }
-  });
   
   // Order management state
   const [orderPage, setOrderPage] = useState(0);
@@ -396,7 +1062,6 @@ export default function AdminDashboard() {
   const [updateRestaurant, { loading: updateRestaurantLoading }] = useMutation(UPDATE_RESTAURANT, {
     onCompleted: () => {
       setRestaurantDialogOpen(false);
-      updateDataFetchTime(); // Update freshness timestamp
       setRestaurantSnackbar({
         open: true,
         message: 'Restaurant updated successfully!',
@@ -429,7 +1094,6 @@ export default function AdminDashboard() {
       // Only refetch data, don't show snackbar or close dialog
       refetchRestaurants();
       refetchAnalytics();
-      updateDataFetchTime();
     },
     onError: (error) => {
       console.error('Error toggling restaurant status:', error);
@@ -445,13 +1109,13 @@ export default function AdminDashboard() {
     setAdmin(JSON.parse(adminData));
   }, [navigate]);
 
-  // Enhanced refetch function that updates timestamps
+  // Simple refetch function
   const refetchAllData = async () => {
     try {
-      await refetchAllDataHook([
-        () => refetchAnalytics(),
-        () => refetchRestaurants(),
-        () => refetchOrders()
+      await Promise.all([
+        refetchAnalytics(),
+        refetchRestaurants(),
+        refetchOrders()
       ]);
       setRestaurantSnackbar({
         open: true,
@@ -765,41 +1429,6 @@ export default function AdminDashboard() {
   };
 
   const handleRestaurantSubmit = () => {
-    // Check data freshness before submitting
-    if (checkDataFreshness()) {
-      setRestaurantSnackbar({
-        open: true,
-        message: 'Data might be outdated. Refreshing before making changes...',
-        severity: 'warning'
-      });
-      // Refresh data and then retry
-      refetchAllData().then(() => {
-        // Retry the submission after refresh
-        setTimeout(() => {
-          if (restaurantDialogMode === 'create') {
-            createRestaurant({
-              variables: {
-                input: restaurantFormData
-              }
-            });
-          } else if (editingRestaurantId) {
-            const { password, ...updateData } = restaurantFormData;
-            if (password) {
-              (updateData as any).password = password;
-            }
-            updateRestaurant({
-              variables: {
-                id: editingRestaurantId,
-                input: updateData
-              }
-            });
-          }
-        }, 1000); // Small delay to ensure data is refreshed
-      });
-      return;
-    }
-
-    // Proceed with normal submission if data is fresh
     if (restaurantDialogMode === 'create') {
       createRestaurant({
         variables: {
@@ -892,13 +1521,6 @@ export default function AdminDashboard() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
             Admin Dashboard
           </Typography>
-          
-          {/* Data freshness indicator */}
-          <DataFreshnessIndicator
-            dataStaleWarning={dataStaleWarning}
-            onRefresh={refetchAllData}
-            position="header"
-          />
           
           <Chip
             icon={<AdminPanelSettings />}
@@ -993,7 +1615,10 @@ export default function AdminDashboard() {
               <Tab icon={<Group />} label="Staff" {...a11yProps(2)} />
               <Tab icon={<Assessment />} label="Analytics" {...a11yProps(3)} />
               <Tab icon={<Settings />} label="Settings" {...a11yProps(4)} />
-              <Tab icon={<Assessment />} label="Audit Logs" {...a11yProps(5)} />
+              <Tab icon={<Settings />} label="Fees" {...a11yProps(5)} />
+              <Tab icon={<Assessment />} label="Settlements" {...a11yProps(6)} />
+              <Tab icon={<Payment />} label="Payments" {...a11yProps(7)} />
+              <Tab icon={<Assessment />} label="Audit Logs" {...a11yProps(8)} />
             </Tabs>
           </Box>
 
@@ -1561,8 +2186,97 @@ export default function AdminDashboard() {
             </Grid>
           </TabPanel>
 
-          {/* Audit Logs Tab */}
+          {/* Fees Tab */}
           <TabPanel value={activeTab} index={5} sx={{ p: 3 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Fee Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Select a restaurant to configure fees and view fee ledgers
+              </Typography>
+              <FormControl sx={{ minWidth: 300 }}>
+                <InputLabel>Select Restaurant</InputLabel>
+                <Select
+                  value={selectedRestaurant?.id || ''}
+                  label="Select Restaurant"
+                  onChange={(e) => {
+                    const restaurant = restaurants.find((r: any) => r.id === e.target.value);
+                    setSelectedRestaurant(restaurant || null);
+                  }}
+                >
+                  {restaurants.map((restaurant: any) => (
+                    <MenuItem key={restaurant.id} value={restaurant.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 24, height: 24 }}>
+                          <Restaurant sx={{ fontSize: 16 }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {restaurant.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {restaurant.email}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <FeesPanel selectedRestaurant={selectedRestaurant} />
+          </TabPanel>
+
+          {/* Settlements Tab */}
+          <TabPanel value={activeTab} index={6} sx={{ p: 3 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Settlement Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Select a restaurant to view settlements and generate reports
+              </Typography>
+              <FormControl sx={{ minWidth: 300 }}>
+                <InputLabel>Select Restaurant</InputLabel>
+                <Select
+                  value={selectedRestaurant?.id || ''}
+                  label="Select Restaurant"
+                  onChange={(e) => {
+                    const restaurant = restaurants.find((r: any) => r.id === e.target.value);
+                    setSelectedRestaurant(restaurant || null);
+                  }}
+                >
+                  {restaurants.map((restaurant: any) => (
+                    <MenuItem key={restaurant.id} value={restaurant.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 24, height: 24 }}>
+                          <Restaurant sx={{ fontSize: 16 }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {restaurant.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {restaurant.email}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <SettlementsPanel selectedRestaurant={selectedRestaurant} />
+          </TabPanel>
+
+          {/* Payment Management Tab */}
+          <TabPanel value={activeTab} index={7} sx={{ p: 3 }}>
+            <PaymentManagementPanel />
+          </TabPanel>
+
+          {/* Audit Logs Tab */}
+          <TabPanel value={activeTab} index={8} sx={{ p: 3 }}>
             <AuditLogsPanel />
           </TabPanel>
         </Card>

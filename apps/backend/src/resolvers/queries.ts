@@ -1,4 +1,4 @@
-import { MenuItem, Table, Order, Reservation, User } from '../models/index.js';
+import { MenuItem, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import mongoose from 'mongoose';
 
@@ -76,6 +76,71 @@ export const queryResolvers = {
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
     return await Order.find({ restaurantId }).populate('items.menuItemId').sort({ createdAt: -1 });
+  },
+  feeLedgers: async (_: any, { restaurantId, limit = 50, offset = 0 }: any, context: GraphQLContext) => {
+    if (!context.admin && (!context.restaurant || context.restaurant.id !== restaurantId)) {
+      throw new Error('Unauthorized');
+    }
+    const [data, totalCount] = await Promise.all([
+      FeeLedger.find({ restaurantId }).sort({ createdAt: -1 }).skip(offset).limit(limit),
+      FeeLedger.countDocuments({ restaurantId })
+    ]);
+    return {
+      data,
+      totalCount
+    };
+  },
+  restaurantFeeConfig: async (_: any, { restaurantId }: any, context: GraphQLContext) => {
+    if (!context.admin && (!context.restaurant || context.restaurant.id !== restaurantId)) {
+      throw new Error('Unauthorized');
+    }
+    return await RestaurantFeeConfig.findOne({ restaurantId });
+  },
+  settlements: async (_: any, { restaurantId, limit = 50, offset = 0 }: any, context: GraphQLContext) => {
+    if (!context.admin && (!context.restaurant || context.restaurant.id !== restaurantId)) {
+      throw new Error('Unauthorized');
+    }
+    return await Settlement.find({ restaurantId }).sort({ periodStart: -1 }).skip(offset).limit(limit);
+  },
+  dueFeesSummary: async (_: any, __: any, context: GraphQLContext) => {
+    if (!context.admin) {
+      throw new Error('Admin authentication required');
+    }
+    
+    // Get all restaurants
+    const restaurants = await Restaurant.find({ isActive: true });
+    
+    // Calculate due fees for each restaurant
+    const dueFeesSummary = await Promise.all(
+      restaurants.map(async (restaurant) => {
+        // Get pending fees for this restaurant
+        const pendingFees = await FeeLedger.find({ 
+          restaurantId: restaurant.id, 
+          paymentStatus: 'pending' 
+        }).sort({ createdAt: 1 });
+        
+        // Get last payment date
+        const lastPaidFee = await FeeLedger.findOne({ 
+          restaurantId: restaurant.id, 
+          paymentStatus: 'paid' 
+        }).sort({ paidAt: -1 });
+        
+        const totalDueFees = pendingFees.reduce((sum, fee) => sum + fee.feeAmount, 0);
+        
+        return {
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          totalDueFees,
+          pendingCount: pendingFees.length,
+          currency: 'USD', // Default currency
+          lastPaymentDate: lastPaidFee?.paidAt?.toISOString() || null,
+          oldestDueDate: pendingFees.length > 0 ? pendingFees[0].createdAt.toISOString() : null
+        };
+      })
+    );
+    
+    // Filter out restaurants with no due fees
+    return dueFeesSummary.filter(summary => summary.totalDueFees > 0);
   },
   order: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {

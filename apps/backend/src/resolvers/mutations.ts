@@ -1,6 +1,6 @@
-import { MenuItem, Table, Order, Reservation, User } from '../models/index.js';
+import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
-import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder } from './subscriptions.js';
+import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
 
 export const mutationResolvers = {
   // Menu Item mutations
@@ -153,6 +153,94 @@ export const mutationResolvers = {
     }
     return updatedOrder;
   },
+  markOrderPaid: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    const order = await Order.findOne({ _id: id, restaurantId });
+    if (!order) throw new Error('Order not found');
+    if (order.status !== 'completed') {
+      throw new Error('Only completed orders can be marked paid');
+    }
+    if (order.paid) return order; // idempotent
+
+    order.paid = true as any;
+    order.paidAt = new Date() as any;
+    await order.save();
+
+    // Compute platform fee
+    const cfg = await RestaurantFeeConfig.findOne({ restaurantId });
+    if (cfg) {
+      let discountApplied = false;
+      if (cfg.freeOrdersRemaining && cfg.freeOrdersRemaining > 0) {
+        cfg.freeOrdersRemaining -= 1;
+        discountApplied = true;
+        await cfg.save();
+      }
+      const currency = 'USD'; // fallback; optional: fetch from Restaurant settings if available
+      const total = order.totalAmount;
+      let feeAmount = 0;
+      if (!discountApplied) {
+        if (cfg.mode === 'fixed') {
+          feeAmount = cfg.amount;
+        } else {
+          // percentage of gross
+          const raw = (total * cfg.amount) / 100;
+          // Banker's rounding to 2 decimals
+          const factor = 100;
+          const n = raw * factor;
+          const floor = Math.floor(n);
+          const frac = n - floor;
+          const isHalf = Math.abs(frac - 0.5) < 1e-8;
+          const rounded = isHalf ? (floor % 2 === 0 ? floor : floor + 1) : Math.round(n);
+          feeAmount = rounded / factor;
+        }
+      }
+      const feeLedger = await FeeLedger.create({
+        restaurantId,
+        orderId: id,
+        orderTotal: total,
+        feeMode: cfg.mode,
+        feeRate: cfg.amount,
+        feeAmount,
+        currency,
+        discountApplied,
+        paymentStatus: 'pending', // Platform fees are always pending until restaurant pays them
+        paidAt: undefined // Will be set when restaurant actually pays the platform fees
+      });
+
+      // Publish fee ledger updated event
+      await publishFeeLedgerUpdated(feeLedger);
+      
+      // Publish due fees updated event
+      await publishDueFeesUpdated(restaurantId);
+    }
+
+    return order;
+  },
+  setRestaurantFeeConfig: async (_: any, { restaurantId, mode, amount, freeOrdersRemaining }: any, context: GraphQLContext) => {
+    if (!context.admin) throw new Error('Admin authentication required');
+    if (!['fixed', 'percentage'].includes(mode)) throw new Error('Invalid mode');
+    const update = { mode, amount, freeOrdersRemaining: freeOrdersRemaining ?? 0 };
+    const cfg = await RestaurantFeeConfig.findOneAndUpdate({ restaurantId }, update, { upsert: true, new: true });
+    return cfg;
+  },
+  generateWeeklySettlement: async (_: any, { restaurantId, periodStart, periodEnd }: any, context: GraphQLContext) => {
+    if (!context.admin) throw new Error('Admin authentication required');
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+      throw new Error('Invalid period');
+    }
+    const ledgers = await FeeLedger.find({ restaurantId, createdAt: { $gte: start, $lt: end } });
+    const totalOrders = ledgers.length;
+    const totalOrderAmount = ledgers.reduce((s, l) => s + l.orderTotal, 0);
+    const totalFees = ledgers.reduce((s, l) => s + l.feeAmount, 0);
+    const currency = ledgers[0]?.currency || 'USD';
+    const settlement = await Settlement.create({ restaurantId, currency, periodStart: start, periodEnd: end, totalOrders, totalOrderAmount, totalFees, generatedAt: new Date() });
+    return settlement;
+  },
   updateOrderItemStatus: async (_: any, { orderId, itemIndex, status }: { orderId: string; itemIndex: number; status: string }, context: GraphQLContext) => {
     if (!context.restaurant) {
       throw new Error('Authentication required');
@@ -226,5 +314,131 @@ export const mutationResolvers = {
     }
     const result = await Reservation.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
     return !!result;
+  },
+  updateFeePaymentStatus: async (_: any, { feeLedgerId, paymentStatus, paymentMethod, paymentTransactionId, reason }: any, context: GraphQLContext) => {
+    if (!context.admin) {
+      throw new Error('Admin authentication required');
+    }
+    
+    // Get the original fee ledger entry
+    const originalFeeLedger = await FeeLedger.findById(feeLedgerId);
+    if (!originalFeeLedger) {
+      throw new Error('Fee ledger entry not found');
+    }
+    
+    // Validate status transition
+    const validTransitions: { [key: string]: string[] } = {
+      'pending': ['paid', 'failed'],
+      'paid': ['refunded'],
+      'failed': ['pending', 'paid'],
+      'refunded': ['paid'] // Allow re-payment after refund
+    };
+    
+    if (!validTransitions[originalFeeLedger.paymentStatus]?.includes(paymentStatus)) {
+      throw new Error(`Invalid status transition from ${originalFeeLedger.paymentStatus} to ${paymentStatus}`);
+    }
+    
+    const updateData: any = { paymentStatus };
+    
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
+    
+    if (paymentTransactionId) {
+      updateData.paymentTransactionId = paymentTransactionId;
+    }
+    
+    // If marking as paid, set paidAt to current time
+    if (paymentStatus === 'paid') {
+      updateData.paidAt = new Date();
+    }
+    
+    const updatedFeeLedger = await FeeLedger.findByIdAndUpdate(
+      feeLedgerId,
+      updateData,
+      { new: true }
+    );
+    
+    // Create audit log for admin payment status change
+    const { AuditLog } = await import('../models/index.js');
+    const { publishAuditLogCreated } = await import('./subscriptions.js');
+    
+    await AuditLog.create({
+      actorRole: 'admin',
+      actorId: context.admin.id,
+      action: 'UPDATE_FEE_PAYMENT_STATUS',
+      entityType: 'FeeLedger',
+      entityId: feeLedgerId,
+      reason: reason || `Admin changed payment status from ${originalFeeLedger.paymentStatus} to ${paymentStatus}`,
+      details: {
+        restaurantId: originalFeeLedger.restaurantId,
+        orderId: originalFeeLedger.orderId,
+        originalStatus: originalFeeLedger.paymentStatus,
+        newStatus: paymentStatus,
+        paymentMethod,
+        paymentTransactionId,
+        feeAmount: originalFeeLedger.feeAmount
+      },
+      restaurantId: originalFeeLedger.restaurantId
+    });
+    
+    // Publish payment status updated event
+    await publishPaymentStatusUpdated(updatedFeeLedger);
+    
+    // Publish due fees updated event
+    await publishDueFeesUpdated(originalFeeLedger.restaurantId);
+    
+    return updatedFeeLedger;
+  },
+  payPlatformFees: async (_: any, { restaurantId, paymentMethod, paymentTransactionId }: any, context: GraphQLContext) => {
+    if (!context.restaurant || context.restaurant.id !== restaurantId) {
+      throw new Error('Restaurant authentication required');
+    }
+    
+    // Get all pending fees for this restaurant
+    const pendingFees = await FeeLedger.find({ 
+      restaurantId, 
+      paymentStatus: 'pending' 
+    });
+    
+    if (pendingFees.length === 0) {
+      return {
+        success: true,
+        message: 'No pending fees to pay',
+        paidFeesCount: 0,
+        totalAmountPaid: 0,
+        transactionId: paymentTransactionId
+      };
+    }
+    
+    const totalAmount = pendingFees.reduce((sum, fee) => sum + fee.feeAmount, 0);
+    
+    // Update all pending fees to paid
+    await FeeLedger.updateMany(
+      { restaurantId, paymentStatus: 'pending' },
+      { 
+        paymentStatus: 'paid',
+        paymentMethod,
+        paymentTransactionId,
+        paidAt: new Date()
+      }
+    );
+    
+    // Publish events for each updated fee
+    for (const fee of pendingFees) {
+      const updatedFee = await FeeLedger.findById(fee._id);
+      await publishPaymentStatusUpdated(updatedFee);
+    }
+    
+    // Publish due fees updated event
+    await publishDueFeesUpdated(restaurantId);
+    
+    return {
+      success: true,
+      message: `Successfully paid ${pendingFees.length} platform fees`,
+      paidFeesCount: pendingFees.length,
+      totalAmountPaid: totalAmount,
+      transactionId: paymentTransactionId
+    };
   },
 };

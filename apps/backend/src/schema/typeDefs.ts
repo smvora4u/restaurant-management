@@ -126,6 +126,8 @@ export const typeDefs = `#graphql
     userId: String
     createdAt: String!
     updatedAt: String!
+    paid: Boolean
+    paidAt: String
   }
 
   type Reservation {
@@ -172,6 +174,10 @@ export const typeDefs = `#graphql
     staffById(id: ID!): Staff
     ordersForStaff(restaurantId: ID!): [Order!]!
     orderByIdForStaff(id: ID!): Order
+    feeLedgers(restaurantId: ID!, limit: Int, offset: Int): FeeLedgerConnection!
+    restaurantFeeConfig(restaurantId: ID!): RestaurantFeeConfig
+    settlements(restaurantId: ID!, limit: Int, offset: Int): [Settlement!]!
+    dueFeesSummary: [DueFeesSummary!]!
   }
 
   type Mutation {
@@ -223,6 +229,77 @@ export const typeDefs = `#graphql
     createReservation(input: ReservationInput!): Reservation!
     updateReservation(id: ID!, input: ReservationInput!): Reservation!
     deleteReservation(id: ID!): Boolean!
+    markOrderPaid(id: ID!): Order!
+    setRestaurantFeeConfig(restaurantId: ID!, mode: String!, amount: Float!, freeOrdersRemaining: Int): RestaurantFeeConfig!
+    generateWeeklySettlement(restaurantId: ID!, periodStart: String!, periodEnd: String!): Settlement!
+    updateFeePaymentStatus(feeLedgerId: ID!, paymentStatus: String!, paymentMethod: String, paymentTransactionId: String, reason: String): FeeLedger!
+    payPlatformFees(restaurantId: ID!, paymentMethod: String!, paymentTransactionId: String): PaymentResult!
+  }
+  type RestaurantFeeConfig {
+    restaurantId: ID!
+    mode: String!
+    amount: Float!
+    freeOrdersRemaining: Int!
+    updatedAt: String!
+  }
+
+  type FeeLedger {
+    id: ID!
+    restaurantId: ID!
+    orderId: ID!
+    orderTotal: Float!
+    feeMode: String!
+    feeRate: Float!
+    feeAmount: Float!
+    currency: String!
+    discountApplied: Boolean!
+    paymentStatus: String!
+    paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
+    createdAt: String!
+  }
+
+  type FeeLedgerConnection {
+    data: [FeeLedger!]!
+    totalCount: Int!
+  }
+
+  type Settlement {
+    id: ID!
+    restaurantId: ID!
+    currency: String!
+    periodStart: String!
+    periodEnd: String!
+    totalOrders: Int!
+    totalOrderAmount: Float!
+    totalFees: Float!
+    generatedAt: String!
+  }
+
+  type DueFeesSummary {
+    restaurantId: ID!
+    restaurantName: String!
+    totalDueFees: Float!
+    pendingCount: Int!
+    currency: String!
+    lastPaymentDate: String
+    oldestDueDate: String
+  }
+
+  type DueFeesUpdate {
+    restaurantId: ID!
+    totalDueFees: Float!
+    pendingCount: Int!
+    updatedAt: String!
+  }
+
+  type PaymentResult {
+    success: Boolean!
+    message: String!
+    paidFeesCount: Int!
+    totalAmountPaid: Float!
+    transactionId: String!
   }
 
   input AdminInput {
@@ -344,6 +421,9 @@ export const typeDefs = `#graphql
     restaurantUpdated: Restaurant!
     staffUpdated(restaurantId: ID!): Staff!
     platformAnalyticsUpdated: PlatformAnalytics!
+    feeLedgerUpdated: FeeLedger!
+    paymentStatusUpdated: FeeLedger!
+    dueFeesUpdated(restaurantId: ID!): DueFeesUpdate!
   }
 
   type AuditLog {

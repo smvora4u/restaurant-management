@@ -17,6 +17,7 @@ import { seedInitialData } from './utils/seedData.js';
 import { fixTableIndexes } from './utils/fixTableIndexes.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
+import { Settlement, FeeLedger } from './models/index.js';
 
 async function start() {
   try {
@@ -74,7 +75,7 @@ async function start() {
         if (token) {
           try {
             const jwt = await import('jsonwebtoken');
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+            const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
             
             if (decoded.restaurantId) {
               return { restaurant: { id: decoded.restaurantId, email: decoded.email, slug: decoded.slug } };
@@ -106,6 +107,82 @@ async function start() {
         return await authenticateUser(req);
       }
     }) as any);
+
+    // Settlement PDF endpoint (server-side PDF generation)
+    app.get('/settlements/:id/pdf', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const settlement = await Settlement.findById(id);
+        if (!settlement) {
+          res.status(404).send('Settlement not found');
+          return;
+        }
+        const { restaurantId, periodStart, periodEnd, currency } = settlement as any;
+        const ledgers = await FeeLedger.find({
+          restaurantId,
+          createdAt: { $gte: new Date(periodStart), $lt: new Date(periodEnd) }
+        }).sort({ createdAt: 1 });
+
+        const PDFDocument = (await import('pdfkit')).default as any;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=settlement-${id}.pdf`);
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        doc.pipe(res);
+
+        // Header
+        doc.fontSize(18).text('Weekly Settlement Statement', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).text(`Settlement ID: ${id}`);
+        doc.text(`Restaurant ID: ${restaurantId}`);
+        doc.text(`Period: ${new Date(periodStart as any).toISOString().slice(0,10)} to ${new Date(periodEnd as any).toISOString().slice(0,10)}`);
+        doc.text(`Generated: ${new Date((settlement as any).generatedAt).toISOString()}`);
+        doc.moveDown();
+
+        // Summary
+        doc.fontSize(12).text('Summary', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(10)
+          .text(`Total Orders: ${(settlement as any).totalOrders}`)
+          .text(`Total Order Amount: ${currency} ${Number((settlement as any).totalOrderAmount).toFixed(2)}`)
+          .text(`Total Fees: ${currency} ${Number((settlement as any).totalFees).toFixed(2)}`);
+        doc.moveDown();
+
+        // Table header
+        const startX = 50;
+        const colWidths = [90, 100, 120, 100, 60];
+        const headers = ['Date', 'Order ID', 'Order Total', 'Fee Amount', 'Discount'];
+        doc.fontSize(11).fillColor('black');
+        let y = doc.y;
+        headers.forEach((h, i) => {
+          doc.text(h, startX + colWidths.slice(0,i).reduce((a,b)=>a+b,0), y, { width: colWidths[i] });
+        });
+        doc.moveDown(0.5);
+        doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#CCCCCC').stroke();
+        doc.moveDown(0.3);
+
+        // Rows
+        doc.fontSize(9).fillColor('black');
+        ledgers.forEach((l: any) => {
+          const row = [
+            new Date(l.createdAt as any).toISOString().slice(0,10),
+            String(l.orderId).slice(-8),
+            `${currency} ${Number(l.orderTotal).toFixed(2)}`,
+            `${currency} ${Number(l.feeAmount).toFixed(2)}`,
+            l.discountApplied ? 'Yes' : 'No'
+          ];
+          const rowY = doc.y;
+          row.forEach((val, i) => {
+            doc.text(val, startX + colWidths.slice(0,i).reduce((a,b)=>a+b,0), rowY, { width: colWidths[i] });
+          });
+          doc.moveDown(0.2);
+        });
+
+        doc.end();
+      } catch (err) {
+        console.error('Error generating PDF:', err);
+        res.status(500).send('Failed to generate PDF');
+      }
+    });
 
     // Start server
     const port = Number(process.env.PORT) || 4000;

@@ -56,3 +56,69 @@ export const GET_AUDIT_LOGS = gql`
   }
 `;  
 
+export const GET_RESTAURANT_FEE_CONFIG = gql`
+  query GetRestaurantFeeConfig($restaurantId: ID!) {
+    restaurantFeeConfig(restaurantId: $restaurantId) {
+      restaurantId
+      mode
+      amount
+      freeOrdersRemaining
+      updatedAt
+    }
+  }
+`;
+
+export const GET_FEE_LEDGERS = gql`
+  query GetFeeLedgers($restaurantId: ID!, $limit: Int, $offset: Int) {
+    feeLedgers(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      data {
+        id
+        restaurantId
+        orderId
+        orderTotal
+        feeMode
+        feeRate
+        feeAmount
+        currency
+        discountApplied
+        paymentStatus
+        paymentMethod
+        paymentTransactionId
+        paidAt
+        createdAt
+      }
+      totalCount
+    }
+  }
+`;
+
+export const GET_DUE_FEES_SUMMARY = gql`
+  query GetDueFeesSummary {
+    dueFeesSummary {
+      restaurantId
+      restaurantName
+      totalDueFees
+      pendingCount
+      currency
+      lastPaymentDate
+      oldestDueDate
+    }
+  }
+`;
+
+export const GET_SETTLEMENTS = gql`
+  query GetSettlements($restaurantId: ID!, $limit: Int, $offset: Int) {
+    settlements(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      id
+      restaurantId
+      currency
+      periodStart
+      periodEnd
+      totalOrders
+      totalOrderAmount
+      totalFees
+      generatedAt
+    }
+  }
+`;
+
