@@ -575,10 +575,16 @@ export default function RestaurantFees() {
                       Credit/Debit Card
                     </Box>
                   </MenuItem>
-                  <MenuItem value="bank">
+                  <MenuItem value="bank_transfer">
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <AccountBalance sx={{ mr: 1 }} />
                       Bank Transfer
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="cash">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Receipt sx={{ mr: 1 }} />
+                      Cash
                     </Box>
                   </MenuItem>
                 </Select>

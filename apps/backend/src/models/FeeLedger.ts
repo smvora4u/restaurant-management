@@ -32,6 +32,8 @@ const FeeLedgerSchema = new Schema<IFeeLedger>({
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 FeeLedgerSchema.index({ restaurantId: 1, createdAt: -1 });
+// Ensure one ledger entry per order per restaurant
+FeeLedgerSchema.index({ restaurantId: 1, orderId: 1 }, { unique: true });
 
 const FeeLedger = mongoose.model<IFeeLedger>('FeeLedger', FeeLedgerSchema);
 export default FeeLedger;

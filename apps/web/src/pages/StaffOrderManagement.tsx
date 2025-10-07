@@ -15,9 +15,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Button
+  Button,
+  Chip
 } from '@mui/material';
 import { useQuery, useMutation } from '@apollo/client';
+import { CheckCircle } from '@mui/icons-material';
+import { formatFullDateTime } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import OrderHeader from '../components/orders/OrderHeader';
 import OrderItemsTable from '../components/orders/OrderItemsTable';
@@ -277,14 +280,40 @@ export default function StaffOrderManagement() {
         {/* Staff Mark Paid (permission-gated) */}
         {(staff?.permissions || []).includes('mark_order_paid') && (
           <Box sx={{ mb: 2 }}>
-            <Button 
-              variant="contained" 
-              color="success"
-              disabled={paying || order.status !== 'completed' || order.paid}
-              onClick={() => markPaid({ variables: { id: order.id } })}
-            >
-              {order.paid ? 'Paid' : 'Mark Paid'}
-            </Button>
+            {order.paid ? (
+              <Box
+                sx={{
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'success.light',
+                  bgcolor: 'success.50',
+                  borderRadius: 1,
+                  minWidth: 220
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+                  <CheckCircle color="success" fontSize="small" />
+                  <Typography variant="subtitle2" color="success.main">Paid</Typography>
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Method</Typography>
+                  <Typography variant="caption" fontWeight="bold">{order.paymentMethod || '-'}</Typography>
+                  <Typography variant="caption" color="text.secondary">Transaction</Typography>
+                  <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
+                  <Typography variant="caption" color="text.secondary">Paid at</Typography>
+                  <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
+                </Box>
+              </Box>
+            ) : (
+              <Button 
+                variant="contained" 
+                color="success"
+                disabled={paying || order.status !== 'completed'}
+                onClick={() => setCompleteConfirmationOpen(true)}
+              >
+                Mark Paid
+              </Button>
+            )}
           </Box>
         )}
 

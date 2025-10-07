@@ -41,6 +41,10 @@ export const GET_ORDER_BY_ID = gql`
       userId
       createdAt
       updatedAt
+      paid
+      paidAt
+      paymentMethod
+      paymentTransactionId
       items {
         menuItemId
         quantity

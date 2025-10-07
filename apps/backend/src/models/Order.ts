@@ -34,6 +34,10 @@ const OrderSchema = new Schema<IOrder>({
   notes: String,
   sessionId: String,
   userId: String,
+  paid: { type: Boolean, default: false },
+  paidAt: { type: Date },
+  paymentMethod: { type: String, enum: ['cash', 'card', 'online', 'bank_transfer'], required: false },
+  paymentTransactionId: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

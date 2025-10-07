@@ -153,7 +153,7 @@ export const mutationResolvers = {
     }
     return updatedOrder;
   },
-  markOrderPaid: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+  markOrderPaid: async (_: any, { id, paymentMethod, paymentTransactionId }: { id: string; paymentMethod: string; paymentTransactionId?: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
@@ -163,10 +163,12 @@ export const mutationResolvers = {
     if (order.status !== 'completed') {
       throw new Error('Only completed orders can be marked paid');
     }
-    if (order.paid) return order; // idempotent
+    if ((order as any).paid) return order; // idempotent
 
-    order.paid = true as any;
-    order.paidAt = new Date() as any;
+    (order as any).paid = true;
+    (order as any).paidAt = new Date();
+    (order as any).paymentMethod = paymentMethod;
+    if (paymentTransactionId) (order as any).paymentTransactionId = paymentTransactionId;
     await order.save();
 
     // Compute platform fee
@@ -197,7 +199,10 @@ export const mutationResolvers = {
           feeAmount = rounded / factor;
         }
       }
-      const feeLedger = await FeeLedger.create({
+      // Skip if a ledger already exists for this order (idempotency)
+      const existingLedger = await FeeLedger.findOne({ restaurantId, orderId: id });
+      if (!existingLedger) {
+        const feeLedger = await FeeLedger.create({
         restaurantId,
         orderId: id,
         orderTotal: total,
@@ -208,13 +213,14 @@ export const mutationResolvers = {
         discountApplied,
         paymentStatus: 'pending', // Platform fees are always pending until restaurant pays them
         paidAt: undefined // Will be set when restaurant actually pays the platform fees
-      });
+        });
 
-      // Publish fee ledger updated event
-      await publishFeeLedgerUpdated(feeLedger);
-      
-      // Publish due fees updated event
-      await publishDueFeesUpdated(restaurantId);
+        // Publish fee ledger updated event
+        await publishFeeLedgerUpdated(feeLedger);
+        
+        // Publish due fees updated event
+        await publishDueFeesUpdated(restaurantId!);
+      }
     }
 
     return order;
@@ -339,6 +345,17 @@ export const mutationResolvers = {
     }
     
     const updateData: any = { paymentStatus };
+
+    // Validate/normalize payment method
+    const allowedMethods = ['card', 'bank_transfer', 'cash', 'other'];
+    if (paymentMethod && !allowedMethods.includes(paymentMethod)) {
+      throw new Error('Invalid payment method');
+    }
+
+    // Require reason for any admin status change
+    if (!reason || !String(reason).trim()) {
+      throw new Error('Reason is required for payment status changes');
+    }
     
     if (paymentMethod) {
       updateData.paymentMethod = paymentMethod;
@@ -350,6 +367,16 @@ export const mutationResolvers = {
     
     // If marking as paid, set paidAt to current time
     if (paymentStatus === 'paid') {
+      // Ensure method is present when marking paid; auto-generate transaction for cash if missing
+      if (!updateData.paymentMethod && !paymentMethod) {
+        throw new Error('Payment method is required when marking as paid');
+      }
+      if ((paymentMethod === 'card' || paymentMethod === 'bank_transfer') && !paymentTransactionId) {
+        throw new Error('Transaction ID is required for online payments');
+      }
+      if (paymentMethod === 'cash' && !paymentTransactionId) {
+        updateData.paymentTransactionId = `CASH_${context.admin.id}_${Date.now()}`;
+      }
       updateData.paidAt = new Date();
     }
     
@@ -395,6 +422,12 @@ export const mutationResolvers = {
       throw new Error('Restaurant authentication required');
     }
     
+    // Enforce online methods only for restaurants
+    const allowedOnlineMethods = ['card', 'bank_transfer'];
+    if (!allowedOnlineMethods.includes(paymentMethod)) {
+      throw new Error('Invalid payment method. Restaurants may only pay fees via online methods (card or bank_transfer).');
+    }
+
     // Get all pending fees for this restaurant
     const pendingFees = await FeeLedger.find({ 
       restaurantId, 
@@ -433,6 +466,25 @@ export const mutationResolvers = {
     // Publish due fees updated event
     await publishDueFeesUpdated(restaurantId);
     
+    // Audit log restaurant-triggered payment
+    const { AuditLog } = await import('../models/index.js');
+    await AuditLog.create({
+      actorRole: 'restaurant',
+      actorId: context.restaurant.id,
+      action: 'PAY_PLATFORM_FEES',
+      entityType: 'FeeLedger',
+      entityId: 'multiple',
+      reason: `Restaurant paid platform fees via ${paymentMethod}`,
+      details: {
+        restaurantId,
+        method: paymentMethod,
+        transactionId: paymentTransactionId,
+        paidFeesCount: pendingFees.length,
+        totalAmountPaid: totalAmount
+      },
+      restaurantId
+    });
+
     return {
       success: true,
       message: `Successfully paid ${pendingFees.length} platform fees`,

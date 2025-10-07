@@ -66,6 +66,7 @@ export default function RestaurantOrderManagement() {
   const [isSaving, setIsSaving] = useState(false);
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -684,16 +685,42 @@ export default function RestaurantOrderManagement() {
                             {isCancelling ? 'Cancelling...' : 'Cancel Order'}
                           </Button>
                         )}
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={() => markPaid({ variables: { id: order.id } })}
-                          disabled={paying || order.status !== 'completed' || order.paid}
-                          startIcon={<CheckCircle />}
-                          size="small"
-                        >
-                          {order.paid ? 'Paid' : 'Mark Paid'}
-                        </Button>
+                        {order.paid ? (
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              border: '1px solid',
+                              borderColor: 'success.light',
+                              bgcolor: 'success.50',
+                              borderRadius: 1,
+                              minWidth: 220
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+                              <CheckCircle color="success" fontSize="small" />
+                              <Typography variant="subtitle2" color="success.main">Paid</Typography>
+                            </Box>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">Method</Typography>
+                              <Typography variant="caption" fontWeight="bold">{order.paymentMethod || '-'}</Typography>
+                              <Typography variant="caption" color="text.secondary">Transaction</Typography>
+                              <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
+                              <Typography variant="caption" color="text.secondary">Paid at</Typography>
+                              <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={() => setConfirmMarkPaidOpen(true)}
+                            disabled={paying || order.status !== 'completed'}
+                            startIcon={<CheckCircle />}
+                            size="small"
+                          >
+                            Mark Paid
+                          </Button>
+                        )}
                       </>
                     );
                   })()}
@@ -957,6 +984,21 @@ export default function RestaurantOrderManagement() {
           cancelText="Cancel"
           confirmColor="success"
           loading={isSaving}
+        />
+
+        {/* Mark Paid Confirmation Dialog */}
+        <ConfirmationDialog
+          open={confirmMarkPaidOpen}
+          onClose={() => setConfirmMarkPaidOpen(false)}
+          onConfirm={async () => {
+            setConfirmMarkPaidOpen(false);
+            await markPaid({ variables: { id: order.id, paymentMethod: 'cash', paymentTransactionId: `CASH_${Date.now()}` } });
+          }}
+          title="Mark Order as Paid"
+          message="This will record this order as paid (cash). Are you sure?"
+          confirmText="Yes, Mark Paid"
+          cancelText="Cancel"
+          confirmColor="success"
         />
 
         {/* Cancel Order Confirmation Dialog */}

@@ -85,6 +85,10 @@ export interface IOrder extends Document {
   notes?: string;
   sessionId?: string;
   userId?: string;
+  paid?: boolean;
+  paidAt?: Date;
+  paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
+  paymentTransactionId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

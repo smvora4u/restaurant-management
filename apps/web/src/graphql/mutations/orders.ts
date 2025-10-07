@@ -96,12 +96,14 @@ export const PAY_ORDER = gql`
 `;
 
 export const MARK_ORDER_PAID = gql`
-  mutation MarkOrderPaid($id: ID!) {
-    markOrderPaid(id: $id) {
+  mutation MarkOrderPaid($id: ID!, $paymentMethod: String!, $paymentTransactionId: String) {
+    markOrderPaid(id: $id, paymentMethod: $paymentMethod, paymentTransactionId: $paymentTransactionId) {
       id
       status
       paid
       paidAt
+      paymentMethod
+      paymentTransactionId
       totalAmount
     }
   }

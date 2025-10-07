@@ -128,6 +128,8 @@ export const typeDefs = `#graphql
     updatedAt: String!
     paid: Boolean
     paidAt: String
+    paymentMethod: String
+    paymentTransactionId: String
   }
 
   type Reservation {
@@ -229,7 +231,7 @@ export const typeDefs = `#graphql
     createReservation(input: ReservationInput!): Reservation!
     updateReservation(id: ID!, input: ReservationInput!): Reservation!
     deleteReservation(id: ID!): Boolean!
-    markOrderPaid(id: ID!): Order!
+    markOrderPaid(id: ID!, paymentMethod: String!, paymentTransactionId: String): Order!
     setRestaurantFeeConfig(restaurantId: ID!, mode: String!, amount: Float!, freeOrdersRemaining: Int): RestaurantFeeConfig!
     generateWeeklySettlement(restaurantId: ID!, periodStart: String!, periodEnd: String!): Settlement!
     updateFeePaymentStatus(feeLedgerId: ID!, paymentStatus: String!, paymentMethod: String, paymentTransactionId: String, reason: String): FeeLedger!
