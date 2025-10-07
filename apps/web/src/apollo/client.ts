@@ -1,4 +1,5 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from, split } from '@apollo/client';
+import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
@@ -74,6 +75,38 @@ const authLink = setContext((_, { headers }) => {
   }
 });
 
+// Global error handling: detect expired/invalid auth and force re-login
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+  const isAuthProblem = (message: string) => {
+    const m = message.toLowerCase();
+    return m.includes('tokenexpired') || m.includes('expired') || m.includes('authentication required') || m.includes('unauthorized') || m.includes('jwt');
+  };
+
+  if (graphQLErrors && graphQLErrors.length > 0) {
+    const hasAuthError = graphQLErrors.some(err => isAuthProblem(err.message || ''));
+    if (hasAuthError) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('restaurantToken');
+      localStorage.removeItem('staffToken');
+      // Optional: preserve current URL to return after login
+      localStorage.setItem('postLoginRedirect', window.location.pathname + window.location.search);
+      window.location.replace('/login');
+      return;
+    }
+  }
+
+  if (networkError) {
+    const message = (networkError as any)?.message || '';
+    if (isAuthProblem(message)) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('restaurantToken');
+      localStorage.removeItem('staffToken');
+      localStorage.setItem('postLoginRedirect', window.location.pathname + window.location.search);
+      window.location.replace('/login');
+    }
+  }
+});
+
 // Split the link based on operation type
 const splitLink = split(
   ({ query }) => {
@@ -84,7 +117,7 @@ const splitLink = split(
     );
   },
   wsLink,
-  from([authLink, httpLink])
+  from([errorLink, authLink, httpLink])
 );
 
 export const client = new ApolloClient({

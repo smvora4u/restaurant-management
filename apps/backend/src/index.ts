@@ -7,7 +7,6 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/use/ws';
 
 // Import our modular components
 import { typeDefs } from './schema/typeDefs.js';
@@ -18,6 +17,7 @@ import { fixTableIndexes } from './utils/fixTableIndexes.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
+import { useServer } from 'graphql-ws/use/ws';
 
 async function start() {
   try {
@@ -69,7 +69,7 @@ async function start() {
     // Use the WebSocket server for GraphQL subscriptions
     useServer({
       schema,
-      context: async (ctx) => {
+      context: async (ctx: any) => {
         // Extract authentication from connection params
         const token = ctx.connectionParams?.authorization?.replace('Bearer ', '');
         if (token) {
