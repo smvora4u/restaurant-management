@@ -46,6 +46,7 @@ import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItem
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
+import { getStatusColor } from '../utils/statusColors';
 
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
@@ -360,18 +361,6 @@ export default function RestaurantOrderManagement() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'cancelled': return 'error';
-      case 'preparing': return 'info';
-      case 'ready': return 'primary';
-      case 'confirmed': return 'secondary';
-      case 'served': return 'success';
-      default: return 'default';
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {

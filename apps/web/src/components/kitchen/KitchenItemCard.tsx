@@ -8,12 +8,7 @@ import {
   CircularProgress,
   Tooltip
 } from '@mui/material';
-import {
-  Restaurant as RestaurantIcon,
-  AccessTime as AccessTimeIcon,
-  CheckCircle as CheckCircleIcon,
-  LocalDining as LocalDiningIcon
-} from '@mui/icons-material';
+import { getStatusColor, getStatusBackgroundColor, getStatusMuiIcon } from '../../utils/statusColors';
 
 interface KitchenItemCardProps {
   item: {
@@ -31,35 +26,6 @@ interface KitchenItemCardProps {
   onClick: () => void;
 }
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'pending': return <AccessTimeIcon />;
-    case 'preparing': return <RestaurantIcon />;
-    case 'ready': return <CheckCircleIcon />;
-    case 'served': return <LocalDiningIcon />;
-    default: return <AccessTimeIcon />;
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending': return 'warning';
-    case 'preparing': return 'info';
-    case 'ready': return 'success';
-    case 'served': return 'primary';
-    default: return 'default';
-  }
-};
-
-const getColumnColor = (status: string) => {
-  switch (status) {
-    case 'pending': return '#fff3cd';
-    case 'preparing': return '#d1ecf1';
-    case 'ready': return '#d4edda';
-    case 'served': return '#e2e3e5';
-    default: return '#f8f9fa';
-  }
-};
 
 export default function KitchenItemCard({ item, isUpdating = false, onClick }: KitchenItemCardProps) {
   const { 
@@ -76,6 +42,8 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
     orderType === 'takeout' ? 'Takeout' : 
     orderType === 'delivery' ? 'Delivery' : 'N/A';
 
+  const StatusIcon = getStatusMuiIcon(status);
+
   return (
     <Tooltip title={`Order: ${orderId.slice(-8)}`} placement="top">
       <Card
@@ -83,7 +51,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
         sx={{
           cursor: isUpdating ? 'not-allowed' : 'pointer',
           mb: 2,
-          backgroundColor: getColumnColor(status),
+          backgroundColor: getStatusBackgroundColor(status),
           border: `2px solid ${status === 'served' ? '#6c757d' : 'transparent'}`,
           transition: 'all 0.2s ease-in-out',
           '&:hover': {
@@ -156,7 +124,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
           {/* Quantity */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
             <Chip
-              icon={getStatusIcon(status)}
+              icon={<StatusIcon />}
               label={`Qty: ${quantity}`}
               color={getStatusColor(status) as any}
               size="small"

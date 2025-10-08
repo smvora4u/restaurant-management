@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 import { formatFullDateTime } from '../../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
-import { OrderStatus } from '../../utils/statusColors';
+import { OrderStatus, getStatusColor } from '../../utils/statusColors';
 
 interface OrderHeaderProps {
   order: any;
@@ -34,18 +34,6 @@ interface OrderHeaderProps {
   onCancelOrder?: () => void;
 }
 
-const getStatusColor = (status: OrderStatus) => {
-  switch (status) {
-    case 'completed': return 'success';
-    case 'pending': return 'warning';
-    case 'cancelled': return 'error';
-    case 'preparing': return 'info';
-    case 'ready': return 'primary';
-    case 'confirmed': return 'secondary';
-    case 'served': return 'success';
-    default: return 'default';
-  }
-};
 
 const getStatusIcon = (status: OrderStatus) => {
   switch (status) {

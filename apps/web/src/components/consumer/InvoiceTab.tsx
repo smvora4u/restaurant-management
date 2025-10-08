@@ -35,6 +35,7 @@ import {
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../../utils/dateFormatting';
 import { formatCurrencyFromContext } from '../../utils/currency';
+import { getStatusColor } from '../../utils/statusColors';
 import { 
   GET_ORDER_BY_TABLE, 
   GET_ORDER_BY_ID, 
@@ -171,18 +172,6 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'paid':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'cancelled':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
 
   const calculateTip = (amount: number) => {
     return (amount * tipAmount) / 100;

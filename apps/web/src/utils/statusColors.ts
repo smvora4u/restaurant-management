@@ -1,4 +1,11 @@
 // Status color utilities for consistent status display across the application
+import {
+  AccessTime as AccessTimeIcon,
+  CheckCircle as CheckCircleIcon,
+  Restaurant as RestaurantIcon,
+  LocalDining as LocalDiningIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
 export type ItemStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled';
@@ -84,5 +91,53 @@ export const getStatusDescription = (status: string) => {
       return 'Order cancelled';
     default:
       return 'Unknown status';
+  }
+};
+
+/**
+ * Returns background colors for status columns and cards
+ */
+export const getStatusBackgroundColor = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return '#fff3cd'; // Light yellow
+    case 'confirmed':
+      return '#d1ecf1'; // Light blue
+    case 'preparing':
+      return '#d1ecf1'; // Light blue
+    case 'ready':
+      return '#d4edda'; // Light green
+    case 'served':
+      return '#e2e3e5'; // Light gray
+    case 'completed':
+      return '#d4edda'; // Light green
+    case 'cancelled':
+      return '#f8d7da'; // Light red
+    default:
+      return '#f8f9fa'; // Light gray
+  }
+};
+
+/**
+ * Returns MUI icon components for statuses
+ */
+export const getStatusMuiIcon = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return AccessTimeIcon;
+    case 'confirmed':
+      return CheckCircleIcon;
+    case 'preparing':
+      return RestaurantIcon;
+    case 'ready':
+      return CheckCircleIcon;
+    case 'served':
+      return LocalDiningIcon;
+    case 'completed':
+      return CheckCircleIcon;
+    case 'cancelled':
+      return CancelIcon;
+    default:
+      return AccessTimeIcon;
   }
 };

@@ -36,6 +36,7 @@ import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
+import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -110,29 +111,6 @@ export default function StaffDashboard() {
     setPage(0);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'cancelled': return 'error';
-      case 'preparing': return 'info';
-      case 'ready': return 'primary';
-      case 'confirmed': return 'secondary';
-      case 'served': return 'success';
-      default: return 'default';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle />;
-      case 'cancelled': return <Cancel />;
-      case 'preparing': return <AccessTime />;
-      case 'ready': return <Restaurant />;
-      case 'served': return <CheckCircle />;
-      default: return <ShoppingCart />;
-    }
-  };
 
   if (!staff) {
     return (

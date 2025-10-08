@@ -30,7 +30,7 @@ import {
   Update
 } from '@mui/icons-material';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
-import { ItemStatus } from '../../utils/statusColors';
+import { ItemStatus, getStatusColor } from '../../utils/statusColors';
 
 interface OrderItemsTableProps {
   items: any[];
@@ -48,17 +48,6 @@ interface OrderItemsTableProps {
   restrictCancelToPending?: boolean;
 }
 
-const getStatusColor = (status: ItemStatus) => {
-  switch (status) {
-    case 'pending': return 'warning';
-    case 'cancelled': return 'error';
-    case 'preparing': return 'info';
-    case 'ready': return 'primary';
-    case 'confirmed': return 'secondary';
-    case 'served': return 'success';
-    default: return 'default';
-  }
-};
 
 const getStatusIcon = (status: ItemStatus) => {
   switch (status) {

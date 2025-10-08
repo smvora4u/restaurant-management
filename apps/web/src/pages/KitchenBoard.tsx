@@ -21,6 +21,7 @@ import KitchenItemCard from '../components/kitchen/KitchenItemCard';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { GET_ORDERS_FOR_STAFF, GET_MENU_ITEMS } from '../graphql';
 import { UPDATE_ORDER_ITEM_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
+import { getStatusBackgroundColor } from '../utils/statusColors';
 
 interface FlattenedItem {
   orderId: string;
@@ -35,10 +36,10 @@ interface FlattenedItem {
 }
 
 const statusColumns = [
-  { key: 'pending', label: 'Pending', color: '#fff3cd' },
-  { key: 'preparing', label: 'Preparing', color: '#d1ecf1' },
-  { key: 'ready', label: 'Ready', color: '#d4edda' },
-  { key: 'served', label: 'Served', color: '#e2e3e5' }
+  { key: 'pending', label: 'Pending' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'served', label: 'Served' }
 ] as const;
 
 const getNextStatus = (currentStatus: string): string | null => {
@@ -289,7 +290,7 @@ export default function KitchenBoard() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    backgroundColor: column.color,
+                    backgroundColor: getStatusBackgroundColor(column.key),
                     border: '2px solid',
                     borderColor: 'divider',
                     borderRadius: 2
