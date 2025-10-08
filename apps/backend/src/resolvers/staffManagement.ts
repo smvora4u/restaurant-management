@@ -1,5 +1,6 @@
 import { Staff, Order, MenuItem } from '../models/index.js';
 import { ORDER_STATUSES, ORDER_ITEM_STATUSES, OrderItemStatus } from '../constants/orderStatuses.js';
+import { publishOrderItemStatusUpdated } from './subscriptions.js';
 
 export const staffManagementResolvers = {
   Query: {
@@ -154,6 +155,9 @@ export const staffManagementResolvers = {
         order.items[itemIndex]!.status = status as OrderItemStatus;
         order.updatedAt = new Date();
         await order.save();
+
+        // Publish real-time update event
+        await publishOrderItemStatusUpdated(order);
 
         return {
           id: order._id,

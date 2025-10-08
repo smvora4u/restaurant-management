@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Grid,
   Paper,
   CircularProgress,
   Alert,
   Snackbar,
-  Chip,
-  Button
+  Chip
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
   Restaurant as RestaurantIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
@@ -213,22 +210,6 @@ export default function KitchenBoard() {
     }
   };
 
-  const handleRefresh = async () => {
-    try {
-      await refetchOrders();
-      setSnackbar({
-        open: true,
-        message: 'Kitchen board refreshed!',
-        severity: 'success'
-      });
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Error refreshing data',
-        severity: 'error'
-      });
-    }
-  };
 
   if (!staff) {
     return (
@@ -269,22 +250,22 @@ export default function KitchenBoard() {
               color="primary" 
               variant="outlined" 
             />
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={handleRefresh}
-              disabled={ordersLoading}
-            >
-              Refresh
-            </Button>
           </Box>
         </Box>
 
         {/* Kitchen Board Columns */}
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
-          <Grid container spacing={2} sx={{ height: '100%' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            height: '100%', 
+            gap: 2,
+            '& > *': {
+              flex: '1 1 25%', // Each column takes exactly 25% width
+              minWidth: 0 // Prevent flex items from overflowing
+            }
+          }}>
             {statusColumns.map((column) => (
-              <Grid item xs={12} sm={6} md={3} key={column.key} sx={{ height: '100%' }}>
+              <Box key={column.key} sx={{ height: '100%' }}>
                 <Paper
                   sx={{
                     height: '100%',
@@ -341,9 +322,12 @@ export default function KitchenBoard() {
                         justifyContent: 'center', 
                         alignItems: 'center', 
                         height: '200px',
-                        color: 'text.secondary'
+                        color: 'text.secondary',
+                        textAlign: 'center'
                       }}>
-                        <Typography variant="h6">No items</Typography>
+                        <Typography variant="h6" sx={{ opacity: 0.6 }}>
+                          No {column.label.toLowerCase()} items
+                        </Typography>
                       </Box>
                     ) : (
                       itemsByStatus[column.key]?.map((item, index) => {
@@ -362,9 +346,9 @@ export default function KitchenBoard() {
                     )}
                   </Box>
                 </Paper>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         </Box>
 
         {/* Instructions */}
