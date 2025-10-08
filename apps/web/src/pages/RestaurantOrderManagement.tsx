@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -41,6 +41,7 @@ import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { 
   UPDATE_ORDER
 } from '../graphql/mutations/orders';
+import { UPDATE_ORDER_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
 import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
@@ -111,6 +112,86 @@ export default function RestaurantOrderManagement() {
     }
   });
 
+  const [updateOrderStatusOnly] = useMutation(UPDATE_ORDER_STATUS_FOR_STAFF, {
+    onError: (error) => {
+      console.error('Error updating order status only:', error);
+    }
+  });
+
+  // Track recently updated orders to prevent infinite loops
+  const recentlyUpdatedOrders = useRef<Set<string>>(new Set());
+  
+  // Circuit breaker to prevent rapid successive updates
+  const updateCounts = useRef<Map<string, { count: number; lastUpdate: number }>>(new Map());
+  const MAX_UPDATES_PER_MINUTE = 5;
+  
+  // Global emergency brake to completely stop updates if we detect a severe loop
+  const emergencyBrake = useRef<boolean>(false);
+  const EMERGENCY_THRESHOLD = 10; // If any order gets updated 10+ times in a minute, stop all updates
+  
+  // Debounced refetch to prevent rapid successive calls
+  const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedRefetch = useCallback(() => {
+    if (refetchTimeoutRef.current) {
+      clearTimeout(refetchTimeoutRef.current);
+    }
+    refetchTimeoutRef.current = setTimeout(() => {
+      refetch();
+    }, 100); // 100ms debounce
+  }, [refetch]);
+  
+  // Check if order is being updated too frequently (circuit breaker)
+  const isOrderUpdateBlocked = useCallback((orderId: string) => {
+    const now = Date.now();
+    const orderUpdateInfo = updateCounts.current.get(orderId);
+    
+    if (!orderUpdateInfo) {
+      return false;
+    }
+    
+    // Reset count if more than a minute has passed
+    if (now - orderUpdateInfo.lastUpdate > 60000) {
+      updateCounts.current.set(orderId, { count: 1, lastUpdate: now });
+      return false;
+    }
+    
+    // Block if too many updates in the last minute
+    if (orderUpdateInfo.count >= MAX_UPDATES_PER_MINUTE) {
+      console.log(`Order ${orderId} is being updated too frequently, blocking update`);
+      return true;
+    }
+    
+    return false;
+  }, []);
+  
+  // Record an update attempt
+  const recordOrderUpdate = useCallback((orderId: string) => {
+    const now = Date.now();
+    const orderUpdateInfo = updateCounts.current.get(orderId);
+    
+    if (!orderUpdateInfo) {
+      updateCounts.current.set(orderId, { count: 1, lastUpdate: now });
+    } else {
+      const newCount = orderUpdateInfo.count + 1;
+      updateCounts.current.set(orderId, { 
+        count: newCount, 
+        lastUpdate: now 
+      });
+      
+      // Activate emergency brake if any order is updated too frequently
+      if (newCount >= EMERGENCY_THRESHOLD) {
+        console.error(`EMERGENCY BRAKE ACTIVATED: Order ${orderId} updated ${newCount} times in a minute!`);
+        emergencyBrake.current = true;
+        
+        // Reset emergency brake after 2 minutes
+        setTimeout(() => {
+          emergencyBrake.current = false;
+          console.log('Emergency brake reset');
+        }, 120000);
+      }
+    }
+  }, []);
+
   // Get restaurant ID for subscriptions
   const restaurantId = data?.orderById?.restaurantId || '';
   console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
@@ -138,18 +219,108 @@ export default function RestaurantOrderManagement() {
     restaurantId: finalRestaurantId,
     onOrderUpdated: (updatedOrder) => {
       console.log('Restaurant page - Order updated received:', updatedOrder);
-      refetch();
+      // If this is an order we recently updated, don't process it to prevent loops
+      if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
+        console.log('Skipping order updated event - recently updated by us:', updatedOrder.id);
+        return;
+      }
+      // Use debounced refetch to prevent rapid successive calls
+      debouncedRefetch();
     },
     onOrderItemStatusUpdated: (updatedOrder) => {
       console.log('Restaurant page - Order item status updated received:', updatedOrder);
-      refetch();
+      
+      // Emergency brake check - stop all updates if we detect a severe loop
+      if (emergencyBrake.current) {
+        console.log('EMERGENCY BRAKE ACTIVE - Skipping all order updates');
+        return;
+      }
+      
+      // Skip if we recently updated this order to prevent infinite loops
+      if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
+        console.log('Skipping order status update - recently updated:', updatedOrder.id);
+        recentlyUpdatedOrders.current.delete(updatedOrder.id);
+        // Don't refetch here to prevent loops
+        return;
+      }
+      
+      // Recalculate order status based on updated item statuses
+      if (updatedOrder && updatedOrder.items) {
+        const calculatedStatus = calculateOrderStatus(updatedOrder.items);
+        console.log('Current order status:', updatedOrder.status, 'Calculated status:', calculatedStatus);
+        
+        // Additional check: if order is already completed, don't try to update it
+        if (updatedOrder.status === 'completed' && calculatedStatus === 'completed') {
+          console.log('Order is already completed, skipping update');
+          debouncedRefetch();
+          return;
+        }
+        
+        if (calculatedStatus !== updatedOrder.status) {
+          console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
+          
+          // Check circuit breaker first
+          if (isOrderUpdateBlocked(updatedOrder.id)) {
+            console.log('Order update blocked by circuit breaker:', updatedOrder.id);
+            debouncedRefetch();
+            return;
+          }
+          
+          // Record this update attempt
+          recordOrderUpdate(updatedOrder.id);
+          
+          // Mark this order as recently updated BEFORE making the API call
+          recentlyUpdatedOrders.current.add(updatedOrder.id);
+          
+          // Update the order status on the server
+          updateOrderStatusOnly({
+            variables: {
+              id: updatedOrder.id,
+              status: calculatedStatus
+            }
+          }).then(() => {
+            console.log('Order status updated successfully to:', calculatedStatus);
+            // Use debounced refetch after successful update
+            debouncedRefetch();
+          }).catch((error) => {
+            console.error('Failed to update order status:', error);
+            // Remove from tracking set on error so it can be retried
+            recentlyUpdatedOrders.current.delete(updatedOrder.id);
+            // Use debounced refetch even on error to get latest state
+            debouncedRefetch();
+          });
+          
+          // Clear the flag after a longer delay for completed orders
+          const delay = calculatedStatus === 'completed' ? 5000 : 2000;
+          setTimeout(() => {
+            recentlyUpdatedOrders.current.delete(updatedOrder.id);
+            console.log('Cleared tracking for order:', updatedOrder.id);
+          }, delay);
+        } else {
+          console.log('Order status is already correct, no update needed');
+          debouncedRefetch();
+        }
+      } else {
+        // If no valid order data, just refetch
+        debouncedRefetch();
+      }
     },
     onNewOrder: (newOrder) => {
       console.log('Restaurant page - New order received:', newOrder);
+      debouncedRefetch();
     }
   });
 
 
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (refetchTimeoutRef.current) {
+        clearTimeout(refetchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const restaurantData = localStorage.getItem('restaurant');

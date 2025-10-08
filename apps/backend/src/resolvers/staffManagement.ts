@@ -1,6 +1,6 @@
 import { Staff, Order, MenuItem } from '../models/index.js';
 import { ORDER_STATUSES, ORDER_ITEM_STATUSES, OrderItemStatus } from '../constants/orderStatuses.js';
-import { publishOrderItemStatusUpdated } from './subscriptions.js';
+import { publishOrderItemStatusUpdated, publishOrderUpdated } from './subscriptions.js';
 
 export const staffManagementResolvers = {
   Query: {
@@ -116,6 +116,9 @@ export const staffManagementResolvers = {
         if (!order) {
           throw new Error('Order not found');
         }
+
+        // Publish order updated event
+        await publishOrderUpdated(order);
 
         return {
           id: order._id,

@@ -31,6 +31,7 @@ import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
+import { calculateOrderStatus } from '../utils/statusManagement';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
@@ -138,7 +139,16 @@ export default function StaffOrderManagement() {
     onOrderUpdated: (_updatedOrder) => {
       refetch();
     },
-    onOrderItemStatusUpdated: (_updatedOrder) => {
+    onOrderItemStatusUpdated: (updatedOrder) => {
+      // Recalculate order status based on updated item statuses
+      if (updatedOrder && updatedOrder.items) {
+        const calculatedStatus = calculateOrderStatus(updatedOrder.items);
+        if (calculatedStatus !== updatedOrder.status) {
+          console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
+          // Note: Staff might not have permission to update order status
+          // This is just for logging - the restaurant management page will handle the actual update
+        }
+      }
       refetch();
     },
     onNewOrder: (newOrder) => {
