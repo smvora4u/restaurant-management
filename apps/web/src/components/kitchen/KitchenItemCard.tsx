@@ -1,0 +1,208 @@
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Chip,
+  CircularProgress,
+  Tooltip
+} from '@mui/material';
+import {
+  Restaurant as RestaurantIcon,
+  AccessTime as AccessTimeIcon,
+  CheckCircle as CheckCircleIcon,
+  LocalDining as LocalDiningIcon
+} from '@mui/icons-material';
+
+interface KitchenItemCardProps {
+  item: {
+    orderId: string;
+    itemIndex: number;
+    menuItemId: string;
+    quantity: number;
+    status: 'pending' | 'preparing' | 'ready' | 'served';
+    tableNumber?: number;
+    orderType: 'dine-in' | 'takeout' | 'delivery';
+    specialInstructions?: string;
+    itemName?: string;
+  };
+  isUpdating?: boolean;
+  onClick: () => void;
+}
+
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'pending': return <AccessTimeIcon />;
+    case 'preparing': return <RestaurantIcon />;
+    case 'ready': return <CheckCircleIcon />;
+    case 'served': return <LocalDiningIcon />;
+    default: return <AccessTimeIcon />;
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'pending': return 'warning';
+    case 'preparing': return 'info';
+    case 'ready': return 'success';
+    case 'served': return 'primary';
+    default: return 'default';
+  }
+};
+
+const getColumnColor = (status: string) => {
+  switch (status) {
+    case 'pending': return '#fff3cd';
+    case 'preparing': return '#d1ecf1';
+    case 'ready': return '#d4edda';
+    case 'served': return '#e2e3e5';
+    default: return '#f8f9fa';
+  }
+};
+
+export default function KitchenItemCard({ item, isUpdating = false, onClick }: KitchenItemCardProps) {
+  const { 
+    tableNumber, 
+    orderType, 
+    quantity, 
+    specialInstructions, 
+    itemName, 
+    status, 
+    orderId 
+  } = item;
+
+  const displayTableNumber = tableNumber ? `Table ${tableNumber}` : 
+    orderType === 'takeout' ? 'Takeout' : 
+    orderType === 'delivery' ? 'Delivery' : 'N/A';
+
+  return (
+    <Tooltip title={`Order: ${orderId.slice(-8)}`} placement="top">
+      <Card
+        onClick={onClick}
+        sx={{
+          cursor: isUpdating ? 'not-allowed' : 'pointer',
+          mb: 2,
+          backgroundColor: getColumnColor(status),
+          border: `2px solid ${status === 'served' ? '#6c757d' : 'transparent'}`,
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            transform: isUpdating ? 'none' : 'translateY(-2px)',
+            boxShadow: isUpdating ? 'none' : 4,
+            borderColor: status === 'served' ? '#6c757d' : '#1976d2'
+          },
+          opacity: isUpdating ? 0.7 : 1,
+          position: 'relative'
+        }}
+      >
+        {isUpdating && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              zIndex: 1
+            }}
+          >
+            <CircularProgress size={24} />
+          </Box>
+        )}
+        
+        <CardContent sx={{ p: 2 }}>
+          {/* Table Number - Large and Prominent */}
+          <Typography
+            variant="h4"
+            component="div"
+            sx={{
+              fontWeight: 'bold',
+              textAlign: 'center',
+              mb: 1,
+              color: status === 'served' ? '#6c757d' : 'text.primary'
+            }}
+          >
+            {displayTableNumber}
+          </Typography>
+
+          {/* Order Type Chip */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+            <Chip
+              label={orderType}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          </Box>
+
+          {/* Item Name */}
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              textAlign: 'center',
+              mb: 1,
+              fontWeight: 'medium',
+              color: status === 'served' ? '#6c757d' : 'text.primary'
+            }}
+          >
+            {itemName || 'Loading...'}
+          </Typography>
+
+          {/* Quantity */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+            <Chip
+              icon={getStatusIcon(status)}
+              label={`Qty: ${quantity}`}
+              color={getStatusColor(status) as any}
+              size="small"
+            />
+          </Box>
+
+          {/* Special Instructions */}
+          {specialInstructions && (
+            <Box
+              sx={{
+                mt: 1,
+                p: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                borderRadius: 1,
+                border: '1px solid rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  fontStyle: 'italic',
+                  color: 'text.secondary',
+                  textAlign: 'center'
+                }}
+              >
+                <strong>Note:</strong> {specialInstructions}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Order ID Reference */}
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              textAlign: 'center',
+              mt: 1,
+              color: 'text.secondary',
+              fontFamily: 'monospace'
+            }}
+          >
+            #{orderId.slice(-8)}
+          </Typography>
+        </CardContent>
+      </Card>
+    </Tooltip>
+  );
+}

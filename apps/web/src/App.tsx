@@ -21,6 +21,7 @@ import StaffManagement from './pages/StaffManagement';
 import UnifiedLogin from './pages/UnifiedLogin';
 import RestaurantSettlements from './pages/RestaurantSettlements';
 import RestaurantFees from './pages/RestaurantFees';
+import KitchenBoard from './pages/KitchenBoard';
 
 // Create theme
 const theme = createTheme({
@@ -177,6 +178,14 @@ function App() {
               element={
                 <ProtectedStaffRoute>
                   <StaffOrderManagement />
+                </ProtectedStaffRoute>
+              } 
+            />
+            <Route 
+              path="/staff/kitchen" 
+              element={
+                <ProtectedStaffRoute>
+                  <KitchenBoard />
                 </ProtectedStaffRoute>
               } 
             />

@@ -23,6 +23,7 @@ import {
   Menu as MenuIcon,
   Person as PersonIcon,
   Dashboard as DashboardIcon,
+  Restaurant as RestaurantIcon,
   Logout,
 } from '@mui/icons-material';
 
@@ -45,6 +46,7 @@ const drawerWidth = 240;
 const getMenuItems = (permissions: string[]) => {
   const baseItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard', permission: 'view_orders' },
+    { text: 'Kitchen Board', icon: <RestaurantIcon />, path: '/staff/kitchen', permission: 'manage_orders' },
   ];
 
   const conditionalItems: Array<{ text: string; icon: React.ReactElement; path: string; permission: string }> = [];
