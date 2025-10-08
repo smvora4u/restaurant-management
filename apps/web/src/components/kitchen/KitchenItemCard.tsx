@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Card,
   CardContent,
@@ -21,6 +20,7 @@ interface KitchenItemCardProps {
     orderType: 'dine-in' | 'takeout' | 'delivery';
     specialInstructions?: string;
     itemName?: string;
+    isUpdating?: boolean;
   };
   isUpdating?: boolean;
   onClick: () => void;
@@ -35,7 +35,8 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
     specialInstructions, 
     itemName, 
     status, 
-    orderId 
+    orderId,
+    isUpdating: itemIsUpdating
   } = item;
 
   const displayTableNumber = tableNumber ? `Table ${tableNumber}` : 
@@ -49,21 +50,21 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
       <Card
         onClick={onClick}
         sx={{
-          cursor: isUpdating ? 'not-allowed' : 'pointer',
+          cursor: (isUpdating || itemIsUpdating) ? 'not-allowed' : 'pointer',
           mb: 2,
           backgroundColor: getStatusBackgroundColor(status),
           border: `2px solid ${status === 'served' ? '#6c757d' : 'transparent'}`,
           transition: 'all 0.2s ease-in-out',
           '&:hover': {
-            transform: isUpdating ? 'none' : 'translateY(-2px)',
-            boxShadow: isUpdating ? 'none' : 4,
+            transform: (isUpdating || itemIsUpdating) ? 'none' : 'translateY(-2px)',
+            boxShadow: (isUpdating || itemIsUpdating) ? 'none' : 4,
             borderColor: status === 'served' ? '#6c757d' : '#1976d2'
           },
-          opacity: isUpdating ? 0.7 : 1,
+          opacity: (isUpdating || itemIsUpdating) ? 0.7 : 1,
           position: 'relative'
         }}
       >
-        {isUpdating && (
+        {(isUpdating || itemIsUpdating) && (
           <Box
             sx={{
               position: 'absolute',

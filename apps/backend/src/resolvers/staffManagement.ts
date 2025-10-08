@@ -180,6 +180,7 @@ export const staffManagementResolvers = {
       } catch (error) {
         throw new Error(`Failed to update order item status: ${error instanceof Error ? error.message : String(error)}`);
       }
-    }
+    },
+
   }
 };

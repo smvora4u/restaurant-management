@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,6 +30,7 @@ interface FlattenedItem {
   orderType: 'dine-in' | 'takeout' | 'delivery';
   specialInstructions?: string;
   itemName?: string;
+  isUpdating?: boolean;
 }
 
 const statusColumns = [
@@ -53,12 +54,14 @@ export default function KitchenBoard() {
   const navigate = useNavigate();
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
-  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
+  
+  // Track which items are currently being updated to prevent duplicate backend updates
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
 
   // Queries
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS_FOR_STAFF, {
@@ -73,7 +76,8 @@ export default function KitchenBoard() {
 
   // Mutation
   const [updateItemStatus] = useMutation(UPDATE_ORDER_ITEM_STATUS_FOR_STAFF, {
-    onCompleted: () => {
+    onCompleted: (data) => {
+      console.log('Kitchen Board - Mutation completed successfully:', data);
       setSnackbar({
         open: true,
         message: 'Item status updated successfully!',
@@ -81,6 +85,7 @@ export default function KitchenBoard() {
       });
     },
     onError: (error) => {
+      console.error('Kitchen Board - Mutation error:', error);
       setSnackbar({
         open: true,
         message: `Error updating status: ${error.message}`,
@@ -92,13 +97,16 @@ export default function KitchenBoard() {
   // Real-time subscriptions
   useOrderSubscriptions({
     restaurantId: staff?.restaurantId || '',
-    onOrderUpdated: () => {
+    onOrderUpdated: (updatedOrder) => {
+      console.log('Kitchen Board - Order updated received:', updatedOrder);
       refetchOrders();
     },
-    onOrderItemStatusUpdated: () => {
+    onOrderItemStatusUpdated: (updatedOrder) => {
+      console.log('Kitchen Board - Order item status updated received:', updatedOrder);
       refetchOrders();
     },
-    onNewOrder: () => {
+    onNewOrder: (newOrder) => {
+      console.log('Kitchen Board - New order received:', newOrder);
       refetchOrders();
     }
   });
@@ -118,6 +126,13 @@ export default function KitchenBoard() {
       setRestaurant(JSON.parse(restaurantData));
     }
   }, [navigate]);
+
+  // Cleanup updating items when component unmounts
+  useEffect(() => {
+    return () => {
+      setUpdatingItems(new Set());
+    };
+  }, []);
 
   // Create menu items lookup
   const menuItemsMap = useMemo(() => {
@@ -139,25 +154,26 @@ export default function KitchenBoard() {
         // Skip cancelled items
         if (item.status === 'cancelled') return;
         
-        // Create individual cards for each quantity
-        for (let i = 0; i < item.quantity; i++) {
-          items.push({
-            orderId: order.id,
-            itemIndex,
-            menuItemId: item.menuItemId,
-            quantity: 1, // Each card represents 1 quantity
-            status: item.status,
-            tableNumber: order.tableNumber,
-            orderType: order.orderType,
-            specialInstructions: item.specialInstructions,
-            itemName: menuItemsMap[item.menuItemId]?.name || 'Loading...'
-          });
-        }
+        const itemKey = `${order.id}-${itemIndex}`;
+        const isItemUpdating = updatingItems.has(itemKey);
+        
+        items.push({
+          orderId: order.id,
+          itemIndex,
+          menuItemId: item.menuItemId,
+          quantity: item.quantity, // Show total quantity
+          status: item.status as 'pending' | 'preparing' | 'ready' | 'served',
+          tableNumber: order.tableNumber,
+          orderType: order.orderType,
+          specialInstructions: item.specialInstructions,
+          itemName: menuItemsMap[item.menuItemId]?.name || 'Loading...',
+          isUpdating: isItemUpdating
+        });
       });
     });
     
     return items;
-  }, [ordersData, menuItemsMap]);
+  }, [ordersData, menuItemsMap, updatingItems]);
 
   // Group items by status
   const itemsByStatus = useMemo(() => {
@@ -189,8 +205,23 @@ export default function KitchenBoard() {
     }
 
     const itemKey = `${item.orderId}-${item.itemIndex}`;
+    
+    // Check if this item is already being updated
+    if (updatingItems.has(itemKey)) {
+      console.log('Item is already being updated:', itemKey);
+      return;
+    }
+    
+    // Mark this item as being updated
     setUpdatingItems(prev => new Set(prev).add(itemKey));
-
+    
+    console.log('Updating item status:', {
+      orderId: item.orderId,
+      itemIndex: item.itemIndex,
+      status: nextStatus,
+      quantity: item.quantity
+    });
+    
     try {
       await updateItemStatus({
         variables: {
@@ -199,9 +230,27 @@ export default function KitchenBoard() {
           status: nextStatus
         }
       });
+      
+      console.log('Item status update successful');
+      
+      // Show success message
+      setSnackbar({
+        open: true,
+        message: `Item moved to ${nextStatus}`,
+        severity: 'success'
+      });
+      
     } catch (error) {
       console.error('Error updating item status:', error);
+      
+      // Show error message
+      setSnackbar({
+        open: true,
+        message: `Error updating item: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
     } finally {
+      // Remove from updating set
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
         newSet.delete(itemKey);
