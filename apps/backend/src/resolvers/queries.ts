@@ -134,7 +134,7 @@ export const queryResolvers = {
           pendingCount: pendingFees.length,
           currency: 'USD', // Default currency
           lastPaymentDate: lastPaidFee?.paidAt?.toISOString() || null,
-          oldestDueDate: pendingFees.length > 0 ? pendingFees[0].createdAt.toISOString() : null
+          oldestDueDate: pendingFees.length > 0 ? pendingFees[0]?.createdAt.toISOString() : null
         };
       })
     );
