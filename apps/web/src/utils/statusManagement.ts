@@ -52,9 +52,10 @@ export const calculateOrderStatus = (items: Array<{ status: ItemStatus }>): Orde
   const allConfirmed = confirmedCount === effectiveTotal && effectiveTotal > 0;
   const allPending = pendingCount === effectiveTotal && effectiveTotal > 0;
 
-  // If all items are served, order is completed
+  // If all items are served, order is served (not completed)
+  // Order becomes completed only when explicitly marked via Complete Order button
   if (allServed) {
-    return 'completed';
+    return 'served';
   }
 
   // If all items are ready, order is ready
@@ -182,7 +183,7 @@ export const getPreviousStatus = (currentStatus: ItemStatus | OrderStatus): Item
 
 /**
  * Checks if an order can be marked as completed
- * Order can only be completed when all items are served
+ * Order can only be completed when all items are served (order status is 'served')
  */
 export const canCompleteOrder = (items: Array<{ status: ItemStatus }>): boolean => {
   return items.length > 0 && items.every(item => item.status === 'served');

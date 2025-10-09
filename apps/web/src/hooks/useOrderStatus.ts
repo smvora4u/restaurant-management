@@ -29,6 +29,24 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     }
   });
 
+  // Resolve restaurant id from order or local storage as a fallback
+  const getEffectiveRestaurantId = (): string | undefined => {
+    if (order?.restaurantId) return order.restaurantId;
+    try {
+      const restaurantRaw = localStorage.getItem('restaurant');
+      if (restaurantRaw) {
+        const r = JSON.parse(restaurantRaw);
+        if (r?.id) return r.id as string;
+      }
+      const staffRaw = localStorage.getItem('staff');
+      if (staffRaw) {
+        const s = JSON.parse(staffRaw);
+        if (s?.restaurantId) return s.restaurantId as string;
+      }
+    } catch {}
+    return undefined;
+  };
+
   const openStatusDialog = useCallback((currentStatus: string) => {
     const nextStatus = getNextStatus(currentStatus as OrderStatus);
     setNewStatus(nextStatus || currentStatus);
@@ -51,12 +69,13 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     try {
       // Auto-detach table when order is completed
       const shouldDetachTable = newStatus === 'completed' && order.orderType === 'dine-in' && order.tableNumber;
+      const restaurantId = getEffectiveRestaurantId();
       
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
-            restaurantId: order.restaurantId,
+            restaurantId,
             status: newStatus,
             tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
             orderType: order.orderType,
@@ -93,12 +112,13 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     try {
       // Auto-detach table when completing dine-in order
       const shouldDetachTable = order.orderType === 'dine-in' && order.tableNumber;
+      const restaurantId = getEffectiveRestaurantId();
       
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
-            restaurantId: order.restaurantId,
+            restaurantId,
             status: 'completed',
             tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
             orderType: order.orderType,
@@ -133,11 +153,12 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     setIsUpdating(true);
     
     try {
+      const restaurantId = getEffectiveRestaurantId();
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
-            restaurantId: order.restaurantId,
+            restaurantId,
             status: 'cancelled',
             tableNumber: order.tableNumber,
             orderType: order.orderType,

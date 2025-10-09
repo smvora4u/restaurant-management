@@ -202,7 +202,7 @@ export default function RestaurantOrderManagement() {
         variables: {
           id: orderId,
           input: {
-            restaurantId: restaurant?.id,
+            restaurantId: restaurant?.id || order.restaurantId,
             status: nextStatus,
             tableNumber: shouldDetachTable ? null : order.tableNumber,
             orderType: order.orderType,
@@ -549,11 +549,11 @@ export default function RestaurantOrderManagement() {
         }))
       });
 
-      await updateOrderItems({
+    await updateOrderItems({
         variables: {
           id: orderId,
           input: {
-            restaurantId: restaurant?.id,
+          restaurantId: restaurant?.id || order.restaurantId,
             status: syncedOrder.status, // Use synced status
             tableNumber: order.tableNumber,
             orderType: order.orderType,
@@ -863,12 +863,12 @@ export default function RestaurantOrderManagement() {
                           </Button>
                         )}
                         
-                        {canComplete && (
+                        {canComplete && order.status !== 'completed' && (
                           <Button
                             variant="contained"
                             color="success"
                             onClick={() => setConfirmCompleteOpen(true)}
-                            disabled={isUpdating || order.status === 'completed'}
+                            disabled={isUpdating}
                             startIcon={<CheckCircle />}
                             size="small"
                           >

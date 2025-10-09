@@ -31,7 +31,7 @@ import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
-import { calculateOrderStatus } from '../utils/statusManagement';
+import { calculateOrderStatus, canCompleteOrder as canCompleteFromItems } from '../utils/statusManagement';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
@@ -290,7 +290,7 @@ export default function StaffOrderManagement() {
           onSaveChanges={handleSaveChanges}
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSaving}
-          canCompleteOrder={canCompleteOrder(order.status)}
+          canCompleteOrder={canCompleteFromItems(editingItems) && order.status !== 'completed'}
           canCancelOrder={canCancelOrder(order.status)}
           onCompleteOrder={handleCompleteOrderClick}
           onCancelOrder={handleCancelOrderClick}
