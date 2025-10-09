@@ -51,7 +51,7 @@ interface OrderItem {
 
 const ORDER_TYPES = [
   { value: 'dine-in', label: 'Dine In', icon: <Restaurant /> },
-  { value: 'takeaway', label: 'Takeaway', icon: <TakeoutDining /> },
+  { value: 'takeout', label: 'Takeout', icon: <TakeoutDining /> },
   { value: 'delivery', label: 'Delivery', icon: <DeliveryDining /> }
 ];
 

@@ -49,7 +49,7 @@ const getStatusIcon = (status: OrderStatus) => {
 const getOrderTypeIcon = (orderType: string) => {
   switch (orderType) {
     case 'dine-in': return <Restaurant />;
-    case 'takeaway': return <ShoppingCart />;
+    case 'takeout': return <ShoppingCart />;
     case 'delivery': return <ShoppingCart />;
     default: return <ShoppingCart />;
   }

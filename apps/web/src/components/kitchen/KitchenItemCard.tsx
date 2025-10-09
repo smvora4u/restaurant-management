@@ -40,7 +40,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
   } = item;
 
   const displayTableNumber = tableNumber ? `Table ${tableNumber}` : 
-    orderType === 'takeout' ? 'Takeout' : 
+    orderType === 'takeout' ? 'Parcel' : 
     orderType === 'delivery' ? 'Delivery' : 'N/A';
 
   const StatusIcon = getStatusMuiIcon(status);
@@ -98,16 +98,6 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
             {displayTableNumber}
           </Typography>
 
-          {/* Order Type Chip */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-            <Chip
-              label={orderType}
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-          </Box>
-
           {/* Item Name */}
           <Typography
             variant="h6"
@@ -122,13 +112,19 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
             {itemName || 'Loading...'}
           </Typography>
 
-          {/* Quantity */}
+          {/* Quantity - bigger for readability */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
             <Chip
               icon={<StatusIcon />}
               label={`Qty: ${quantity}`}
               color={getStatusColor(status) as any}
-              size="small"
+              size="medium"
+              sx={{
+                fontSize: '1rem',
+                height: 36,
+                px: 1.5,
+                fontWeight: 700
+              }}
             />
           </Box>
 

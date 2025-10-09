@@ -69,6 +69,7 @@ export default function RestaurantOrderManagement() {
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
+  const [confirmDetachOpen, setConfirmDetachOpen] = useState(false);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -109,6 +110,21 @@ export default function RestaurantOrderManagement() {
     },
     onError: (error) => {
       console.error('Error updating order status:', error);
+    }
+  });
+
+  const [detachFromTable, { loading: detaching }] = useMutation(UPDATE_ORDER, {
+    onCompleted: () => {
+      setSnackbarMessage('Table detached from order.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      setConfirmDetachOpen(false);
+      refetch();
+    },
+    onError: (error) => {
+      setSnackbarMessage(error.message);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     }
   });
 
@@ -881,6 +897,19 @@ export default function RestaurantOrderManagement() {
                             Mark Paid
                           </Button>
                         )}
+
+                        {order.orderType === 'dine-in' && order.tableNumber && (order.status === 'completed' || order.paid) && (
+                          <Button
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => setConfirmDetachOpen(true)}
+                            disabled={detaching}
+                            size="small"
+                            sx={{ mt: 1 }}
+                          >
+                            {detaching ? 'Detaching...' : 'Detach from Table'}
+                          </Button>
+                        )}
                       </>
                     );
                   })()}
@@ -1144,6 +1173,44 @@ export default function RestaurantOrderManagement() {
           cancelText="Cancel"
           confirmColor="success"
           loading={isSaving}
+        />
+
+        {/* Detach from Table Confirmation */}
+        <ConfirmationDialog
+          open={confirmDetachOpen}
+          onClose={() => setConfirmDetachOpen(false)}
+          onConfirm={async () => {
+            await detachFromTable({
+              variables: {
+                id: order.id,
+                input: {
+                  restaurantId: restaurant?.id,
+                  status: order.status,
+                  tableNumber: null, // This is the key change - detach from table
+                  orderType: order.orderType,
+                  customerName: order.customerName,
+                  customerPhone: order.customerPhone,
+                  notes: order.notes,
+                  sessionId: order.sessionId,
+                  userId: order.userId,
+                  items: order.items.map((item: any) => ({
+                    menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+                    quantity: item.quantity,
+                    price: item.price,
+                    status: item.status,
+                    specialInstructions: item.specialInstructions
+                  })),
+                  totalAmount: order.totalAmount
+                }
+              }
+            });
+          }}
+          title="Detach from Table"
+          message="Detaching will free this table for new orders. Continue?"
+          confirmText={detaching ? 'Detaching...' : 'Detach'}
+          cancelText="Cancel"
+          confirmColor="warning"
+          loading={detaching}
         />
 
         {/* Mark Paid Confirmation Dialog */}
