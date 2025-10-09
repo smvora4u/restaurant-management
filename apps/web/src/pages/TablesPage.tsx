@@ -36,7 +36,7 @@ import {
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 import { ConfirmationDialog } from '../components/common';
-import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE } from '../graphql';
+import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE, GET_ORDERS_FOR_STAFF } from '../graphql';
 
 const tableStatuses = [
   'available',
@@ -77,11 +77,26 @@ export default function TablesPage() {
 
   // Queries and mutations
   const { data, loading, error, refetch } = useQuery(GET_TABLES);
+  const { data: ordersData } = useQuery(GET_ORDERS_FOR_STAFF, {
+    variables: { restaurantId: restaurant?.id },
+    skip: !restaurant?.id,
+    pollInterval: 5000
+  });
   const [createTable] = useMutation(CREATE_TABLE);
   const [updateTable] = useMutation(UPDATE_TABLE);
   const [deleteTable] = useMutation(DELETE_TABLE);
 
   const tables = data?.tables || [];
+  const orders = ordersData?.ordersForStaff || [];
+
+  // Determine occupancy based on active dine-in orders
+  const activeStatuses = new Set(['pending', 'confirmed', 'preparing', 'ready', 'served']);
+  const occupiedTableNumbers = new Set(
+    orders
+      .filter((o: any) => o.orderType === 'dine-in' && o.tableNumber && activeStatuses.has(o.status))
+      .map((o: any) => o.tableNumber)
+  );
+  const isTableOccupied = (tableNumber?: number) => !!tableNumber && occupiedTableNumbers.has(tableNumber);
 
   // Load restaurant data from localStorage
   useEffect(() => {
@@ -246,8 +261,8 @@ export default function TablesPage() {
 
   // Calculate statistics
   const totalTables = tables.length;
-  const availableTables = tables.filter((table: any) => table.status === 'available').length;
-  const occupiedTables = tables.filter((table: any) => table.status === 'occupied').length;
+  const occupiedTables = tables.filter((table: any) => isTableOccupied(table.number)).length;
+  const availableTables = tables.filter((table: any) => !isTableOccupied(table.number)).length;
   const reservedTables = tables.filter((table: any) => table.status === 'reserved').length;
 
   if (loading) {
@@ -397,11 +412,18 @@ export default function TablesPage() {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={table.status.charAt(0).toUpperCase() + table.status.slice(1)}
-                            color={statusColors[table.status as keyof typeof statusColors] || 'default'}
-                            size="small"
-                          />
+                          {(() => {
+                            const occupied = isTableOccupied(table.number);
+                            const effectiveStatus = occupied ? 'occupied' : table.status;
+                            const label = effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1);
+                            return (
+                              <Chip
+                                label={label}
+                                color={statusColors[effectiveStatus as keyof typeof statusColors] || 'default'}
+                                size="small"
+                              />
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">
