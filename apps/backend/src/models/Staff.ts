@@ -26,7 +26,7 @@ const StaffSchema = new Schema<IStaff>({
   },
   permissions: [{
     type: String,
-    enum: ['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics']
+    enum: ['manage_orders', 'view_orders', 'update_order_status', 'view_kitchen']
   }],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

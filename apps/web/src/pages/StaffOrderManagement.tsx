@@ -15,8 +15,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Button,
-  Chip
+  Button
 } from '@mui/material';
 import { useQuery, useMutation } from '@apollo/client';
 import { CheckCircle } from '@mui/icons-material';
@@ -64,7 +63,7 @@ export default function StaffOrderManagement() {
   const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
 
   // Mutation for marking order as paid
-  const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
+  const [, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
       setSnackbarSeverity('success');
@@ -89,7 +88,6 @@ export default function StaffOrderManagement() {
     handleAddItem,
     handleUpdateItemStatus,
     saveChanges,
-    canCompleteOrder,
     canCancelOrder
   } = useOrderManagement({
     orderId: orderId!,
@@ -297,7 +295,7 @@ export default function StaffOrderManagement() {
         />
 
         {/* Staff Mark Paid (permission-gated) */}
-        {(staff?.permissions || []).includes('mark_order_paid') && (
+        {(staff?.permissions || []).includes('manage_orders') && (
           <Box sx={{ mb: 2 }}>
             {order.paid ? (
               <Box

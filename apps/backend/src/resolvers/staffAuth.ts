@@ -110,9 +110,9 @@ export const staffAuthResolvers = {
 
         // Set default permissions based on role
         const defaultPermissions = {
-          manager: ['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics'],
+          manager: ['manage_orders', 'view_orders', 'update_order_status', 'view_kitchen'],
           waiter: ['view_orders', 'update_order_status'],
-          kitchen_staff: ['view_orders', 'update_order_status'],
+          kitchen_staff: ['view_orders', 'update_order_status', 'view_kitchen'],
           cashier: ['view_orders', 'update_order_status']
         };
 

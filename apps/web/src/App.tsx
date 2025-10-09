@@ -56,6 +56,29 @@ const ProtectedStaffRoute = ({ children }: { children: React.ReactNode }) => {
   return staffToken ? <>{children}</> : <Navigate to="/login" />;
 };
 
+// Protected Route for staff Kitchen Board (block waiters)
+const ProtectedKitchenRoute = ({ children }: { children: React.ReactNode }) => {
+  const staffToken = localStorage.getItem('staffToken');
+  if (!staffToken) return <Navigate to="/login" />;
+
+  try {
+    const staffRaw = localStorage.getItem('staff');
+    const staff = staffRaw ? JSON.parse(staffRaw) : null;
+    const permissions: string[] = (staff?.permissions || []) as string[];
+    const role: string | undefined = staff?.role;
+
+    // Allow if explicit permission or kitchen/chef role
+    if (permissions.includes('view_kitchen') || role === 'chef' || role === 'kitchen' || role === 'kitchen_staff') {
+      return <>{children}</>;
+    }
+  } catch (e) {
+    // fall through to redirect
+  }
+
+  // Default: redirect non-authorized staff (e.g., waiter) to staff dashboard
+  return <Navigate to="/staff/dashboard" />;
+};
+
 function App() {
   return (
     <ApolloProvider client={client}>
@@ -184,9 +207,9 @@ function App() {
             <Route 
               path="/staff/kitchen" 
               element={
-                <ProtectedStaffRoute>
+                <ProtectedKitchenRoute>
                   <KitchenBoard />
-                </ProtectedStaffRoute>
+                </ProtectedKitchenRoute>
               } 
             />
             

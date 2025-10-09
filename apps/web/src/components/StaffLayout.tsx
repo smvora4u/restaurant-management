@@ -45,8 +45,10 @@ const drawerWidth = 240;
 // Define menu items based on staff permissions
 const getMenuItems = (permissions: string[]) => {
   const baseItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard', permission: 'view_orders' },
-    { text: 'Kitchen Board', icon: <RestaurantIcon />, path: '/staff/kitchen', permission: 'manage_orders' },
+    // Dashboard should be visible to all staff (no permission gate)
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard' },
+    // Show Kitchen Board only if staff has explicit kitchen view permission
+    { text: 'Kitchen Board', icon: <RestaurantIcon />, path: '/staff/kitchen', permission: 'view_kitchen' },
   ];
 
   const conditionalItems: Array<{ text: string; icon: React.ReactElement; path: string; permission: string }> = [];

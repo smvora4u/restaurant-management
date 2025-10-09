@@ -24,8 +24,6 @@ import {
   Restaurant,
   TrendingUp,
   AccessTime,
-  CheckCircle,
-  Cancel,
   Search,
   FilterList,
   Add as AddIcon
@@ -36,7 +34,7 @@ import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
-import { getStatusColor, getStatusIcon } from '../utils/statusColors';
+import { getStatusColor, getStatusMuiIcon } from '../utils/statusColors';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
@@ -59,23 +57,7 @@ export default function StaffDashboard() {
     skip: !staff?.restaurantId
   });
 
-  // Simple refetch function
-  const refetchAllData = async () => {
-    try {
-      await refetchOrders();
-      setSnackbar({
-        open: true,
-        message: 'Data refreshed successfully!',
-        severity: 'success'
-      });
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Error refreshing data. Please try again.',
-        severity: 'error'
-      });
-    }
-  };
+  // Simple refetch function (currently unused)
 
   const handleOrderCreated = (order: any) => {
     setCreateOrderDialogOpen(false);
@@ -158,13 +140,15 @@ export default function StaffDashboard() {
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOrderDialogOpen(true)}
-            >
-              Create New Order
-            </Button>
+            {Array.isArray(staff?.permissions) && staff.permissions.includes('manage_orders') && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateOrderDialogOpen(true)}
+              >
+                Create New Order
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -335,24 +319,35 @@ export default function StaffDashboard() {
                         </TableCell>
                         <TableCell>{formatCurrencyFromRestaurant(order.totalAmount, restaurant)}</TableCell>
                         <TableCell>
-                          <Chip
-                            icon={getStatusIcon(order.status)}
-                            label={order.status}
-                            size="small"
-                            color={getStatusColor(order.status)}
-                          />
+                          {(() => {
+                            const StatusIconComp = getStatusMuiIcon(order.status);
+                            return (
+                              <Chip
+                                icon={<StatusIconComp fontSize="small" />}
+                                label={order.status}
+                                size="small"
+                                color={getStatusColor(order.status)}
+                              />
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           {formatDate(order.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate(`/staff/orders/${order.id}`)}
-                          >
-                            Manage
-                          </Button>
+                          {Array.isArray(staff?.permissions) && staff.permissions.includes('manage_orders') ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => navigate(`/staff/orders/${order.id}`)}
+                            >
+                              Manage
+                            </Button>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              View Only
+                            </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

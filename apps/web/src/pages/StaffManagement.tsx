@@ -231,12 +231,12 @@ export default function StaffManagement() {
 
   const getDefaultPermissions = (role: string) => {
     const permissions = {
-      manager: ['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics'],
+      manager: ['manage_orders', 'view_orders', 'update_order_status', 'view_kitchen'],
       waiter: ['view_orders', 'update_order_status'],
-      kitchen_staff: ['view_orders', 'update_order_status'],
+      kitchen_staff: ['view_orders', 'update_order_status', 'view_kitchen'],
       cashier: ['view_orders', 'update_order_status']
-    };
-    return permissions[role as keyof typeof permissions] || permissions.waiter;
+    } as Record<string, string[]>;
+    return permissions[role] || permissions.waiter;
   };
 
   const handlePermissionChange = (permission: string) => {
@@ -460,7 +460,7 @@ export default function StaffManagement() {
                   Permissions
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {['manage_orders', 'view_orders', 'update_order_status', 'manage_menu', 'view_analytics', 'mark_order_paid'].map((permission) => (
+                  {['manage_orders', 'view_orders', 'update_order_status', 'view_kitchen'].map((permission) => (
                     <Chip
                       key={permission}
                       label={permission.replace('_', ' ')}
