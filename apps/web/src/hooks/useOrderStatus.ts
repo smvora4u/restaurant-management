@@ -6,11 +6,12 @@ import { OrderStatus } from '../utils/statusColors';
 
 interface UseOrderStatusProps {
   orderId: string;
+  order?: any; // Add order data for auto-detach functionality
   onSuccess?: () => void;
   onError?: (error: any) => void;
 }
 
-export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusProps) => {
+export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderStatusProps) => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -40,14 +41,38 @@ export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusPr
       return;
     }
 
+    if (!order) {
+      onError?.(new Error('Order data not available'));
+      return;
+    }
+
     setIsUpdating(true);
     
     try {
+      // Auto-detach table when order is completed
+      const shouldDetachTable = newStatus === 'completed' && order.orderType === 'dine-in' && order.tableNumber;
+      
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
-            status: newStatus
+            restaurantId: order.restaurantId,
+            status: newStatus,
+            tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: order.items.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: order.totalAmount
           }
         }
       });
@@ -55,17 +80,41 @@ export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusPr
       console.error('Error updating order status:', error);
       throw error;
     }
-  }, [orderId, newStatus, updateOrderStatus, onError]);
+  }, [orderId, newStatus, order, updateOrderStatus, onError]);
 
   const handleCompleteOrder = useCallback(async () => {
+    if (!order) {
+      onError?.(new Error('Order data not available'));
+      return;
+    }
+
     setIsUpdating(true);
     
     try {
+      // Auto-detach table when completing dine-in order
+      const shouldDetachTable = order.orderType === 'dine-in' && order.tableNumber;
+      
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
-            status: 'completed'
+            restaurantId: order.restaurantId,
+            status: 'completed',
+            tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: order.items.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: order.totalAmount
           }
         }
       });
@@ -73,9 +122,14 @@ export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusPr
       console.error('Error completing order:', error);
       throw error;
     }
-  }, [orderId, updateOrderStatus]);
+  }, [orderId, order, updateOrderStatus, onError]);
 
   const handleCancelOrder = useCallback(async () => {
+    if (!order) {
+      onError?.(new Error('Order data not available'));
+      return;
+    }
+
     setIsUpdating(true);
     
     try {
@@ -83,7 +137,23 @@ export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusPr
         variables: {
           id: orderId,
           input: {
-            status: 'cancelled'
+            restaurantId: order.restaurantId,
+            status: 'cancelled',
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: order.items.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: order.totalAmount
           }
         }
       });
@@ -91,7 +161,7 @@ export const useOrderStatus = ({ orderId, onSuccess, onError }: UseOrderStatusPr
       console.error('Error cancelling order:', error);
       throw error;
     }
-  }, [orderId, updateOrderStatus]);
+  }, [orderId, order, updateOrderStatus, onError]);
 
   return {
     statusDialogOpen,

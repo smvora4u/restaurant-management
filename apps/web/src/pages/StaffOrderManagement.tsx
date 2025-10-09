@@ -120,8 +120,17 @@ export default function StaffOrderManagement() {
     handleCancelOrder
   } = useOrderStatus({
     orderId: orderId!,
+    order: orderData?.order, // Pass order data for auto-detach functionality
     onSuccess: () => {
-      setSnackbarMessage('Order status updated successfully!');
+      // Check if order was completed and table was detached
+      const order = orderData?.order;
+      const wasTableDetached = order?.status === 'completed' && order?.orderType === 'dine-in' && order?.tableNumber;
+      
+      if (wasTableDetached) {
+        setSnackbarMessage('Order completed and table detached successfully!');
+      } else {
+        setSnackbarMessage('Order status updated successfully!');
+      }
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       refetch();
@@ -383,7 +392,7 @@ export default function StaffOrderManagement() {
         <ConfirmationDialog
           open={completeConfirmationOpen}
           title="Complete Order"
-          message="Are you sure you want to complete this order? This action cannot be undone."
+          message={`Are you sure you want to complete this order? ${order.orderType === 'dine-in' && order.tableNumber ? 'This will also detach the table and make it available for new customers.' : 'This action cannot be undone.'}`}
           onConfirm={confirmCompleteOrder}
           onClose={() => setCompleteConfirmationOpen(false)}
         />

@@ -18,7 +18,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  SelectChangeEvent,
   TextField,
   IconButton
 } from '@mui/material';
@@ -43,10 +42,11 @@ import {
 } from '../graphql/mutations/orders';
 import { UPDATE_ORDER_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
-import { syncOrderStatus, calculateOrderStatus, isValidStatusTransition, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
+import { syncOrderStatus, calculateOrderStatus, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
+import { useOrderStatus } from '../hooks/useOrderStatus';
 import { getStatusColor } from '../utils/statusColors';
 
 export default function RestaurantOrderManagement() {
@@ -54,7 +54,6 @@ export default function RestaurantOrderManagement() {
   const { orderId } = useParams<{ orderId: string }>();
   
   const [restaurant, setRestaurant] = useState<any>(null);
-  const [newStatus, setNewStatus] = useState('');
   const [editingItems, setEditingItems] = useState<any[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
@@ -69,7 +68,7 @@ export default function RestaurantOrderManagement() {
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
-  const [confirmDetachOpen, setConfirmDetachOpen] = useState(false);
+  const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -102,31 +101,35 @@ export default function RestaurantOrderManagement() {
   const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
   const menuItems = menuData?.menuItems || [];
 
-  // Mutations
-  const [updateOrderStatus, { loading: updateLoading }] = useMutation(UPDATE_ORDER, {
-    onCompleted: () => {
-      setNewStatus('');
-      refetch();
-    },
-    onError: (error) => {
-      console.error('Error updating order status:', error);
-    }
-  });
-
-  const [detachFromTable, { loading: detaching }] = useMutation(UPDATE_ORDER, {
-    onCompleted: () => {
-      setSnackbarMessage('Table detached from order.');
+  // Use order status hook for consistent status management
+  const {
+    isUpdating,
+    handleCompleteOrder,
+    handleCancelOrder: hookHandleCancelOrder
+  } = useOrderStatus({
+    orderId: orderId!,
+    order: data?.order,
+    onSuccess: () => {
+      // Check if order was completed and table was detached
+      const order = data?.order;
+      const wasTableDetached = order?.status === 'completed' && order?.orderType === 'dine-in' && order?.tableNumber;
+      
+      if (wasTableDetached) {
+        setSnackbarMessage('Order completed and table detached successfully!');
+      } else {
+        setSnackbarMessage('Order status updated successfully!');
+      }
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-      setConfirmDetachOpen(false);
       refetch();
     },
     onError: (error) => {
-      setSnackbarMessage(error.message);
+      setSnackbarMessage(`Error updating status: ${error.message}`);
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
   });
+
 
   const [updateOrderStatusOnly] = useMutation(UPDATE_ORDER_STATUS_FOR_STAFF, {
     onError: (error) => {
@@ -134,12 +137,29 @@ export default function RestaurantOrderManagement() {
     }
   });
 
+  // Mutation for updating order items and status
+  const [updateOrderItems] = useMutation(UPDATE_ORDER, {
+    onCompleted: () => {
+      setIsSaving(false);
+      setHasUnsavedChanges(false);
+      refetch();
+    },
+    onError: (error) => {
+      setIsSaving(false);
+      console.error('Error updating order items:', error);
+      setSnackbarMessage('Failed to save order changes. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  });
+
   // Track recently updated orders to prevent infinite loops
   const recentlyUpdatedOrders = useRef<Set<string>>(new Set());
   
   // Circuit breaker to prevent rapid successive updates
-  const updateCounts = useRef<Map<string, { count: number; lastUpdate: number }>>(new Map());
-  const MAX_UPDATES_PER_MINUTE = 5;
+  const updateCounts = useRef<Map<string, { count: number; lastUpdate: number; userInitiated: number }>>(new Map());
+  const MAX_UPDATES_PER_MINUTE = 15; // Increased from 5 to allow more legitimate updates
+  const MAX_AUTO_UPDATES_PER_MINUTE = 8; // Separate limit for automatic updates
   
   // Global emergency brake to completely stop updates if we detect a severe loop
   const emergencyBrake = useRef<boolean>(false);
@@ -156,8 +176,71 @@ export default function RestaurantOrderManagement() {
     }, 100); // 100ms debounce
   }, [refetch]);
   
+  // Custom function to update status to next calculated status
+  const handleQuickStatusUpdate = useCallback(async (nextStatus: string) => {
+    if (!orderId || !data?.order) return;
+    
+    const order = data.order;
+    
+    // Check circuit breaker for user-initiated updates
+    if (isOrderUpdateBlocked(orderId, true)) {
+      console.log('User-initiated order update blocked by circuit breaker:', orderId);
+      setSnackbarMessage('Order is being updated too frequently. Please wait a moment and try again.');
+      setSnackbarSeverity('warning');
+      setSnackbarOpen(true);
+      return;
+    }
+    
+    try {
+      // Record this user-initiated update attempt
+      recordOrderUpdate(orderId, true);
+      
+      // Auto-detach table when order is completed
+      const shouldDetachTable = nextStatus === 'completed' && order.orderType === 'dine-in' && order.tableNumber;
+      
+      await updateOrderItems({
+        variables: {
+          id: orderId,
+          input: {
+            restaurantId: restaurant?.id,
+            status: nextStatus,
+            tableNumber: shouldDetachTable ? null : order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: order.items.map((item: any) => ({
+              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+              quantity: item.quantity,
+              price: item.price,
+              status: item.status,
+              specialInstructions: item.specialInstructions
+            })),
+            totalAmount: order.totalAmount
+          }
+        }
+      });
+      
+      // Show success message with table detachment info
+      if (shouldDetachTable) {
+        setSnackbarMessage('Order completed and table detached successfully!');
+      } else {
+        setSnackbarMessage(`Order status updated to ${nextStatus}!`);
+      }
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      setSnackbarMessage('Error updating order status');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  }, [orderId, data?.order, restaurant?.id, updateOrderItems]);
+  
   // Check if order is being updated too frequently (circuit breaker)
-  const isOrderUpdateBlocked = useCallback((orderId: string) => {
+  const isOrderUpdateBlocked = useCallback((orderId: string, isUserInitiated: boolean = false) => {
     const now = Date.now();
     const orderUpdateInfo = updateCounts.current.get(orderId);
     
@@ -167,13 +250,16 @@ export default function RestaurantOrderManagement() {
     
     // Reset count if more than a minute has passed
     if (now - orderUpdateInfo.lastUpdate > 60000) {
-      updateCounts.current.set(orderId, { count: 1, lastUpdate: now });
+      updateCounts.current.set(orderId, { count: 1, lastUpdate: now, userInitiated: isUserInitiated ? 1 : 0 });
       return false;
     }
     
+    // Use different limits for user-initiated vs automatic updates
+    const maxUpdates = isUserInitiated ? MAX_UPDATES_PER_MINUTE : MAX_AUTO_UPDATES_PER_MINUTE;
+    
     // Block if too many updates in the last minute
-    if (orderUpdateInfo.count >= MAX_UPDATES_PER_MINUTE) {
-      console.log(`Order ${orderId} is being updated too frequently, blocking update`);
+    if (orderUpdateInfo.count >= maxUpdates) {
+      console.log(`Order ${orderId} is being updated too frequently (${isUserInitiated ? 'user-initiated' : 'automatic'}), blocking update`);
       return true;
     }
     
@@ -181,17 +267,19 @@ export default function RestaurantOrderManagement() {
   }, []);
   
   // Record an update attempt
-  const recordOrderUpdate = useCallback((orderId: string) => {
+  const recordOrderUpdate = useCallback((orderId: string, isUserInitiated: boolean = false) => {
     const now = Date.now();
     const orderUpdateInfo = updateCounts.current.get(orderId);
     
     if (!orderUpdateInfo) {
-      updateCounts.current.set(orderId, { count: 1, lastUpdate: now });
+      updateCounts.current.set(orderId, { count: 1, lastUpdate: now, userInitiated: isUserInitiated ? 1 : 0 });
     } else {
       const newCount = orderUpdateInfo.count + 1;
+      const newUserInitiated = orderUpdateInfo.userInitiated + (isUserInitiated ? 1 : 0);
       updateCounts.current.set(orderId, { 
         count: newCount, 
-        lastUpdate: now 
+        lastUpdate: now,
+        userInitiated: newUserInitiated
       });
       
       // Activate emergency brake if any order is updated too frequently
@@ -207,7 +295,13 @@ export default function RestaurantOrderManagement() {
       }
     }
   }, []);
-
+  
+  // Reset circuit breaker for a specific order (useful for manual intervention)
+  const resetOrderCircuitBreaker = useCallback((orderId: string) => {
+    updateCounts.current.delete(orderId);
+    console.log(`Circuit breaker reset for order: ${orderId}`);
+  }, []);
+  
   // Get restaurant ID for subscriptions
   const restaurantId = data?.orderById?.restaurantId || '';
   console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
@@ -275,15 +369,15 @@ export default function RestaurantOrderManagement() {
         if (calculatedStatus !== updatedOrder.status) {
           console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
           
-          // Check circuit breaker first
-          if (isOrderUpdateBlocked(updatedOrder.id)) {
+          // Check circuit breaker first (automatic update)
+          if (isOrderUpdateBlocked(updatedOrder.id, false)) {
             console.log('Order update blocked by circuit breaker:', updatedOrder.id);
             debouncedRefetch();
             return;
           }
           
-          // Record this update attempt
-          recordOrderUpdate(updatedOrder.id);
+          // Record this update attempt (automatic update)
+          recordOrderUpdate(updatedOrder.id, false);
           
           // Mark this order as recently updated BEFORE making the API call
           recentlyUpdatedOrders.current.add(updatedOrder.id);
@@ -361,40 +455,6 @@ export default function RestaurantOrderManagement() {
     }
   }, [data]);
 
-  const handleStatusUpdate = async () => {
-    if (!orderId || !newStatus || !order) return;
-    
-    try {
-      await updateOrderStatus({
-        variables: {
-          id: orderId,
-          input: {
-            restaurantId: restaurant?.id,
-            status: newStatus,
-            tableNumber: order.tableNumber,
-            orderType: order.orderType,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            notes: order.notes,
-            sessionId: order.sessionId,
-            userId: order.userId,
-            items: order.items.map((item: any) => ({
-              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-              quantity: item.quantity,
-              price: item.price,
-              status: item.status,
-              specialInstructions: item.specialInstructions
-            })),
-            totalAmount: order.totalAmount
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error updating order status:', error);
-    }
-  };
-
-
   const handleQuantityChange = (index: number, newQuantity: number) => {
     const updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
     setEditingItems(updatedItems);
@@ -452,39 +512,13 @@ export default function RestaurantOrderManagement() {
     setCancelConfirmationOpen(false);
     
     try {
-      await updateOrderStatus({
-        variables: {
-          id: orderId,
-          input: {
-            restaurantId: restaurant?.id,
-            status: 'cancelled',
-            tableNumber: order.tableNumber,
-            orderType: order.orderType,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            notes: order.notes,
-            sessionId: order.sessionId,
-            userId: order.userId,
-            items: order.items.map((item: any) => ({
-              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-              quantity: item.quantity,
-              price: item.price,
-              status: item.status,
-              specialInstructions: item.specialInstructions
-            })),
-            totalAmount: order.totalAmount
-          }
-        }
-      });
-      
-      setSnackbarMessage('Order cancelled successfully!');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      await hookHandleCancelOrder();
     } catch (error) {
       console.error('Error cancelling order:', error);
       setSnackbarMessage('Failed to cancel order. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+    } finally {
       setIsCancelling(false);
     }
   };
@@ -515,7 +549,7 @@ export default function RestaurantOrderManagement() {
         }))
       });
 
-      await updateOrderStatus({
+      await updateOrderItems({
         variables: {
           id: orderId,
           input: {
@@ -534,7 +568,6 @@ export default function RestaurantOrderManagement() {
         }
       });
       
-      setHasUnsavedChanges(false);
       setSnackbarMessage(`Order changes saved successfully! Order status updated to: ${syncedOrder.status}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
@@ -811,20 +844,18 @@ export default function RestaurantOrderManagement() {
                 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
                   {(() => {
-                    const nextStatus = getNextStatus(order.status as any);
+                    const calculatedStatus = calculateOrderStatus(editingItems);
+                    const nextStatus = getNextStatus(calculatedStatus as any);
                     const canComplete = canCompleteOrder(editingItems);
                     const canCancel = canCancelOrder(order.status as any, editingItems);
                     
                     return (
                       <>
-                        {nextStatus && (
+                        {nextStatus && nextStatus !== 'completed' && (
                           <Button
                             variant="outlined"
-                            onClick={() => {
-                              setNewStatus(nextStatus);
-                              handleStatusUpdate();
-                            }}
-                            disabled={updateLoading}
+                            onClick={() => handleQuickStatusUpdate(nextStatus)}
+                            disabled={isUpdating}
                             startIcon={<Update />}
                             size="small"
                           >
@@ -836,11 +867,8 @@ export default function RestaurantOrderManagement() {
                           <Button
                             variant="contained"
                             color="success"
-                            onClick={() => {
-                              setNewStatus('completed');
-                              handleStatusUpdate();
-                            }}
-                            disabled={updateLoading}
+                            onClick={() => setConfirmCompleteOpen(true)}
+                            disabled={isUpdating || order.status === 'completed'}
                             startIcon={<CheckCircle />}
                             size="small"
                           >
@@ -853,7 +881,7 @@ export default function RestaurantOrderManagement() {
                             variant="outlined"
                             color="error"
                             onClick={handleCancelOrder}
-                            disabled={updateLoading || isCancelling}
+                            disabled={isUpdating || isCancelling}
                             startIcon={<Cancel />}
                             size="small"
                             sx={{ mt: 1 }}
@@ -898,67 +926,10 @@ export default function RestaurantOrderManagement() {
                           </Button>
                         )}
 
-                        {order.orderType === 'dine-in' && order.tableNumber && (order.status === 'completed' || order.paid) && (
-                          <Button
-                            variant="outlined"
-                            color="warning"
-                            onClick={() => setConfirmDetachOpen(true)}
-                            disabled={detaching}
-                            size="small"
-                            sx={{ mt: 1 }}
-                          >
-                            {detaching ? 'Detaching...' : 'Detach from Table'}
-                          </Button>
-                        )}
                       </>
                     );
                   })()}
                 </Box>
-
-                <Divider sx={{ my: 2 }} />
-
-                {/* Manual Status Update */}
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Manual Status Update</InputLabel>
-                  <Select
-                    value={newStatus}
-                    onChange={(e: SelectChangeEvent) => setNewStatus(e.target.value)}
-                    label="Manual Status Update"
-                  >
-                    {['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'].map(status => {
-                      const isValid = isValidStatusTransition(order.status as any, status as any);
-                      const isCancelled = status === 'cancelled';
-                      const cannotCancel = isCancelled && !canCancelOrder(order.status as any, editingItems);
-                      
-                      return (
-                        <MenuItem 
-                          key={status} 
-                          value={status}
-                          disabled={!isValid || cannotCancel}
-                          sx={{ 
-                            opacity: (isValid && !cannotCancel) ? 1 : 0.5,
-                            fontStyle: (isValid && !cannotCancel) ? 'normal' : 'italic'
-                          }}
-                        >
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                          {!isValid && ' (Invalid)'}
-                          {cannotCancel && ' (Cannot cancel - items served)'}
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleStatusUpdate}
-                  disabled={!newStatus || updateLoading}
-                  startIcon={<Update />}
-                  sx={{ mb: 2 }}
-                >
-                  {updateLoading ? 'Updating...' : 'Update Status'}
-                </Button>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -1002,6 +973,24 @@ export default function RestaurantOrderManagement() {
                     </Box>
                   );
                 })()}
+
+                {/* Circuit Breaker Reset (only show if there might be issues) */}
+                {orderId && updateCounts.current.has(orderId) && (
+                  <Box sx={{ mb: 2 }}>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      onClick={() => resetOrderCircuitBreaker(orderId)}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Reset Update Limits
+                    </Button>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      If order updates are blocked, click to reset
+                    </Typography>
+                  </Box>
+                )}
 
                 <Divider sx={{ my: 2 }} />
 
@@ -1175,43 +1164,6 @@ export default function RestaurantOrderManagement() {
           loading={isSaving}
         />
 
-        {/* Detach from Table Confirmation */}
-        <ConfirmationDialog
-          open={confirmDetachOpen}
-          onClose={() => setConfirmDetachOpen(false)}
-          onConfirm={async () => {
-            await detachFromTable({
-              variables: {
-                id: order.id,
-                input: {
-                  restaurantId: restaurant?.id,
-                  status: order.status,
-                  tableNumber: null, // This is the key change - detach from table
-                  orderType: order.orderType,
-                  customerName: order.customerName,
-                  customerPhone: order.customerPhone,
-                  notes: order.notes,
-                  sessionId: order.sessionId,
-                  userId: order.userId,
-                  items: order.items.map((item: any) => ({
-                    menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-                    quantity: item.quantity,
-                    price: item.price,
-                    status: item.status,
-                    specialInstructions: item.specialInstructions
-                  })),
-                  totalAmount: order.totalAmount
-                }
-              }
-            });
-          }}
-          title="Detach from Table"
-          message="Detaching will free this table for new orders. Continue?"
-          confirmText={detaching ? 'Detaching...' : 'Detach'}
-          cancelText="Cancel"
-          confirmColor="warning"
-          loading={detaching}
-        />
 
         {/* Mark Paid Confirmation Dialog */}
         <ConfirmationDialog
@@ -1226,6 +1178,22 @@ export default function RestaurantOrderManagement() {
           confirmText="Yes, Mark Paid"
           cancelText="Cancel"
           confirmColor="success"
+        />
+
+        {/* Complete Order Confirmation Dialog */}
+        <ConfirmationDialog
+          open={confirmCompleteOpen}
+          onClose={() => setConfirmCompleteOpen(false)}
+          onConfirm={async () => {
+            setConfirmCompleteOpen(false);
+            await handleCompleteOrder();
+          }}
+          title="Complete Order"
+          message={`Are you sure you want to complete this order? ${order.orderType === 'dine-in' && order.tableNumber ? 'This will also detach the table and make it available for new customers.' : 'This action cannot be undone.'}`}
+          confirmText="Yes, Complete Order"
+          cancelText="Cancel"
+          confirmColor="success"
+          loading={isUpdating}
         />
 
         {/* Cancel Order Confirmation Dialog */}
