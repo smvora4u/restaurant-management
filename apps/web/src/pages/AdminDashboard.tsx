@@ -61,7 +61,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
-import { formatCurrencyFromRestaurant } from '../utils/currency';
+import { formatCurrencyFromRestaurant, formatCurrency } from '../utils/currency';
 import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS, GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS, GET_SETTLEMENTS, GET_DUE_FEES_SUMMARY } from '../graphql/queries/admin';
 import { SET_RESTAURANT_FEE_CONFIG, GENERATE_WEEKLY_SETTLEMENT, UPDATE_FEE_PAYMENT_STATUS } from '../graphql/mutations/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
@@ -422,8 +422,8 @@ function FeesPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
                     <TableRow key={l.id}>
                       <TableCell>{formatDateTime(l.createdAt).date} {formatDateTime(l.createdAt).time}</TableCell>
                       <TableCell>#{String(l.orderId).slice(-6)}</TableCell>
-                      <TableCell align="right">{l.currency} {l.orderTotal.toFixed(2)}</TableCell>
-                      <TableCell>{l.currency} {l.feeAmount.toFixed(2)}</TableCell>
+                      <TableCell align="right">{formatCurrencyFromRestaurant(l.orderTotal, selectedRestaurant)}</TableCell>
+                      <TableCell>{formatCurrencyFromRestaurant(l.feeAmount, selectedRestaurant)}</TableCell>
                       <TableCell>{l.feeMode}</TableCell>
                       <TableCell>{l.feeMode === 'fixed' ? l.feeRate.toFixed(2) : `${l.feeRate}%`}</TableCell>
                       <TableCell>{l.discountApplied ? 'Yes' : 'No'}</TableCell>
@@ -605,7 +605,7 @@ function PaymentManagementPanel() {
                 </Typography>
               </Box>
               <Typography variant="h5" color="error.main">
-                ${totalDueFees.toFixed(2)}
+                {formatCurrency(totalDueFees)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Across all restaurants
@@ -662,7 +662,7 @@ function PaymentManagementPanel() {
                 </Typography>
               </Box>
               <Typography variant="h5" color="success.main">
-                ${dueFeesSummary.length > 0 ? (totalDueFees / dueFeesSummary.length).toFixed(2) : '0.00'}
+                {dueFeesSummary.length > 0 ? formatCurrency(totalDueFees / dueFeesSummary.length) : '0.00'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Per restaurant
@@ -714,7 +714,7 @@ function PaymentManagementPanel() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight="bold" color="error.main">
-                          ${summary.totalDueFees.toFixed(2)}
+                          {formatCurrency(summary.totalDueFees, summary.currency)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -1197,7 +1197,6 @@ export default function AdminDashboard() {
           input: {
             name: restaurantToAction.name,
             email: restaurantToAction.email,
-            password: '', // Empty password to keep current password
             address: restaurantToAction.address || '',
             phone: restaurantToAction.phone || '',
             isActive: newStatus,

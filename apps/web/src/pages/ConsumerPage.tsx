@@ -337,6 +337,23 @@ export default function ConsumerPage() {
     // You might want to redirect to home page or show an error message
   };
 
+	const handleChangeUser = () => {
+		// Clear current user and prompt for re-registration
+		try {
+			if (currentUser?.mobileNumber) {
+				localStorage.removeItem(`user_order_${currentUser.mobileNumber}`);
+			}
+		} catch (_) {}
+		localStorage.removeItem('currentUser');
+		if (isValidParcel) {
+			localStorage.removeItem('lastOrderType');
+			setParcelOrderId(null);
+		}
+		setCurrentUser(null);
+		setIsUserRegistered(false);
+		setShowUserRegistration(true);
+	};
+
   if (isValidTable === null && isValidOrder === null && isValidParcel === null) {
     return (
       <Box
@@ -559,6 +576,18 @@ export default function ConsumerPage() {
               boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
             }}
           >
+            {currentUser && (
+            <Box sx={{ p: { xs: 2, sm: 2 }, borderBottom: 1, borderColor: 'divider', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">You are ordering as</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>{currentUser.name || 'Guest'}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {currentUser.mobileNumber}{currentUser.email ? ` • ${currentUser.email}` : ''}
+                </Typography>
+              </Box>
+              <Button variant="text" size="small" onClick={handleChangeUser}>Change</Button>
+            </Box>
+            )}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: '#fff' }}>
               <Tabs
                 value={activeTab}

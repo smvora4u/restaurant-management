@@ -195,7 +195,7 @@ export const typeDefs = `#graphql
     
     # Admin Management
     createRestaurant(input: RestaurantInput!): Restaurant!
-    updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
+    updateRestaurant(id: ID!, input: UpdateRestaurantInput!): Restaurant!
     deleteRestaurant(id: ID!): Boolean!
     deactivateRestaurant(id: ID!): Restaurant!
     createAdmin(input: AdminInput!): Admin!
@@ -333,6 +333,18 @@ export const typeDefs = `#graphql
     name: String!
     email: String!
     password: String!
+    address: String
+    phone: String
+    slug: String
+    isActive: Boolean
+    settings: RestaurantSettingsInput
+  }
+
+  # Separate input for updates where password should be optional
+  input UpdateRestaurantInput {
+    name: String!
+    email: String!
+    password: String
     address: String
     phone: String
     slug: String

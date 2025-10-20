@@ -22,7 +22,7 @@ export const CREATE_RESTAURANT = gql`
 `;
 
 export const UPDATE_RESTAURANT = gql`
-  mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!) {
+  mutation UpdateRestaurant($id: ID!, $input: UpdateRestaurantInput!) {
     updateRestaurant(id: $id, input: $input) {
       id
       name
