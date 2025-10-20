@@ -202,8 +202,8 @@ export default function RestaurantFees() {
     const rows = ledgers.map((l: any) => [
       formatDateTime(l.createdAt).date + ' ' + formatDateTime(l.createdAt).time,
       '#' + String(l.orderId).slice(-6),
-      l.currency + ' ' + l.orderTotal.toFixed(2),
-      l.currency + ' ' + l.feeAmount.toFixed(2),
+      `${l.currency} ${l.orderTotal.toFixed(2)}`,
+      `${l.currency} ${l.feeAmount.toFixed(2)}`,
       l.feeMode,
       l.feeMode === 'fixed' ? l.feeRate.toFixed(2) : l.feeRate + '%',
       l.discountApplied ? 'Yes' : 'No'
@@ -275,7 +275,7 @@ export default function RestaurantFees() {
                     </Typography>
                     <Typography variant="h6">
                       {feeConfig.mode === 'fixed' 
-                        ? `$${feeConfig.amount.toFixed(2)} per order`
+                        ? `${formatCurrencyFromRestaurant(feeConfig.amount, restaurant)} per order`
                         : `${feeConfig.amount}% of order total`
                       }
                     </Typography>
@@ -312,7 +312,7 @@ export default function RestaurantFees() {
                   </Typography>
                 </Box>
                 <Typography variant="h5" color="error.main">
-                  ${dueFees.toFixed(2)}
+                  {formatCurrencyFromRestaurant(dueFees, restaurant)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Last 30 days
@@ -331,7 +331,7 @@ export default function RestaurantFees() {
                   </Typography>
                 </Box>
                 <Typography variant="h5" color="success.main">
-                  ${feesThisMonth.toFixed(2)}
+                  {formatCurrencyFromRestaurant(feesThisMonth, restaurant)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Current month
@@ -350,7 +350,7 @@ export default function RestaurantFees() {
                   </Typography>
                 </Box>
                 <Typography variant="h5" color="primary.main">
-                  ${totalFeesPaid.toFixed(2)}
+                  {formatCurrencyFromRestaurant(totalFeesPaid, restaurant)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   All time
@@ -389,7 +389,7 @@ export default function RestaurantFees() {
                     Payment Required
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
-                    You have ${dueFees.toFixed(2)} in due fees. Make a payment to avoid service interruption.
+                    You have {formatCurrencyFromRestaurant(dueFees, restaurant)} in due fees. Make a payment to avoid service interruption.
                   </Typography>
                 </Box>
                 <Button
@@ -559,7 +559,7 @@ export default function RestaurantFees() {
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Amount Due: ${dueFees.toFixed(2)}
+                Amount Due: {formatCurrencyFromRestaurant(dueFees, restaurant)}
               </Typography>
               
               <FormControl fullWidth margin="normal">
