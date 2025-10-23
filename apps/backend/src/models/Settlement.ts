@@ -12,7 +12,7 @@ export interface ISettlement extends Document {
 }
 
 const SettlementSchema = new Schema<ISettlement>({
-  restaurantId: { type: String, required: true, index: true },
+  restaurantId: { type: String, required: true },
   currency: { type: String, required: true },
   periodStart: { type: Date, required: true },
   periodEnd: { type: Date, required: true },

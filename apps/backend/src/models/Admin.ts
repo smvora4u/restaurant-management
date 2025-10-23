@@ -45,7 +45,4 @@ AdminSchema.pre('save', function(next) {
   next();
 });
 
-// Create index for email for faster queries
-AdminSchema.index({ email: 1 });
-
 export default mongoose.model<IAdmin>('Admin', AdminSchema);

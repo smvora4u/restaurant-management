@@ -17,8 +17,8 @@ export interface IFeeLedger extends Document {
 }
 
 const FeeLedgerSchema = new Schema<IFeeLedger>({
-  restaurantId: { type: String, index: true, required: true },
-  orderId: { type: String, index: true, required: true },
+  restaurantId: { type: String, required: true },
+  orderId: { type: String, required: true },
   orderTotal: { type: Number, required: true },
   feeMode: { type: String, enum: ['fixed', 'percentage'], required: true },
   feeRate: { type: Number, required: true },

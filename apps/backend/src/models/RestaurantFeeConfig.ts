@@ -11,7 +11,7 @@ export interface IRestaurantFeeConfig extends Document {
 
 const RestaurantFeeConfigSchema = new Schema<IRestaurantFeeConfig>(
   {
-    restaurantId: { type: String, required: true, index: true },
+    restaurantId: { type: String, required: true },
     mode: { type: String, enum: ['fixed', 'percentage'], required: true },
     amount: { type: Number, required: true },
     freeOrdersRemaining: { type: Number, default: 0 },

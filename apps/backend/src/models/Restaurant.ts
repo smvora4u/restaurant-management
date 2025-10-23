@@ -50,8 +50,4 @@ RestaurantSchema.pre('save', function(next) {
   next();
 });
 
-// Create index for email and slug for faster queries
-RestaurantSchema.index({ email: 1 });
-RestaurantSchema.index({ slug: 1 });
-
 export default mongoose.model<IRestaurant>('Restaurant', RestaurantSchema);
