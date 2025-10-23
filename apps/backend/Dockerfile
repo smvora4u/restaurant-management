@@ -4,14 +4,17 @@ WORKDIR /app
 # Copy package.json
 COPY package.json ./
 
-# Install dependencies
-RUN npm install --omit=dev
+# Install all dependencies (including dev dependencies for build)
+RUN npm install
 
 # Copy source code
 COPY ./src ./src
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies to reduce image size
+RUN npm prune --omit=dev
 
 ENV PORT=4000
 EXPOSE 4000
