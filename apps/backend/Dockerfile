@@ -1,8 +1,8 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy package.json
-COPY package.json ./
+# Copy package.json and tsconfig.json
+COPY package.json tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
 RUN npm install
