@@ -19,6 +19,7 @@ import StaffOrderManagement from './pages/StaffOrderManagement';
 import RestaurantOrderManagement from './pages/RestaurantOrderManagement';
 import StaffManagement from './pages/StaffManagement';
 import UnifiedLogin from './pages/UnifiedLogin';
+import PasswordReset from './pages/PasswordReset';
 import RestaurantSettlements from './pages/RestaurantSettlements';
 import RestaurantFees from './pages/RestaurantFees';
 import KitchenBoard from './pages/KitchenBoard';
@@ -94,6 +95,9 @@ function App() {
             
             {/* Unified Login Route */}
             <Route path="/login" element={<UnifiedLogin />} />
+            
+            {/* Password Reset Route */}
+            <Route path="/password-reset" element={<PasswordReset />} />
             
             {/* Admin Routes */}
             <Route 

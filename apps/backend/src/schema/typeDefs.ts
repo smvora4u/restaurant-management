@@ -62,6 +62,12 @@ export const typeDefs = `#graphql
     restaurant: Restaurant!
   }
 
+  type PasswordResetResponse {
+    success: Boolean!
+    message: String!
+    token: String
+  }
+
   type PlatformAnalytics {
     totalRestaurants: Int!
     activeRestaurants: Int!
@@ -186,12 +192,18 @@ export const typeDefs = `#graphql
     # Restaurant Authentication
     registerRestaurant(input: RestaurantInput!): AuthPayload!
     loginRestaurant(email: String!, password: String!): AuthPayload!
+    resetRestaurantPassword(email: String!): PasswordResetResponse!
+    updateRestaurantPassword(token: String!, newPassword: String!): PasswordResetResponse!
     
     # Admin Authentication
     loginAdmin(email: String!, password: String!): AdminAuthPayload!
+    resetAdminPassword(email: String!): PasswordResetResponse!
+    updateAdminPassword(token: String!, newPassword: String!): PasswordResetResponse!
     
     # Staff Authentication
     loginStaff(email: String!, password: String!): StaffAuthPayload!
+    resetStaffPassword(email: String!): PasswordResetResponse!
+    updateStaffPassword(token: String!, newPassword: String!): PasswordResetResponse!
     
     # Admin Management
     createRestaurant(input: RestaurantInput!): Restaurant!

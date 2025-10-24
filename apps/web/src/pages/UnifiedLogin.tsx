@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CryptoJS from 'crypto-js';
 import {
   Box,
   Container,
@@ -46,19 +47,24 @@ interface DemoCredentials {
 const demoCredentials: Record<UserType, DemoCredentials> = {
   restaurant: {
     email: 'demo@restaurant.com',
-    password: 'demo123',
+    password: '', // Password removed for security
     description: 'Restaurant Owner Access'
   },
   admin: {
     email: 'admin@platform.com',
-    password: 'admin123',
+    password: '', // Password removed for security
     description: 'Platform Administrator'
   },
   staff: {
     email: 'staff@restaurant.com',
-    password: 'staff123',
+    password: '', // Password removed for security
     description: 'Restaurant Staff Member'
   }
+};
+
+// Hash password client-side for additional security
+const hashPassword = (password: string): string => {
+  return CryptoJS.SHA256(password).toString();
 };
 
 export default function UnifiedLogin() {
@@ -144,20 +150,23 @@ export default function UnifiedLogin() {
     }
 
     try {
+      // Hash password before sending for additional security
+      const hashedPassword = hashPassword(formData.password);
+      
       switch (currentUserType) {
         case 'restaurant':
           await loginRestaurant({
-            variables: { email: formData.email, password: formData.password }
+            variables: { email: formData.email, password: hashedPassword }
           });
           break;
         case 'admin':
           await loginAdmin({
-            variables: { email: formData.email, password: formData.password }
+            variables: { email: formData.email, password: hashedPassword }
           });
           break;
         case 'staff':
           await loginStaff({
-            variables: { email: formData.email, password: formData.password }
+            variables: { email: formData.email, password: hashedPassword }
           });
           break;
       }
@@ -170,7 +179,7 @@ export default function UnifiedLogin() {
     const demo = demoCredentials[currentUserType];
     setFormData({
       email: demo.email,
-      password: demo.password
+      password: '' // Password must be entered manually for security
     });
   };
 
@@ -384,6 +393,16 @@ export default function UnifiedLogin() {
                         'Sign In'
                       )}
                     </Button>
+                    
+                    <Button
+                      fullWidth
+                      variant="text"
+                      onClick={() => navigate(`/password-reset?type=${currentUserType}`)}
+                      disabled={isLoading}
+                      sx={{ mt: 2 }}
+                    >
+                      Forgot Password?
+                    </Button>
                   </Box>
 
                   {/* Demo Credentials */}
@@ -398,14 +417,17 @@ export default function UnifiedLogin() {
                       disabled={isLoading}
                       sx={{ mb: 2 }}
                     >
-                      Fill Demo Data
+                      Fill Demo Email
                     </Button>
                     <Box>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Email: {demoCredentials[currentUserType].email}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" display="block">
-                        Password: {demoCredentials[currentUserType].password}
+                        Password: [Enter your password securely]
+                      </Typography>
+                      <Typography variant="caption" color="success.main" display="block" sx={{ mt: 1 }}>
+                        🔒 Passwords are SHA256 hashed before transmission
                       </Typography>
                     </Box>
                   </Box>

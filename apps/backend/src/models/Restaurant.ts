@@ -39,7 +39,10 @@ const RestaurantSchema = new Schema<IRestaurant>({
 // Hash password before saving
 RestaurantSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
+    // First hash with SHA256, then bcrypt for double security
+    const crypto = await import('crypto');
+    const sha256Hash = crypto.createHash('sha256').update(this.password).digest('hex');
+    this.password = await bcrypt.hash(sha256Hash, 10);
   }
   next();
 });

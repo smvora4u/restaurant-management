@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { Staff, Restaurant, AuditLog } from '../models/index.js';
 import { publishAuditLogCreated, publishStaffUpdated } from './subscriptions.js';
 import { StaffInput } from '../types/index.js';
+import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
 
 export const staffAuthResolvers = {
   Mutation: {
@@ -20,6 +21,7 @@ export const staffAuthResolvers = {
           throw new Error('Staff not found');
         }
 
+        // Frontend sends SHA256-hashed password, so we use it directly
         const isValidPassword = await bcrypt.compare(password, staff.password);
         
         if (!isValidPassword) {
@@ -159,8 +161,8 @@ export const staffAuthResolvers = {
 
         // Handle password update - hash if provided
         if (input.password && input.password.trim() !== '') {
-          // Hash the password manually since findByIdAndUpdate doesn't trigger pre-save hook
-          updateData.password = await bcrypt.hash(input.password, 10);
+          // Hash the password with new method (SHA256 + bcrypt)
+          updateData.password = await hashPassword(input.password);
         } else {
           // Don't update password if empty
           delete updateData.password;
@@ -292,6 +294,66 @@ export const staffAuthResolvers = {
         return result;
       } catch (error) {
         throw new Error(`Failed to activate staff: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+
+    resetStaffPassword: async (_: any, { email }: { email: string }) => {
+      try {
+        const staff = await Staff.findOne({ email, isActive: true });
+        
+        if (!staff) {
+          // Don't reveal if email exists or not for security
+          return {
+            success: true,
+            message: 'If the email exists, a password reset link has been sent.',
+            token: null
+          };
+        }
+
+        const resetToken = generatePasswordResetToken(email, 'staff');
+        
+        // In a real application, you would send an email here
+        // For now, we'll just return the token (for development/testing)
+        console.log(`Password reset token for ${email}: ${resetToken}`);
+        
+        return {
+          success: true,
+          message: 'Password reset token generated. Check console for token (development only).',
+          token: resetToken
+        };
+      } catch (error) {
+        throw new Error(`Failed to reset staff password: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+
+    updateStaffPassword: async (_: any, { token, newPassword }: { token: string; newPassword: string }) => {
+      try {
+        const resetData = consumePasswordResetToken(token);
+        
+        if (!resetData) {
+          throw new Error('Invalid or expired reset token');
+        }
+
+        const staff = await Staff.findOne({ email: resetData.email, isActive: true });
+        
+        if (!staff) {
+          throw new Error('Staff not found');
+        }
+
+        // Hash the new password
+        const hashedPassword = await hashPassword(newPassword);
+        
+        // Update the password
+        staff.password = hashedPassword;
+        await staff.save();
+        
+        return {
+          success: true,
+          message: 'Password updated successfully',
+          token: null
+        };
+      } catch (error) {
+        throw new Error(`Failed to update staff password: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }

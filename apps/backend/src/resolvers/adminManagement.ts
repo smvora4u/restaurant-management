@@ -4,6 +4,7 @@ import { publishAuditLogCreated, publishRestaurantUpdated, publishPlatformAnalyt
 import { GraphQLContext } from '../types/index.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
 import { generateUniqueSlug } from '../utils/slugGenerator.js';
+import { hashPassword } from '../utils/passwordReset.js';
 
 export const adminQueries = {
   allRestaurants: async (_: any, __: any, context: GraphQLContext) => {
@@ -73,8 +74,8 @@ export const adminMutations = {
       const baseSlug = input.slug || input.name.toLowerCase().replace(/\s+/g, '-');
       const slug = await generateUniqueSlug(baseSlug);
       
-      // Hash password
-      const hashedPassword = await bcrypt.hash(input.password, 12);
+      // Hash password with new method (SHA256 + bcrypt)
+      const hashedPassword = await hashPassword(input.password);
       
       const restaurant = new Restaurant({
         ...input,
@@ -100,10 +101,10 @@ export const adminMutations = {
         throw new Error('Authentication required');
       }
       
-      // Hash password if provided
+      // Hash password if provided with new method (SHA256 + bcrypt)
       const updateData = { ...input };
       if (updateData.password) {
-        updateData.password = await bcrypt.hash(updateData.password, 12);
+        updateData.password = await hashPassword(updateData.password);
       }
       
       const updated = await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
