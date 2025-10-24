@@ -6,12 +6,12 @@ import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 
 const httpLink = createHttpLink({
-  uri: process.env.restrowise_api_url || 'http://localhost:4000/graphql',
+  uri: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/graphql',
 });
 
 // Create WebSocket link for subscriptions
 const wsLink = new GraphQLWsLink(createClient({
-  url: process.env.restrowise_api_url || 'ws://localhost:4000/graphql',
+  url: (import.meta as any).env?.VITE_API_URL ? (import.meta as any).env.VITE_API_URL.replace('http', 'ws') : 'ws://localhost:4000/graphql',
   connectionParams: () => {
     // Get the authentication token from local storage
     const adminToken = localStorage.getItem('adminToken');
