@@ -21,6 +21,7 @@ import {
   CheckCircle
 } from '@mui/icons-material';
 import { useMutation } from '@apollo/client';
+import CryptoJS from 'crypto-js';
 import { 
   RESET_ADMIN_PASSWORD, 
   RESET_RESTAURANT_PASSWORD, 
@@ -31,6 +32,11 @@ import {
 } from '../graphql/passwordReset';
 
 type UserType = 'admin' | 'restaurant' | 'staff';
+
+// Hash password client-side for additional security
+const hashPassword = (password: string): string => {
+  return CryptoJS.SHA256(password).toString();
+};
 
 interface PasswordResetFormData {
   email: string;
@@ -130,21 +136,24 @@ export default function PasswordReset() {
     }
 
     try {
+      // Hash password before sending for additional security
+      const hashedPassword = hashPassword(formData.newPassword);
+      
       let result;
       switch (userType) {
         case 'admin':
           result = await updateAdminPassword({ 
-            variables: { token: token!, newPassword: formData.newPassword } 
+            variables: { token: token!, newPassword: hashedPassword } 
           });
           break;
         case 'restaurant':
           result = await updateRestaurantPassword({ 
-            variables: { token: token!, newPassword: formData.newPassword } 
+            variables: { token: token!, newPassword: hashedPassword } 
           });
           break;
         case 'staff':
           result = await updateStaffPassword({ 
-            variables: { token: token!, newPassword: formData.newPassword } 
+            variables: { token: token!, newPassword: hashedPassword } 
           });
           break;
         default:

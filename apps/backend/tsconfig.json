@@ -24,17 +24,28 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "lib": ["ES2022"],
     "typeRoots": [
       "./src/types",
       "./node_modules/@types"
-    ]
+    ],
+    "baseUrl": "./src",
+    "paths": {
+      "*": ["node_modules/@types/*"]
+    }
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "../mobile",
+    "../web",
+    "../mobile/**/*",
+    "../web/**/*",
+    "**/node_modules/react-native/**/*",
+    "**/node_modules/@types/react-native/**/*"
   ],
   "ts-node": {
     "esm": true

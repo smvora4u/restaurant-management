@@ -60,6 +60,7 @@ import {
   Payment
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import CryptoJS from 'crypto-js';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant, formatCurrency } from '../utils/currency';
 import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS, GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS, GET_SETTLEMENTS, GET_DUE_FEES_SUMMARY } from '../graphql/queries/admin';
@@ -73,6 +74,11 @@ import { ConfirmationDialog, TabPanel, a11yProps } from '../components/common';
 import { useQuery as useGqlQuery, useSubscription } from '@apollo/client';
 import { AUDIT_LOG_CREATED_SUBSCRIPTION, RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION } from '../graphql/subscriptions/admin';
 import { useFeeSubscriptions } from '../hooks/useFeeSubscriptions';
+
+// Hash password client-side for additional security
+const hashPassword = (password: string): string => {
+  return CryptoJS.SHA256(password).toString();
+};
 
 function AuditLogsPanel() {
   const [action, setAction] = React.useState<string>('');
@@ -1312,11 +1318,16 @@ export default function AdminDashboard() {
       return;
     }
     if (staffDialogMode === 'create') {
-      createStaff({ variables: { input: { ...staffFormData, restaurantId: selectedRestaurant.id } } });
+      // Hash password for new staff
+      const hashedPassword = hashPassword(staffFormData.password);
+      createStaff({ variables: { input: { ...staffFormData, password: hashedPassword, restaurantId: selectedRestaurant.id } } });
     } else if (editingStaffId) {
       const { password, ...updateData } = staffFormData;
       const input: any = { ...updateData };
-      if (password) input.password = password;
+      if (password) {
+        // Hash password for staff update
+        input.password = hashPassword(password);
+      }
       updateStaff({ variables: { id: editingStaffId, input } });
     }
   };
@@ -1429,16 +1440,19 @@ export default function AdminDashboard() {
 
   const handleRestaurantSubmit = () => {
     if (restaurantDialogMode === 'create') {
+      // Hash password for new restaurant
+      const hashedPassword = hashPassword(restaurantFormData.password);
       createRestaurant({
         variables: {
-          input: restaurantFormData
+          input: { ...restaurantFormData, password: hashedPassword }
         }
       });
     } else if (editingRestaurantId) {
       // For edit mode, only include password if it's provided
       const { password, ...updateData } = restaurantFormData;
       if (password) {
-        (updateData as any).password = password;
+        // Hash password for restaurant update
+        (updateData as any).password = hashPassword(password);
       }
       updateRestaurant({
         variables: {

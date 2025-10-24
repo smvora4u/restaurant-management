@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { Restaurant } from '../models/index.js';
 import { RestaurantInput } from '../types/index.js';
 import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
+import { sendPasswordResetEmail } from '../services/email.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
 
 export const restaurantAuthResolvers = {
@@ -131,14 +132,23 @@ export const restaurantAuthResolvers = {
 
         const resetToken = generatePasswordResetToken(email, 'restaurant');
         
-        // In a real application, you would send an email here
-        // For now, we'll just return the token (for development/testing)
-        console.log(`Password reset token for ${email}: ${resetToken}`);
+        // Send password reset email
+        const emailResult = await sendPasswordResetEmail(email, resetToken, 'restaurant');
+        
+        if (!emailResult.success) {
+          console.error('Failed to send password reset email:', emailResult.error);
+          // Still return success to not reveal if email exists
+        }
+        
+        // In development, also log the token for testing
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Password reset token for ${email}: ${resetToken}`);
+        }
         
         return {
           success: true,
-          message: 'Password reset token generated. Check console for token (development only).',
-          token: resetToken
+          message: 'If the email exists, a password reset link has been sent.',
+          token: process.env.NODE_ENV === 'development' ? resetToken : null
         };
       } catch (error) {
         throw new Error(`Failed to reset restaurant password: ${error instanceof Error ? error.message : String(error)}`);
@@ -159,12 +169,14 @@ export const restaurantAuthResolvers = {
           throw new Error('Restaurant not found');
         }
 
-        // Hash the new password
+        // Hash the new password using simple approach
         const hashedPassword = await hashPassword(newPassword);
         
-        // Update the password
-        restaurant.password = hashedPassword;
-        await restaurant.save();
+        // Update password directly using updateOne (bypasses pre-save hooks)
+        await Restaurant.updateOne(
+          { email: resetData.email, isActive: true },
+          { password: hashedPassword }
+        );
         
         return {
           success: true,

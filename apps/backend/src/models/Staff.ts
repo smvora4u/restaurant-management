@@ -33,16 +33,14 @@ const StaffSchema = new Schema<IStaff>({
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Hash password before saving
-StaffSchema.pre('save', async function(next) {
-  if (this.isModified('password')) {
-    // First hash with SHA256, then bcrypt for double security
-    const crypto = await import('crypto');
-    const sha256Hash = crypto.createHash('sha256').update(this.password).digest('hex');
-    this.password = await bcrypt.hash(sha256Hash, 10);
-  }
-  next();
-});
+// Hash password before saving - DISABLED to avoid conflicts
+// StaffSchema.pre('save', async function(next) {
+//   if (this.isModified('password')) {
+//     // Password is already SHA256-hashed from frontend, so we only need bcrypt
+//     this.password = await bcrypt.hash(this.password, 10);
+//   }
+//   next();
+// });
 
 // Update the updatedAt field before saving
 StaffSchema.pre('save', function(next) {

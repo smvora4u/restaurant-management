@@ -57,7 +57,6 @@ export const consumePasswordResetToken = (token: string): PasswordResetToken | n
 
 export const hashPassword = async (password: string): Promise<string> => {
   const bcrypt = await import('bcryptjs');
-  // First hash with SHA256, then bcrypt for double security
-  const sha256Hash = crypto.createHash('sha256').update(password).digest('hex');
-  return await bcrypt.hash(sha256Hash, 10);
+  // Frontend sends SHA256-hashed password, we add bcrypt
+  return await bcrypt.hash(password, 10);
 };

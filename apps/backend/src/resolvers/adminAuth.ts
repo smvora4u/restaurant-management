@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { Admin } from '../models/index.js';
 import { AdminInput } from '../types/index.js';
 import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
+import { sendPasswordResetEmail } from '../services/email.js';
 
 export const adminAuthResolvers = {
   Mutation: {
@@ -14,7 +15,7 @@ export const adminAuthResolvers = {
           throw new Error('Admin not found or inactive');
         }
 
-        // Frontend sends SHA256-hashed password, so we use it directly
+        // Frontend sends SHA256-hashed password, stored password is SHA256 + bcrypt
         const isValidPassword = await bcrypt.compare(password, admin.password);
         
         if (!isValidPassword) {
@@ -66,14 +67,23 @@ export const adminAuthResolvers = {
 
         const resetToken = generatePasswordResetToken(email, 'admin');
         
-        // In a real application, you would send an email here
-        // For now, we'll just return the token (for development/testing)
-        console.log(`Password reset token for ${email}: ${resetToken}`);
+        // Send password reset email
+        const emailResult = await sendPasswordResetEmail(email, resetToken, 'admin');
+        
+        if (!emailResult.success) {
+          console.error('Failed to send password reset email:', emailResult.error);
+          // Still return success to not reveal if email exists
+        }
+        
+        // In development, also log the token for testing
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Password reset token for ${email}: ${resetToken}`);
+        }
         
         return {
           success: true,
-          message: 'Password reset token generated. Check console for token (development only).',
-          token: resetToken
+          message: 'If the email exists, a password reset link has been sent.',
+          token: process.env.NODE_ENV === 'development' ? resetToken : null
         };
       } catch (error) {
         throw new Error(`Failed to reset admin password: ${error instanceof Error ? error.message : String(error)}`);
@@ -94,12 +104,14 @@ export const adminAuthResolvers = {
           throw new Error('Admin not found');
         }
 
-        // Hash the new password
+        // Hash the new password using simple approach
         const hashedPassword = await hashPassword(newPassword);
         
-        // Update the password
-        admin.password = hashedPassword;
-        await admin.save();
+        // Update password directly using updateOne (bypasses pre-save hooks)
+        await Admin.updateOne(
+          { email: resetData.email, isActive: true },
+          { password: hashedPassword }
+        );
         
         return {
           success: true,
