@@ -23,12 +23,13 @@ export const useFeeSubscriptions = ({
   const [usePolling, setUsePolling] = useState<boolean>(false);
 
   // Fallback polling when subscriptions fail
+  // Only enable polling after multiple errors to avoid unnecessary requests
   useEffect(() => {
     if (usePolling && fallbackRefetch) {
       console.log('Using fallback polling for fee updates');
       const interval = setInterval(() => {
         fallbackRefetch();
-      }, 10000); // Poll every 10 seconds
+      }, 30000); // Poll every 30 seconds (reduced from 10 seconds to minimize requests)
       
       return () => clearInterval(interval);
     }
@@ -39,7 +40,7 @@ export const useFeeSubscriptions = ({
     onError: (error) => {
       console.error('Fee ledger subscription error:', error);
       setSubscriptionErrors(prev => prev + 1);
-      if (error.message.includes('Socket closed') || subscriptionErrors > 2) {
+      if (error.message.includes('Socket closed') || subscriptionErrors >= 5) {
         console.warn('WebSocket connection issues detected. Enabling fallback polling.');
         setUsePolling(true);
       }
@@ -54,7 +55,7 @@ export const useFeeSubscriptions = ({
     onError: (error) => {
       console.error('Payment status subscription error:', error);
       setSubscriptionErrors(prev => prev + 1);
-      if (error.message.includes('Socket closed') || subscriptionErrors > 2) {
+      if (error.message.includes('Socket closed') || subscriptionErrors >= 5) {
         console.warn('WebSocket connection issues detected. Enabling fallback polling.');
         setUsePolling(true);
       }
@@ -70,7 +71,7 @@ export const useFeeSubscriptions = ({
     onError: (error) => {
       console.error('Due fees subscription error:', error);
       setSubscriptionErrors(prev => prev + 1);
-      if (error.message.includes('Socket closed') || subscriptionErrors > 2) {
+      if (error.message.includes('Socket closed') || subscriptionErrors >= 5) {
         console.warn('WebSocket connection issues detected. Enabling fallback polling.');
         setUsePolling(true);
       }

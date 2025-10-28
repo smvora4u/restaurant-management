@@ -89,8 +89,7 @@ function AuditLogsPanel() {
 
   const { data, loading, refetch } = useGqlQuery(GET_AUDIT_LOGS, {
     variables: { limit: rowsPerPage, offset: page * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined },
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 5000
+    fetchPolicy: 'cache-and-network'
   });
 
   useSubscription(AUDIT_LOG_CREATED_SUBSCRIPTION, {
@@ -949,27 +948,22 @@ export default function AdminDashboard() {
 
   // Queries
   const { data: analyticsData, loading: analyticsLoading, refetch: refetchAnalytics } = useQuery(GET_PLATFORM_ANALYTICS, {
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 5000
+    fetchPolicy: 'cache-and-network'
   });
   useSubscription(PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION, { onData: () => refetchAnalytics() });
   const { data: restaurantsData, loading: restaurantsLoading, refetch: refetchRestaurants } = useQuery(GET_ALL_RESTAURANTS, {
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 5000
+    fetchPolicy: 'cache-and-network'
   });
   useSubscription(RESTAURANT_UPDATED_SUBSCRIPTION, { onData: () => refetchRestaurants() });
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ALL_ORDERS, {
     variables: { limit: orderRowsPerPage, offset: orderPage * orderRowsPerPage },
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 5000
+    fetchPolicy: 'cache-and-network'
   });
   
   const { data: staffData, loading: staffLoading, refetch: refetchStaff } = useQuery(GET_STAFF_BY_RESTAURANT, {
     variables: { restaurantId: selectedRestaurant?.id },
     skip: !selectedRestaurant,
-    fetchPolicy: 'cache-and-network',
-    // Only poll when a restaurant is selected
-    pollInterval: selectedRestaurant ? 5000 : 0
+    fetchPolicy: 'cache-and-network'
   });
   useSubscription(STAFF_UPDATED_SUBSCRIPTION, {
     variables: { restaurantId: selectedRestaurant?.id || '' },
