@@ -15,14 +15,6 @@ import {
   MenuItem,
   Avatar,
   Chip,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   Tabs,
@@ -32,12 +24,7 @@ import {
   InputLabel,
   Select,
   SelectChangeEvent,
-  LinearProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Tooltip
+  LinearProgress
 } from '@mui/material';
 import {
   Logout,
@@ -45,9 +32,6 @@ import {
   ShoppingCart,
   TrendingUp,
   Add,
-  Edit,
-  Delete,
-  Visibility,
   Search,
   Refresh,
   AdminPanelSettings,
@@ -55,830 +39,29 @@ import {
   Assessment,
   Settings,
   PersonAdd,
-  SupervisorAccount,
-  ToggleOff,
   Payment
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import CryptoJS from 'crypto-js';
 import { formatDate, formatDateTime } from '../utils/dateFormatting';
-import { formatCurrencyFromRestaurant, formatCurrency } from '../utils/currency';
-import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS, GET_AUDIT_LOGS, GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS, GET_SETTLEMENTS, GET_DUE_FEES_SUMMARY } from '../graphql/queries/admin';
-import { SET_RESTAURANT_FEE_CONFIG, GENERATE_WEEKLY_SETTLEMENT, UPDATE_FEE_PAYMENT_STATUS } from '../graphql/mutations/admin';
+import { formatCurrencyFromRestaurant } from '../utils/currency';
+import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
 import { GET_STAFF_BY_RESTAURANT } from '../graphql/queries/staff';
 import { CREATE_SAMPLE_DATA } from '../graphql/mutations/admin';
 import { CREATE_STAFF, UPDATE_STAFF, DEACTIVATE_STAFF, ACTIVATE_STAFF } from '../graphql/mutations/staff';
 import { CREATE_RESTAURANT, UPDATE_RESTAURANT } from '../graphql/mutations/restaurant';
 import { ConfirmationDialog, TabPanel, a11yProps } from '../components/common';
-import { useQuery as useGqlQuery, useSubscription } from '@apollo/client';
-import { AUDIT_LOG_CREATED_SUBSCRIPTION, RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION } from '../graphql/subscriptions/admin';
-import { useFeeSubscriptions } from '../hooks/useFeeSubscriptions';
+import { useSubscription } from '@apollo/client';
+import { RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_ANALYTICS_UPDATED_SUBSCRIPTION } from '../graphql/subscriptions/admin';
+import { AuditLogsPanel, FeesPanel, PaymentManagementPanel, SettlementsPanel } from './admin/components/panels';
+import { RestaurantDialog, StaffDialog } from './admin/components/dialogs';
+import { RestaurantsTable, OrdersTable, StaffTable } from './admin/components/tables';
 
 // Hash password client-side for additional security
 const hashPassword = (password: string): string => {
   return CryptoJS.SHA256(password).toString();
 };
-
-function AuditLogsPanel() {
-  const [action, setAction] = React.useState<string>('');
-  const [entityType, setEntityType] = React.useState<string>('');
-  const [restaurantIdFilter, setRestaurantIdFilter] = React.useState<string>('');
-  const [page, setPage] = React.useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
-
-  const { data, loading, refetch } = useGqlQuery(GET_AUDIT_LOGS, {
-    variables: { limit: rowsPerPage, offset: page * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined },
-    fetchPolicy: 'cache-and-network'
-  });
-
-  useSubscription(AUDIT_LOG_CREATED_SUBSCRIPTION, {
-    onData: ({ data: subData }) => {
-      const newLog = subData.data?.auditLogCreated;
-      if (!newLog) return;
-      // Only refresh when the new log matches filters
-      const matches = (
-        (!action || newLog.action === action) &&
-        (!entityType || newLog.entityType === entityType) &&
-        (!restaurantIdFilter || newLog.restaurantId === restaurantIdFilter)
-      );
-      if (matches) {
-        void refetch();
-      }
-    }
-  });
-
-  const logs = data?.auditLogs || [];
-
-  const handleExportCsv = () => {
-    const headers = ['createdAt', 'actorRole', 'actorId', 'action', 'entityType', 'entityId', 'reason', 'restaurantId'];
-    const rows = logs.map((l: any) => [l.createdAt, l.actorRole || '', l.actorId || '', l.action, l.entityType, l.entityId, (l.reason || '').replace(/\n|\r/g, ' '), l.restaurantId || '']);
-    const csv = [headers.join(','), ...rows.map((r: (string | number | boolean)[]) => r.map((f: string | number | boolean) => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `audit-logs-${new Date().toISOString()}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-        <Typography variant="h6">Audit Logs</Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Action</InputLabel>
-            <Select label="Action" value={action} onChange={(e) => { setAction(e.target.value); void refetch({ limit: rowsPerPage, offset: 0, action: e.target.value || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="RESTAURANT_UPDATED">RESTAURANT_UPDATED</MenuItem>
-              <MenuItem value="STAFF_ACTIVATED">STAFF_ACTIVATED</MenuItem>
-              <MenuItem value="STAFF_DEACTIVATED">STAFF_DEACTIVATED</MenuItem>
-              <MenuItem value="ORDER_UPDATED">ORDER_UPDATED</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Entity</InputLabel>
-            <Select label="Entity" value={entityType} onChange={(e) => { setEntityType(e.target.value); void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: e.target.value || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="RESTAURANT">RESTAURANT</MenuItem>
-              <MenuItem value="STAFF">STAFF</MenuItem>
-              <MenuItem value="ORDER">ORDER</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField size="small" label="Restaurant ID" value={restaurantIdFilter} onChange={(e) => setRestaurantIdFilter(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); } }} />
-          <Button variant="outlined" onClick={() => { void refetch({ limit: rowsPerPage, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); setPage(0); }}>Apply</Button>
-          <Button variant="outlined" onClick={handleExportCsv}>Export CSV</Button>
-          <Button variant="outlined" onClick={() => void refetch()}>Refresh</Button>
-        </Box>
-      </Box>
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Time</TableCell>
-              <TableCell>Actor</TableCell>
-              <TableCell>Action</TableCell>
-              <TableCell>Entity</TableCell>
-              <TableCell>Reason</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5}><LinearProgress /></TableCell></TableRow>
-            ) : logs.length === 0 ? (
-              <TableRow><TableCell colSpan={5}><Alert severity="info">No logs</Alert></TableCell></TableRow>
-            ) : (
-              logs.map((log: any) => (
-                <TableRow key={log.id}>
-                  <TableCell>{formatDateTime(log.createdAt).date} {formatDateTime(log.createdAt).time}</TableCell>
-                  <TableCell>{log.actorRole || 'SYSTEM'}</TableCell>
-                  <TableCell>{log.action}</TableCell>
-                  <TableCell>{log.entityType} #{String(log.entityId).slice(-6)}</TableCell>
-                  <TableCell>{log.reason || '-'}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        component="div"
-        rowsPerPageOptions={[10, 25, 50]}
-        count={-1}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(_, newPage) => { setPage(newPage); void refetch({ limit: rowsPerPage, offset: newPage * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); }}
-        onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetch({ limit: newRpp, offset: 0, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined }); }}
-      />
-    </Box>
-  );
-}
-
-function FeesPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
-  const [mode, setMode] = React.useState<'fixed' | 'percentage'>('percentage');
-  const [amount, setAmount] = React.useState<number>(10);
-  const [freeOrders, setFreeOrders] = React.useState<number>(0);
-  const [page, setPage] = React.useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
-  const [snackbar, setSnackbar] = React.useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
-  });
-
-  const restaurantId = selectedRestaurant?.id || '';
-  const { data: cfgData, refetch: refetchCfg } = useGqlQuery(GET_RESTAURANT_FEE_CONFIG, {
-    variables: { restaurantId },
-    skip: !restaurantId,
-    fetchPolicy: 'cache-and-network'
-  });
-  const { data: ledgerData, loading: ledgerLoading, refetch: refetchLedger } = useGqlQuery(GET_FEE_LEDGERS, {
-    variables: { restaurantId, limit: rowsPerPage, offset: page * rowsPerPage },
-    skip: !restaurantId,
-    fetchPolicy: 'cache-and-network'
-  });
-  const [setFeeConfig, { loading: saving }] = useMutation(SET_RESTAURANT_FEE_CONFIG, {
-    onCompleted: () => { 
-      void refetchCfg();
-      setSnackbar({
-        open: true,
-        message: 'Fee configuration saved successfully!',
-        severity: 'success'
-      });
-    },
-    onError: (error) => {
-      setSnackbar({
-        open: true,
-        message: `Error saving fee configuration: ${error.message}`,
-        severity: 'error'
-      });
-    }
-  });
-
-  const [updatePaymentStatus] = useMutation(UPDATE_FEE_PAYMENT_STATUS, {
-    onCompleted: () => {
-      void refetchLedger();
-      setSnackbar({
-        open: true,
-        message: 'Payment status updated successfully!',
-        severity: 'success'
-      });
-    },
-    onError: (error) => {
-      setSnackbar({
-        open: true,
-        message: `Error updating payment status: ${error.message}`,
-        severity: 'error'
-      });
-    }
-  });
-
-  // Set up real-time fee subscriptions
-  useFeeSubscriptions({
-    restaurantId: selectedRestaurant?.id,
-    onFeeLedgerUpdated: () => {
-      console.log('Fee ledger updated - refetching data');
-      void refetchLedger();
-    },
-    onPaymentStatusUpdated: () => {
-      console.log('Payment status updated - refetching data');
-      void refetchLedger();
-    },
-    onDueFeesUpdated: () => {
-      console.log('Due fees updated - refetching data');
-      void refetchLedger();
-    },
-    fallbackRefetch: () => {
-      console.log('Fallback polling - refetching fee ledger data');
-      void refetchLedger();
-    }
-  });
-
-  React.useEffect(() => {
-    const cfg = cfgData?.restaurantFeeConfig;
-    if (cfg) {
-      setMode(cfg.mode);
-      setAmount(cfg.amount);
-      setFreeOrders(cfg.freeOrdersRemaining);
-    }
-  }, [cfgData?.restaurantFeeConfig]);
-
-  const handleSaveFeeConfig = () => {
-    // Validation
-    if (!selectedRestaurant) {
-      setSnackbar({
-        open: true,
-        message: 'Please select a restaurant first',
-        severity: 'warning'
-      });
-      return;
-    }
-
-    if (amount < 0) {
-      setSnackbar({
-        open: true,
-        message: 'Amount cannot be negative',
-        severity: 'warning'
-      });
-      return;
-    }
-
-    if (freeOrders < 0) {
-      setSnackbar({
-        open: true,
-        message: 'Free orders cannot be negative',
-        severity: 'warning'
-      });
-      return;
-    }
-
-    // Proceed with save
-    setFeeConfig({ 
-      variables: { 
-        restaurantId, 
-        mode, 
-        amount, 
-        freeOrdersRemaining: freeOrders 
-      } 
-    });
-  };
-
-  const [paymentStatusDialogOpen, setPaymentStatusDialogOpen] = React.useState(false);
-  const [selectedFeeLedgerId, setSelectedFeeLedgerId] = React.useState<string>('');
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = React.useState<string>('paid');
-  const [paymentMethod, setPaymentMethod] = React.useState<string>('manual');
-  const [paymentTransactionId, setPaymentTransactionId] = React.useState<string>('');
-  const [paymentReason, setPaymentReason] = React.useState<string>('');
-
-  const handleMarkAsPaid = (feeLedgerId: string) => {
-    setSelectedFeeLedgerId(feeLedgerId);
-    setSelectedPaymentStatus('paid');
-    setPaymentMethod('manual');
-    setPaymentTransactionId(`MANUAL_${Date.now()}`);
-    setPaymentReason('');
-    setPaymentStatusDialogOpen(true);
-  };
-
-  const handleUpdatePaymentStatus = () => {
-    if (!paymentReason.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Please provide a reason for the payment status change',
-        severity: 'warning'
-      });
-      return;
-    }
-
-    void updatePaymentStatus({
-      variables: {
-        feeLedgerId: selectedFeeLedgerId,
-        paymentStatus: selectedPaymentStatus,
-        paymentMethod,
-        paymentTransactionId,
-        reason: paymentReason
-      }
-    });
-    setPaymentStatusDialogOpen(false);
-  };
-
-  const ledgers = ledgerData?.feeLedgers?.data || [];
-  const totalCount = ledgerData?.feeLedgers?.totalCount || 0;
-
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom>Fee Configuration</Typography>
-      {!restaurantId ? (
-        <Alert severity="info">Select a restaurant to configure fees</Alert>
-      ) : (
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 3 }}>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Mode</InputLabel>
-            <Select label="Mode" value={mode} onChange={(e) => setMode(e.target.value as any)}>
-              <MenuItem value="fixed">Fixed</MenuItem>
-              <MenuItem value="percentage">Percentage</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField size="small" label={mode === 'fixed' ? 'Amount' : 'Percentage'} type="number" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value || '0'))} />
-          <TextField size="small" label="Free Orders" type="number" value={freeOrders} onChange={(e) => setFreeOrders(parseInt(e.target.value || '0', 10))} />
-          <Button 
-            variant="contained" 
-            disabled={saving} 
-            onClick={handleSaveFeeConfig}
-            startIcon={saving ? <CircularProgress size={16} /> : undefined}
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
-      )}
-
-      <Typography variant="h6" gutterBottom>Fee Ledgers</Typography>
-      {!restaurantId ? (
-        <Alert severity="info">Select a restaurant to view ledgers</Alert>
-      ) : (
-        <>
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Order</TableCell>
-                  <TableCell align="right">Order Total</TableCell>
-                  <TableCell>Fee</TableCell>
-                  <TableCell>Mode</TableCell>
-                  <TableCell>Rate</TableCell>
-                  <TableCell>Discount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Payment Method</TableCell>
-                  <TableCell>Transaction ID</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ledgerLoading ? (
-                  <TableRow><TableCell colSpan={11}><LinearProgress /></TableCell></TableRow>
-                ) : ledgers.length === 0 ? (
-                  <TableRow><TableCell colSpan={11}><Alert severity="info">No ledger entries</Alert></TableCell></TableRow>
-                ) : (
-                  ledgers.map((l: any) => (
-                    <TableRow key={l.id}>
-                      <TableCell>{formatDateTime(l.createdAt).date} {formatDateTime(l.createdAt).time}</TableCell>
-                      <TableCell>#{String(l.orderId).slice(-6)}</TableCell>
-                      <TableCell align="right">{formatCurrencyFromRestaurant(l.orderTotal, selectedRestaurant)}</TableCell>
-                      <TableCell>{formatCurrencyFromRestaurant(l.feeAmount, selectedRestaurant)}</TableCell>
-                      <TableCell>{l.feeMode}</TableCell>
-                      <TableCell>{l.feeMode === 'fixed' ? l.feeRate.toFixed(2) : `${l.feeRate}%`}</TableCell>
-                      <TableCell>{l.discountApplied ? 'Yes' : 'No'}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={l.paymentStatus} 
-                          size="small" 
-                          color={
-                            l.paymentStatus === 'paid' ? 'success' : 
-                            l.paymentStatus === 'pending' ? 'warning' : 
-                            l.paymentStatus === 'failed' ? 'error' : 'default'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>{l.paymentMethod || '-'}</TableCell>
-                      <TableCell>
-                        {l.paymentTransactionId ? (
-                          <Typography variant="caption" fontFamily="monospace">
-                            {l.paymentTransactionId.slice(-8)}
-                          </Typography>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {l.paymentStatus === 'pending' && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleMarkAsPaid(l.id)}
-                          >
-                            Mark Paid
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            rowsPerPageOptions={[10, 25, 50]}
-            count={totalCount}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={(_, newPage) => { setPage(newPage); void refetchLedger({ restaurantId, limit: rowsPerPage, offset: newPage * rowsPerPage }); }}
-            onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetchLedger({ restaurantId, limit: newRpp, offset: 0 }); }}
-          />
-        </>
-      )}
-
-      {/* Payment Status Update Dialog */}
-      <Dialog open={paymentStatusDialogOpen} onClose={() => setPaymentStatusDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Update Payment Status</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Payment Status</InputLabel>
-              <Select
-                value={selectedPaymentStatus}
-                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
-                label="Payment Status"
-              >
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="paid">Paid</MenuItem>
-                <MenuItem value="failed">Failed</MenuItem>
-                <MenuItem value="refunded">Refunded</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Payment Method</InputLabel>
-              <Select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                label="Payment Method"
-              >
-                <MenuItem value="manual">Manual (Admin)</MenuItem>
-                <MenuItem value="card">Credit/Debit Card</MenuItem>
-                <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-                <MenuItem value="cash">Cash</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <TextField
-              fullWidth
-              margin="normal"
-              label="Transaction ID"
-              value={paymentTransactionId}
-              onChange={(e) => setPaymentTransactionId(e.target.value)}
-              placeholder="Enter transaction ID or reference"
-            />
-            
-            <TextField
-              fullWidth
-              margin="normal"
-              label="Reason for Change"
-              value={paymentReason}
-              onChange={(e) => setPaymentReason(e.target.value)}
-              placeholder="Explain why you're changing the payment status"
-              multiline
-              rows={3}
-              required
-            />
-            
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              This action will be logged in the audit trail. Please ensure you have proper authorization and documentation for this change.
-            </Alert>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPaymentStatusDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleUpdatePaymentStatus} variant="contained" color="primary">
-            Update Status
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar for notifications */}
-      {snackbar.open && (
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-          sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
-        >
-          {snackbar.message}
-        </Alert>
-      )}
-    </Box>
-  );
-}
-
-function PaymentManagementPanel() {
-  const { data: dueFeesData, loading: dueFeesLoading, refetch: refetchDueFees } = useGqlQuery(GET_DUE_FEES_SUMMARY, {
-    fetchPolicy: 'cache-and-network'
-  });
-
-  const dueFeesSummary = dueFeesData?.dueFeesSummary || [];
-
-  // Set up real-time fee subscriptions for payment management
-  useFeeSubscriptions({
-    onFeeLedgerUpdated: () => {
-      console.log('Fee ledger updated - refetching due fees');
-      void refetchDueFees();
-    },
-    onPaymentStatusUpdated: () => {
-      console.log('Payment status updated - refetching due fees');
-      void refetchDueFees();
-    },
-    onDueFeesUpdated: () => {
-      console.log('Due fees updated - refetching due fees');
-      void refetchDueFees();
-    },
-    fallbackRefetch: () => {
-      console.log('Fallback polling - refetching due fees data');
-      void refetchDueFees();
-    }
-  });
-
-  const totalDueFees = dueFeesSummary.reduce((sum: number, item: any) => sum + item.totalDueFees, 0);
-  const totalPendingCount = dueFeesSummary.reduce((sum: number, item: any) => sum + item.pendingCount, 0);
-
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        Payment Management Overview
-      </Typography>
-      
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Payment sx={{ mr: 1, color: 'error.main' }} />
-                <Typography variant="body2" color="text.secondary">
-                  Total Due Fees
-                </Typography>
-              </Box>
-              <Typography variant="h5" color="error.main">
-                {formatCurrency(totalDueFees)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Across all restaurants
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <TrendingUp sx={{ mr: 1, color: 'warning.main' }} />
-                <Typography variant="body2" color="text.secondary">
-                  Pending Payments
-                </Typography>
-              </Box>
-              <Typography variant="h5" color="warning.main">
-                {totalPendingCount}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Individual fees
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Restaurant sx={{ mr: 1, color: 'info.main' }} />
-                <Typography variant="body2" color="text.secondary">
-                  Restaurants with Due Fees
-                </Typography>
-              </Box>
-              <Typography variant="h5" color="info.main">
-                {dueFeesSummary.length}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Active restaurants
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Assessment sx={{ mr: 1, color: 'success.main' }} />
-                <Typography variant="body2" color="text.secondary">
-                  Average Due Amount
-                </Typography>
-              </Box>
-              <Typography variant="h5" color="success.main">
-                {dueFeesSummary.length > 0 ? formatCurrency(totalDueFees / dueFeesSummary.length) : '0.00'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Per restaurant
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Due Fees Table */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Restaurants with Due Fees
-          </Typography>
-          
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Restaurant</TableCell>
-                  <TableCell align="right">Due Amount</TableCell>
-                  <TableCell align="right">Pending Count</TableCell>
-                  <TableCell>Last Payment</TableCell>
-                  <TableCell>Oldest Due</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {dueFeesLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : dueFeesSummary.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Alert severity="success">No restaurants have due fees!</Alert>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  dueFeesSummary.map((summary: any) => (
-                    <TableRow key={summary.restaurantId}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {summary.restaurantName}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold" color="error.main">
-                          {formatCurrency(summary.totalDueFees, summary.currency)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Chip 
-                          label={summary.pendingCount} 
-                          size="small" 
-                          color="warning"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {summary.lastPaymentDate ? (
-                          <Typography variant="caption">
-                            {formatDateTime(summary.lastPaymentDate).date}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" color="text.secondary">
-                            No payments yet
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {summary.oldestDueDate ? (
-                          <Typography variant="caption" color="error.main">
-                            {formatDateTime(summary.oldestDueDate).date}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" color="text.secondary">
-                            -
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            // Navigate to fees tab with this restaurant selected
-                            // This would require passing a callback to set the selected restaurant
-                          }}
-                        >
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-    </Box>
-  );
-}
-
-function SettlementsPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
-  const [page, setPage] = React.useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
-  const restaurantId = selectedRestaurant?.id || '';
-
-  const { data, loading, refetch } = useGqlQuery(GET_SETTLEMENTS, {
-    variables: { restaurantId, limit: rowsPerPage, offset: page * rowsPerPage },
-    skip: !restaurantId,
-    fetchPolicy: 'cache-and-network'
-  });
-  const [generate, { loading: generating }] = useMutation(GENERATE_WEEKLY_SETTLEMENT, {
-    onCompleted: () => void refetch(),
-  });
-
-  const settlements = data?.settlements || [];
-
-  const handleExportCsv = () => {
-    const headers = ['periodStart', 'periodEnd', 'currency', 'totalOrders', 'totalOrderAmount', 'totalFees', 'generatedAt'];
-    const rows = settlements.map((s: any) => [s.periodStart, s.periodEnd, s.currency, s.totalOrders, s.totalOrderAmount, s.totalFees, s.generatedAt]);
-    const csv = [headers.join(','), ...rows.map((r: (string|number)[]) => r.map((f) => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `settlements-${new Date().toISOString()}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-
-  const handleGenerateLastWeek = () => {
-    if (!restaurantId) return;
-    const today = new Date();
-    const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    const start = new Date(end);
-    start.setUTCDate(end.getUTCDate() - 7);
-    void generate({ variables: { restaurantId, periodStart: start.toISOString(), periodEnd: end.toISOString() } });
-  };
-
-  if (!restaurantId) {
-    return <Alert severity="info">Select a restaurant to view settlements</Alert>;
-  }
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Settlements</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" onClick={() => void refetch()}>Refresh</Button>
-          <Button variant="outlined" onClick={handleExportCsv}>Export CSV</Button>
-          <Button variant="contained" onClick={handleGenerateLastWeek} disabled={generating}>Generate Last Week</Button>
-        </Box>
-      </Box>
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Period</TableCell>
-              <TableCell align="right">Total Orders</TableCell>
-              <TableCell align="right">Total Amount</TableCell>
-              <TableCell align="right">Total Fees</TableCell>
-              <TableCell>Generated</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5}><LinearProgress /></TableCell></TableRow>
-            ) : settlements.length === 0 ? (
-              <TableRow><TableCell colSpan={5}><Alert severity="info">No settlements found</Alert></TableCell></TableRow>
-            ) : (
-              settlements.map((s: any) => (
-                <TableRow key={s.id}>
-                  <TableCell>{formatDateTime(s.periodStart).date} - {formatDateTime(s.periodEnd).date}</TableCell>
-                  <TableCell align="right">{s.totalOrders}</TableCell>
-                  <TableCell align="right">{s.currency} {s.totalOrderAmount.toFixed(2)}</TableCell>
-                  <TableCell align="right">{s.currency} {s.totalFees.toFixed(2)}</TableCell>
-                  <TableCell>{formatDateTime(s.generatedAt).date} {formatDateTime(s.generatedAt).time}</TableCell>
-                  <TableCell>
-                    <Button size="small" variant="outlined" onClick={() => window.open(`/settlements/${s.id}/pdf`, '_blank')}>PDF</Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        component="div"
-        rowsPerPageOptions={[10, 25, 50]}
-        count={-1}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(_, newPage) => { setPage(newPage); void refetch({ restaurantId, limit: rowsPerPage, offset: newPage * rowsPerPage }); }}
-        onRowsPerPageChange={(e) => { const newRpp = parseInt(e.target.value, 10); setRowsPerPage(newRpp); setPage(0); void refetch({ restaurantId, limit: newRpp, offset: 0 }); }}
-      />
-    </Box>
-  );
-}
-
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -911,6 +94,7 @@ export default function AdminDashboard() {
   });
   const [staffToConfirm, setStaffToConfirm] = useState<any>(null);
   const [staffConfirmOpen, setStaffConfirmOpen] = useState(false);
+  const [staffConfirmReason, setStaffConfirmReason] = useState('');
   const [staffSnackbar, setStaffSnackbar] = useState({
     open: false,
     message: '',
@@ -1331,7 +515,6 @@ export default function AdminDashboard() {
     setStaffConfirmOpen(true);
   };
 
-  const [staffConfirmReason, setStaffConfirmReason] = useState('');
   const confirmDeactivateStaff = async () => {
     if (!staffToConfirm) return;
     if (staffToConfirm.isActive) {
@@ -1650,119 +833,19 @@ export default function AdminDashboard() {
             </Button>
           </Box>
 
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                    <TableCell>Restaurant</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Slug</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {restaurantsLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                  ) : filteredRestaurants.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Alert severity="info">No restaurants found</Alert>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                    filteredRestaurants
-                      .slice(restaurantPage * restaurantRowsPerPage, restaurantPage * restaurantRowsPerPage + restaurantRowsPerPage)
-                      .map((restaurant: any) => (
-                    <TableRow key={restaurant.id}>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                                <Restaurant />
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  {restaurant.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {restaurant.address || 'No address'}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </TableCell>
-                      <TableCell>{restaurant.email}</TableCell>
-                          <TableCell>
-                            <Chip label={restaurant.slug} size="small" variant="outlined" />
-                          </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={restaurant.isActive ? 'Active' : 'Inactive'}
-                          color={restaurant.isActive ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(restaurant.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="View Staff">
-                          <IconButton size="small" onClick={() => handleViewStaff(restaurant)}>
-                            <Group />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit Restaurant">
-                          <IconButton size="small" onClick={() => handleOpenRestaurantDialog('edit', restaurant)}>
-                            <Edit />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Create Sample Data">
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleCreateSampleData(restaurant.id)}
-                          >
-                            <Add />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={restaurant.isActive ? "Deactivate Restaurant" : "Activate Restaurant"}>
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleToggleRestaurantStatus(restaurant.id)}
-                            sx={{
-                              color: restaurant.isActive ? 'success.main' : 'grey.500',
-                              '&:hover': {
-                                backgroundColor: restaurant.isActive ? 'success.light' : 'grey.100',
-                                color: restaurant.isActive ? 'success.dark' : 'grey.700'
-                              }
-                            }}
-                          >
-                            {restaurant.isActive ? (
-                              <ToggleOff sx={{ color: 'success.main' }} />
-                            ) : (
-                              <ToggleOff sx={{ color: 'grey.500', transform: 'rotate(180deg)' }} />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredRestaurants.length}
-              rowsPerPage={restaurantRowsPerPage}
-              page={restaurantPage}
-              onPageChange={handleRestaurantPageChange}
-              onRowsPerPageChange={handleRestaurantRowsPerPageChange}
-            />
+          <RestaurantsTable
+            restaurantsLoading={restaurantsLoading}
+            filteredRestaurants={filteredRestaurants}
+            restaurantPage={restaurantPage}
+            restaurantRowsPerPage={restaurantRowsPerPage}
+            onPageChange={handleRestaurantPageChange}
+            onRowsPerPageChange={handleRestaurantRowsPerPageChange}
+            onViewStaff={handleViewStaff}
+            onEditRestaurant={(r) => handleOpenRestaurantDialog('edit', r)}
+            onCreateSampleData={handleCreateSampleData}
+            onToggleRestaurantStatus={handleToggleRestaurantStatus}
+            formatDate={formatDate}
+          />
           </TabPanel>
 
           {/* Orders Tab */}
@@ -1802,130 +885,17 @@ export default function AdminDashboard() {
               </Button>
           </Box>
 
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Order ID</TableCell>
-                  <TableCell>Restaurant</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ordersLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                  ) : filteredOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Alert severity="info">No orders found</Alert>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                    filteredOrders.map((order: any) => (
-                    <TableRow key={order.id}>
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {order.id.slice(-8)}
-                          </Typography>
-                        </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar sx={{ mr: 1, bgcolor: 'primary.main', width: 24, height: 24 }}>
-                            <Restaurant sx={{ fontSize: 16 }} />
-                          </Avatar>
-                          <Typography variant="body2" fontWeight="bold">
-                            {(() => {
-                              const restaurant = restaurants.find((r: any) => r.id === order.restaurantId);
-                              return restaurant?.name || 'N/A';
-                            })()}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={order.orderType}
-                          size="small"
-                          color="primary"
-                            variant="outlined"
-                        />
-                      </TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2" fontWeight="bold">
-                              {order.customerName || 'N/A'}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {order.customerPhone || 'No phone'}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="bold">
-                            {(() => {
-                              const restaurant = restaurants.find((r: any) => r.id === order.restaurantId);
-                              return formatCurrencyFromRestaurant(order.totalAmount, restaurant);
-                            })()}
-                          </Typography>
-                        </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={order.status}
-                          size="small"
-                          color={
-                            order.status === 'completed' ? 'success' :
-                            order.status === 'pending' ? 'warning' :
-                            order.status === 'cancelled' ? 'error' : 'default'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const { date, time } = formatDateTime(order.createdAt);
-                          return (
-                            <>
-                              <Typography variant="body2">
-                                {date}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {time}
-                              </Typography>
-                            </>
-                          );
-                        })()}
-                      </TableCell>
-                        <TableCell>
-                          <Tooltip title="View Details">
-                            <span>
-                              <IconButton size="small">
-                                <Visibility />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-              count={-1}
-              rowsPerPage={orderRowsPerPage}
-              page={orderPage}
-              onPageChange={handleOrderPageChange}
-              onRowsPerPageChange={handleOrderRowsPerPageChange}
-            />
+          <OrdersTable
+            ordersLoading={ordersLoading}
+            filteredOrders={filteredOrders}
+            restaurants={restaurants}
+            orderPage={orderPage}
+            orderRowsPerPage={orderRowsPerPage}
+            onPageChange={handleOrderPageChange}
+            onRowsPerPageChange={handleOrderRowsPerPageChange}
+            formatDateTime={formatDateTime}
+            formatCurrencyFromRestaurant={formatCurrencyFromRestaurant}
+          />
           </TabPanel>
 
           {/* Staff Tab */}
@@ -1990,73 +960,13 @@ export default function AdminDashboard() {
                   Add Staff Member
                 </Button>
                 
-                {staffLoading ? (
-                  <LinearProgress />
-                ) : staff.length === 0 ? (
-                  <Alert severity="info">No staff members found for this restaurant</Alert>
-                ) : (
-                  <TableContainer component={Paper}>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Name</TableCell>
-                          <TableCell>Email</TableCell>
-                          <TableCell>Role</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Created</TableCell>
-                          <TableCell>Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {staff.map((staffMember: any) => (
-                          <TableRow key={staffMember.id}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
-                                  <SupervisorAccount />
-                                </Avatar>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  {staffMember.name}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>{staffMember.email}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={staffMember.role.replace('_', ' ')}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={staffMember.isActive ? 'Active' : 'Inactive'}
-                                color={staffMember.isActive ? 'success' : 'error'}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {formatDate(staffMember.createdAt)}
-                            </TableCell>
-                            <TableCell>
-                              <Tooltip title="Edit Staff">
-                                <IconButton size="small" onClick={() => handleOpenStaffDialog('edit', staffMember)}>
-                                  <Edit />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title={staffMember.isActive ? 'Deactivate Staff' : 'Activate Staff'}>
-                                <IconButton size="small" onClick={() => handleDeactivateStaff(staffMember)}>
-                                  <Delete />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
+                <StaffTable
+                  staffLoading={staffLoading}
+                  staff={staff}
+                  formatDate={formatDate}
+                  onEdit={(s) => handleOpenStaffDialog('edit', s)}
+                  onToggleActive={handleDeactivateStaff}
+                />
               </Box>
             )}
           </TabPanel>
@@ -2290,173 +1200,26 @@ export default function AdminDashboard() {
       </Container>
 
       {/* Restaurant Dialog */}
-      <Dialog open={restaurantDialogOpen} onClose={handleCloseRestaurantDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          {restaurantDialogMode === 'create' ? 'Add New Restaurant' : 'Edit Restaurant'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Restaurant Name"
-              value={restaurantFormData.name}
-              onChange={(e) => handleRestaurantFormChange('name', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Email"
-              type="email"
-              value={restaurantFormData.email}
-              onChange={(e) => handleRestaurantFormChange('email', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={restaurantFormData.password}
-              onChange={(e) => handleRestaurantFormChange('password', e.target.value)}
-              fullWidth
-              required={restaurantDialogMode === 'create'}
-              helperText={restaurantDialogMode === 'edit' ? 'Leave blank to keep current password' : 'Required for new restaurants'}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={restaurantFormData.isActive ? 'active' : 'inactive'}
-                onChange={(e) => handleRestaurantFormChange('isActive', e.target.value === 'active')}
-                label="Status"
-              >
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label="Address"
-              value={restaurantFormData.address}
-              onChange={(e) => handleRestaurantFormChange('address', e.target.value)}
-              fullWidth
-              multiline
-              rows={2}
-            />
-            <TextField
-              label="Phone"
-              value={restaurantFormData.phone}
-              onChange={(e) => handleRestaurantFormChange('phone', e.target.value)}
-              fullWidth
-            />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>Currency</InputLabel>
-                <Select
-                  value={restaurantFormData.settings.currency}
-                  onChange={(e) => handleRestaurantFormChange('settings.currency', e.target.value)}
-                  label="Currency"
-                >
-                  <MenuItem value="USD">USD</MenuItem>
-                  <MenuItem value="EUR">EUR</MenuItem>
-                  <MenuItem value="GBP">GBP</MenuItem>
-                  <MenuItem value="INR">INR</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Timezone</InputLabel>
-                <Select
-                  value={restaurantFormData.settings.timezone}
-                  onChange={(e) => handleRestaurantFormChange('settings.timezone', e.target.value)}
-                  label="Timezone"
-                >
-                  <MenuItem value="UTC">UTC</MenuItem>
-                  <MenuItem value="America/New_York">America/New_York</MenuItem>
-                  <MenuItem value="America/Los_Angeles">America/Los_Angeles</MenuItem>
-                  <MenuItem value="Europe/London">Europe/London</MenuItem>
-                  <MenuItem value="Asia/Kolkata">Asia/Kolkata</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            <FormControl fullWidth>
-              <InputLabel>Theme</InputLabel>
-              <Select
-                value={restaurantFormData.settings.theme}
-                onChange={(e) => handleRestaurantFormChange('settings.theme', e.target.value)}
-                label="Theme"
-              >
-                <MenuItem value="light">Light</MenuItem>
-                <MenuItem value="dark">Dark</MenuItem>
-                <MenuItem value="auto">Auto</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseRestaurantDialog}>Cancel</Button>
-          <Button 
-            onClick={handleRestaurantSubmit} 
-            variant="contained"
-            disabled={createRestaurantLoading || updateRestaurantLoading}
-          >
-            {createRestaurantLoading || updateRestaurantLoading ? (
-              <CircularProgress size={20} />
-            ) : (
-              restaurantDialogMode === 'create' ? 'Create' : 'Update'
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <RestaurantDialog
+        open={restaurantDialogOpen}
+        mode={restaurantDialogMode}
+        formData={restaurantFormData}
+        loading={createRestaurantLoading || updateRestaurantLoading}
+        onClose={handleCloseRestaurantDialog}
+        onSubmit={handleRestaurantSubmit}
+        onFormChange={handleRestaurantFormChange}
+      />
 
       {/* Staff Dialog */}
-      <Dialog open={staffDialogOpen} onClose={handleCloseStaffDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{staffDialogMode === 'create' ? 'Add Staff Member' : 'Edit Staff Member'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Name"
-              value={staffFormData.name}
-              onChange={(e) => handleStaffFormChange('name', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Email"
-              type="email"
-              value={staffFormData.email}
-              onChange={(e) => handleStaffFormChange('email', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={staffFormData.password}
-              onChange={(e) => handleStaffFormChange('password', e.target.value)}
-              fullWidth
-              required={staffDialogMode === 'create'}
-              helperText={staffDialogMode === 'edit' ? 'Leave blank to keep current password' : 'Required for new staff'}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={staffFormData.role}
-                label="Role"
-                onChange={(e) => handleStaffFormChange('role', e.target.value)}
-              >
-                <MenuItem value="STAFF">Staff</MenuItem>
-                <MenuItem value="MANAGER">Manager</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseStaffDialog}>Cancel</Button>
-          <Button 
-            onClick={handleStaffSubmit} 
-            variant="contained"
-            disabled={createStaffLoading || updateStaffLoading}
-          >
-            {createStaffLoading || updateStaffLoading ? <CircularProgress size={20} /> : (staffDialogMode === 'create' ? 'Create' : 'Update')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <StaffDialog
+        open={staffDialogOpen}
+        mode={staffDialogMode}
+        formData={staffFormData}
+        loading={createStaffLoading || updateStaffLoading}
+        onClose={handleCloseStaffDialog}
+        onSubmit={handleStaffSubmit}
+        onFormChange={handleStaffFormChange}
+      />
 
       {/* Staff Activate/Deactivate Confirmation */}
       <ConfirmationDialog
