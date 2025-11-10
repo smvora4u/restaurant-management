@@ -15,11 +15,48 @@ export const adminAuthResolvers = {
           throw new Error('Admin not found or inactive');
         }
 
-        // Frontend sends SHA256-hashed password, stored password is SHA256 + bcrypt
-        const isValidPassword = await bcrypt.compare(password, admin.password);
+        // Frontend sends SHA256 hash, stored password is bcrypt(SHA256) for new format
+        // OR just SHA256 hash for old plaintext passwords
+        let isValidPassword = false;
+        let needsMigration = false;
+        
+        // Try new format first (bcrypt comparison)
+        isValidPassword = await bcrypt.compare(password, admin.password);
+        
+        // Fallback: Check if stored password is plaintext (old production data)
+        if (!isValidPassword) {
+          // Check if password in DB is the same SHA256 hash sent from frontend
+          if (admin.password === password) {
+            isValidPassword = true;
+            needsMigration = true;
+          } else {
+            // Could also be plaintext "admin123" in DB
+            // We can't convert SHA256 back to plaintext, so we manually check known plaintext
+            // This is a temporary migration path
+            const commonPlaintextPasswords = ['admin123'];
+            for (const plainPass of commonPlaintextPasswords) {
+              // Hash plaintext and see if it matches what frontend sent
+              const crypto = await import('crypto');
+              const hashOfPlaintext = crypto.createHash('sha256').update(plainPass).digest('hex');
+              if (hashOfPlaintext === password && admin.password === plainPass) {
+                isValidPassword = true;
+                needsMigration = true;
+                break;
+              }
+            }
+          }
+        }
         
         if (!isValidPassword) {
           throw new Error('Invalid password');
+        }
+        
+        // Auto-migrate old password to new format
+        if (needsMigration) {
+          // Hash the incoming SHA256 with bcrypt (new format)
+          const hashedPassword = await bcrypt.hash(password, 10);
+          await Admin.updateOne({ _id: admin._id }, { password: hashedPassword });
+          console.log(`✅ Auto-migrated admin password for ${email}`);
         }
 
         // Generate JWT token
