@@ -22,11 +22,49 @@ export const staffAuthResolvers = {
           throw new Error('Staff not found');
         }
 
-        // Frontend sends SHA256-hashed password, so we use it directly
-        const isValidPassword = await bcrypt.compare(password, staff.password);
+        // Frontend sends SHA256 hash, stored password is bcrypt(SHA256) for new format
+        // OR just SHA256 hash for old plaintext passwords
+        let isValidPassword = false;
+        let needsMigration = false;
+        
+        // Try new format first (bcrypt comparison)
+        // password is SHA256 from frontend, staff.password should be bcrypt(SHA256)
+        isValidPassword = await bcrypt.compare(password, staff.password);
+        
+        // Fallback: Check if stored password is plaintext (old production data)
+        if (!isValidPassword) {
+          // Check if password in DB is the same SHA256 hash sent from frontend
+          if (staff.password === password) {
+            isValidPassword = true;
+            needsMigration = true;
+          } else {
+            // Could also be plaintext in DB
+            // We can't convert SHA256 back to plaintext, so we manually check known plaintext
+            // This is a temporary migration path
+            const crypto = await import('crypto');
+            const commonPlaintextPasswords = ['staff123', 'password123', 'demo123', 'password', '123456'];
+            for (const plainPass of commonPlaintextPasswords) {
+              // Hash plaintext and see if it matches what frontend sent
+              const hashOfPlaintext = crypto.createHash('sha256').update(plainPass).digest('hex');
+              if (hashOfPlaintext === password && staff.password === plainPass) {
+                isValidPassword = true;
+                needsMigration = true;
+                break;
+              }
+            }
+          }
+        }
         
         if (!isValidPassword) {
           throw new Error('Invalid password');
+        }
+        
+        // Auto-migrate old password to new format (bcrypt(SHA256))
+        if (needsMigration) {
+          // Hash the incoming SHA256 with bcrypt (new format)
+          const hashedPassword = await bcrypt.hash(password, 10);
+          await Staff.updateOne({ _id: staff._id }, { password: hashedPassword });
+          console.log(`✅ Auto-migrated staff password for ${email}`);
         }
 
         // Fetch restaurant data
@@ -121,8 +159,12 @@ export const staffAuthResolvers = {
 
         const permissions = input.permissions || defaultPermissions[input.role || 'waiter'];
 
+        // Hash password with new method (SHA256 + bcrypt)
+        const hashedPassword = await hashPassword(input.password);
+
         const staff = new Staff({
           ...input,
+          password: hashedPassword,
           restaurantId: restaurantId, // Use the validated ObjectId
           permissions,
           role: input.role || 'waiter'

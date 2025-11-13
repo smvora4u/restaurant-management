@@ -39,6 +39,7 @@ import {
   Delete,
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import CryptoJS from 'crypto-js';
 import { formatDate } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { 
@@ -47,6 +48,11 @@ import {
   UPDATE_STAFF, 
   DEACTIVATE_STAFF 
 } from '../graphql';
+
+// Hash password client-side for additional security
+const hashPassword = (password: string): string => {
+  return CryptoJS.SHA256(password).toString();
+};
 
 export default function StaffManagement() {
   const navigate = useNavigate();
@@ -196,8 +202,11 @@ export default function StaffManagement() {
     }
 
     if (dialogMode === 'create') {
+      // Hash password before sending
+      const hashedPassword = hashPassword(formData.password);
       const input = {
         ...formData,
+        password: hashedPassword,
         restaurantId: restaurant.id,
         permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
       };
@@ -213,13 +222,18 @@ export default function StaffManagement() {
         return;
       }
       
-      const input = {
+      const input: any = {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role),
-        password: formData.password || undefined
+        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
       };
+      
+      // Hash password if provided
+      if (formData.password) {
+        input.password = hashPassword(formData.password);
+      }
+      
       updateStaff({ 
         variables: { 
           id: selectedStaff.id, 

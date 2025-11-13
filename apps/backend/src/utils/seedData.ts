@@ -1,4 +1,6 @@
 import { Admin, Restaurant, MenuItem, Table } from '../models/index.js';
+import { hashPassword } from './passwordReset.js';
+import crypto from 'crypto';
 
 export const seedInitialData = async () => {
   try {
@@ -7,10 +9,14 @@ export const seedInitialData = async () => {
     
     if (!superAdmin) {
       console.log('🌱 Creating super admin...');
+      // Hash plaintext password: SHA256 first (as frontend does), then bcrypt
+      const sha256Hash = crypto.createHash('sha256').update('admin123').digest('hex');
+      const hashedPassword = await hashPassword(sha256Hash);
+      
       superAdmin = new Admin({
         name: 'Super Admin',
         email: 'admin@platform.com',
-        password: 'admin123', // This will be hashed by the pre-save hook
+        password: hashedPassword,
         role: 'super_admin',
         permissions: ['manage_restaurants', 'view_analytics', 'manage_users', 'system_settings', 'view_all_data'],
         isActive: true
@@ -25,11 +31,15 @@ export const seedInitialData = async () => {
     
     if (!restaurant) {
       console.log('🌱 Creating demo restaurant...');
+      // Hash plaintext password: SHA256 first (as frontend does), then bcrypt
+      const sha256Hash = crypto.createHash('sha256').update('demo123').digest('hex');
+      const hashedPassword = await hashPassword(sha256Hash);
+      
       restaurant = new Restaurant({
         name: 'Demo Restaurant',
         slug: 'demo-restaurant',
         email: 'demo@restaurant.com',
-        password: 'demo123', // This will be hashed by the pre-save hook
+        password: hashedPassword,
         address: '123 Main Street, City, State 12345',
         phone: '+1-555-0123',
         settings: {

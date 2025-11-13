@@ -25,8 +25,12 @@ export const restaurantAuthResolvers = {
         // Create slug if not provided
         const slug = input.slug || input.name.toLowerCase().replace(/\s+/g, '-');
 
+        // Hash password with new method (SHA256 + bcrypt)
+        const hashedPassword = await hashPassword(input.password);
+
         const restaurant = new Restaurant({
           ...input,
+          password: hashedPassword,
           slug,
           settings: {
             currency: 'USD',
@@ -79,11 +83,49 @@ export const restaurantAuthResolvers = {
           throw new Error('Restaurant not found or inactive');
         }
 
-        // Frontend sends SHA256-hashed password, so we use it directly
-        const isValidPassword = await bcrypt.compare(password, restaurant.password);
+        // Frontend sends SHA256 hash, stored password is bcrypt(SHA256) for new format
+        // OR just SHA256 hash for old plaintext passwords
+        let isValidPassword = false;
+        let needsMigration = false;
+        
+        // Try new format first (bcrypt comparison)
+        // password is SHA256 from frontend, restaurant.password should be bcrypt(SHA256)
+        isValidPassword = await bcrypt.compare(password, restaurant.password);
+        
+        // Fallback: Check if stored password is plaintext (old production data)
+        if (!isValidPassword) {
+          // Check if password in DB is the same SHA256 hash sent from frontend
+          if (restaurant.password === password) {
+            isValidPassword = true;
+            needsMigration = true;
+          } else {
+            // Could also be plaintext in DB
+            // We can't convert SHA256 back to plaintext, so we manually check known plaintext
+            // This is a temporary migration path
+            const crypto = await import('crypto');
+            const commonPlaintextPasswords = ['demo123', 'restaurant123', 'password123', 'password', '123456'];
+            for (const plainPass of commonPlaintextPasswords) {
+              // Hash plaintext and see if it matches what frontend sent
+              const hashOfPlaintext = crypto.createHash('sha256').update(plainPass).digest('hex');
+              if (hashOfPlaintext === password && restaurant.password === plainPass) {
+                isValidPassword = true;
+                needsMigration = true;
+                break;
+              }
+            }
+          }
+        }
         
         if (!isValidPassword) {
           throw new Error('Invalid password');
+        }
+        
+        // Auto-migrate old password to new format (bcrypt(SHA256))
+        if (needsMigration) {
+          // Hash the incoming SHA256 with bcrypt (new format)
+          const hashedPassword = await bcrypt.hash(password, 10);
+          await Restaurant.updateOne({ _id: restaurant._id }, { password: hashedPassword });
+          console.log(`✅ Auto-migrated restaurant password for ${email}`);
         }
 
         // Generate JWT token
