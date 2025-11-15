@@ -15,38 +15,22 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Grid,
-  Card,
-  CardContent,
-  IconButton,
-  Divider
+  Grid
 } from '@mui/material';
 import {
-  Add,
-  Remove,
-  Delete,
   Restaurant,
   TakeoutDining,
   DeliveryDining
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_MENU_ITEMS } from '../../graphql/queries/menu';
 import { GET_AVAILABLE_TABLES } from '../../graphql/queries/orders';
 import { CREATE_ORDER } from '../../graphql/mutations/orders';
-import { formatCurrencyFromRestaurant } from '../../utils/currency';
 
 interface CreateOrderDialogProps {
   open: boolean;
   onClose: () => void;
   onOrderCreated: (order: any) => void;
   restaurant: any;
-}
-
-interface OrderItem {
-  menuItemId: string;
-  quantity: number;
-  price: number;
-  specialInstructions: string;
 }
 
 const ORDER_TYPES = [
@@ -61,16 +45,11 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [specialInstructions, setSpecialInstructions] = useState('');
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
   // Queries
-  const { data: menuData, loading: menuLoading } = useQuery(GET_MENU_ITEMS);
   const { data: tablesData, loading: tablesLoading } = useQuery(GET_AVAILABLE_TABLES, {
     skip: orderType !== 'dine-in'
   });
@@ -78,7 +57,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   // Mutations
   const [createOrder] = useMutation(CREATE_ORDER);
 
-  const menuItems = menuData?.menuItems || [];
   const availableTables = tablesData?.availableTables || [];
 
   useEffect(() => {
@@ -93,56 +71,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     }
   }, [error]);
 
-  const handleAddItem = () => {
-    if (!selectedMenuItemId) return;
-
-    const menuItem = menuItems.find((item: any) => item.id === selectedMenuItemId);
-    if (!menuItem) return;
-
-    const existingItemIndex = items.findIndex(item => item.menuItemId === selectedMenuItemId);
-    
-    if (existingItemIndex >= 0) {
-      // Update existing item
-      const updatedItems = [...items];
-      updatedItems[existingItemIndex].quantity += quantity;
-      setItems(updatedItems);
-    } else {
-      // Add new item
-      const newItem: OrderItem = {
-        menuItemId: selectedMenuItemId,
-        quantity,
-        price: menuItem.price,
-        specialInstructions
-      };
-      setItems([...items, newItem]);
-    }
-
-    // Reset form
-    setSelectedMenuItemId('');
-    setQuantity(1);
-    setSpecialInstructions('');
-  };
-
-  const handleRemoveItem = (index: number) => {
-    const updatedItems = items.filter((_, i) => i !== index);
-    setItems(updatedItems);
-  };
-
-  const handleUpdateQuantity = (index: number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(index);
-      return;
-    }
-    
-    const updatedItems = [...items];
-    updatedItems[index].quantity = newQuantity;
-    setItems(updatedItems);
-  };
-
-  const calculateTotal = () => {
-    return items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-
   const scrollToError = () => {
     if (errorRef.current) {
       errorRef.current.scrollIntoView({ 
@@ -153,9 +81,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   };
 
   const isFormValid = () => {
-    // Check if items are added
-    if (items.length === 0) return false;
-    
     // Check customer information
     if (!customerName.trim()) return false;
     if (!customerPhone.trim()) return false;
@@ -179,14 +104,8 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
         restaurantId: restaurant.id,
         orderType,
         tableNumber: orderType === 'dine-in' ? tableNumber : null,
-        items: items.map(item => ({
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          price: item.price,
-          specialInstructions: item.specialInstructions,
-          status: 'pending'
-        })),
-        totalAmount: calculateTotal(),
+        items: [],
+        totalAmount: 0,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         notes: notes.trim(),
@@ -213,10 +132,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     setCustomerName('');
     setCustomerPhone('');
     setNotes('');
-    setItems([]);
-    setSelectedMenuItemId('');
-    setQuantity(1);
-    setSpecialInstructions('');
     setError('');
     onClose();
   };
@@ -304,122 +219,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               rows={2}
             />
           </Grid>
-
-          {/* Add Items */}
-          <Grid size={12}>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Add Items
-            </Typography>
-            <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-              <FormControl sx={{ minWidth: 200 }} margin="normal">
-                <InputLabel>Menu Item</InputLabel>
-                <Select
-                  value={selectedMenuItemId}
-                  onChange={(e) => setSelectedMenuItemId(e.target.value)}
-                  disabled={menuLoading}
-                  label="Menu Item"
-                >
-                  {menuItems.map((item: any) => (
-                    <MenuItem key={item.id} value={item.id}>
-                      {item.name} - {formatCurrencyFromRestaurant(item.price, restaurant)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <TextField
-                type="number"
-                label="Quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                inputProps={{ min: 1 }}
-                sx={{ width: 100 }}
-              />
-              
-              <TextField
-                label="Special Instructions"
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                sx={{ minWidth: 200 }}
-              />
-              
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={handleAddItem}
-                disabled={!selectedMenuItemId || menuLoading}
-              >
-                Add Item
-              </Button>
-            </Box>
-          </Grid>
-
-          {/* Order Items */}
-          {items.length > 0 && (
-            <Grid size={12}>
-              <Typography variant="h6" gutterBottom>
-                Order Items
-              </Typography>
-              {items.map((item, index) => {
-                const menuItem = menuItems.find((mi: any) => mi.id === item.menuItemId);
-                return (
-                  <Card key={`order-item-${index}-${item.menuItemId}-${item.quantity}-${item.specialInstructions || 'no-instructions'}`} sx={{ mb: 1 }}>
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Box>
-                          <Typography variant="subtitle1">
-                            {menuItem?.name || 'Unknown Item'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {formatCurrencyFromRestaurant(item.price, restaurant)} each
-                          </Typography>
-                          {item.specialInstructions && (
-                            <Typography variant="caption" color="text.secondary">
-                              Note: {item.specialInstructions}
-                            </Typography>
-                          )}
-                        </Box>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
-                          >
-                            <Remove />
-                          </IconButton>
-                          <Typography variant="body1" sx={{ minWidth: 30, textAlign: 'center' }}>
-                            {item.quantity}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
-                          >
-                            <Add />
-                          </IconButton>
-                          <Typography variant="subtitle1" sx={{ minWidth: 80, textAlign: 'right' }}>
-                            {formatCurrencyFromRestaurant(item.price * item.quantity, restaurant)}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveItem(index)}
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              
-              <Box display="flex" justifyContent="flex-end" mt={2}>
-                <Typography variant="h6">
-                  Total: {formatCurrencyFromRestaurant(calculateTotal(), restaurant)}
-                </Typography>
-              </Box>
-            </Grid>
-          )}
         </Grid>
       </DialogContent>
       <DialogActions>
