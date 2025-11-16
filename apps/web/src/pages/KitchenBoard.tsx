@@ -30,6 +30,7 @@ interface FlattenedItem {
   orderType: 'dine-in' | 'takeout' | 'delivery';
   specialInstructions?: string;
   itemName?: string;
+  customerName?: string;
   isUpdating?: boolean;
 }
 
@@ -193,6 +194,7 @@ export default function KitchenBoard() {
           orderType: order.orderType,
           specialInstructions: normalizedInstructions || undefined, // Use normalized value, or undefined if empty
           itemName: menuItemsMap[item.menuItemId]?.name || 'Loading...',
+          customerName: order.customerName,
           isUpdating: isItemUpdating
         });
       });

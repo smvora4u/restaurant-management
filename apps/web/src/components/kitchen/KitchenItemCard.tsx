@@ -20,6 +20,7 @@ interface KitchenItemCardProps {
     orderType: 'dine-in' | 'takeout' | 'delivery';
     specialInstructions?: string;
     itemName?: string;
+    customerName?: string;
     isUpdating?: boolean;
   };
   isUpdating?: boolean;
@@ -36,6 +37,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
     itemName, 
     status, 
     orderId,
+    customerName,
     isUpdating: itemIsUpdating
   } = item;
 
@@ -84,7 +86,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
         )}
         
         <CardContent sx={{ p: 2 }}>
-          {/* Table Number - Large and Prominent */}
+          {/* Table Number / Customer Name - Large and Prominent */}
           <Typography
             variant="h4"
             component="div"
@@ -95,8 +97,24 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               color: status === 'served' ? '#6c757d' : 'text.primary'
             }}
           >
-            {displayTableNumber}
+            {orderType === 'takeout' && customerName ? customerName : displayTableNumber}
           </Typography>
+          
+          {/* Show "Parcel" label for takeout orders with customer name */}
+          {orderType === 'takeout' && customerName && (
+            <Typography
+              variant="caption"
+              component="div"
+              sx={{
+                textAlign: 'center',
+                mb: 1,
+                color: 'text.secondary',
+                fontStyle: 'italic'
+              }}
+            >
+              Parcel Order
+            </Typography>
+          )}
 
           {/* Item Name */}
           <Typography
