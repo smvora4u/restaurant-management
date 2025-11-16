@@ -42,7 +42,6 @@ interface OrderItemsTableProps {
   onAddItem: (menuItemId: string, quantity: number, specialInstructions: string) => void;
   isEditing?: boolean;
   onToggleEdit?: () => void;
-  onSaveChanges?: () => void;
   hasUnsavedChanges?: boolean;
   isSaving?: boolean;
   restrictCancelToPending?: boolean;
@@ -69,7 +68,6 @@ export default function OrderItemsTable({
   onAddItem,
   isEditing = false,
   onToggleEdit,
-  onSaveChanges,
   hasUnsavedChanges = false,
   isSaving = false,
   restrictCancelToPending = false
@@ -137,18 +135,6 @@ export default function OrderItemsTable({
               startIcon={<Edit />}
             >
               {isEditing ? 'Done Editing' : 'Edit Items'}
-            </Button>
-          )}
-          {onSaveChanges && hasUnsavedChanges && (
-            <Button
-              variant="contained"
-              startIcon={<Update />}
-              onClick={onSaveChanges}
-              color="success"
-              size="small"
-              disabled={isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           )}
           <Button

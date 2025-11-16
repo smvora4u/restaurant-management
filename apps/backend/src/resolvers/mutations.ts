@@ -143,6 +143,26 @@ export const mutationResolvers = {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
+    
+    // Get the current order to check its status
+    const currentOrder = await Order.findOne({ _id: id, restaurantId: context.restaurant.id });
+    if (!currentOrder) {
+      throw new Error('Order not found');
+    }
+    
+    // Prevent updating cancelled or completed orders (terminal states)
+    if (currentOrder.status === 'cancelled' || currentOrder.status === 'completed') {
+      throw new Error(`Cannot update order that is ${currentOrder.status}. This is a terminal state.`);
+    }
+    
+    // If trying to change status, validate the transition
+    if (input.status && input.status !== currentOrder.status) {
+      // Prevent changing to cancelled/completed if order is already in a terminal state
+      if (input.status === 'cancelled' && !['pending', 'confirmed'].includes(currentOrder.status)) {
+        throw new Error('Can only cancel orders that are pending or confirmed');
+      }
+    }
+    
     const updatedOrder = await Order.findOneAndUpdate(
       { _id: id, restaurantId: context.restaurant.id }, 
       { ...input, updatedAt: new Date() }, 

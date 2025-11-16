@@ -13,8 +13,7 @@ import {
   AccessTime,
   CheckCircle,
   Cancel,
-  Update,
-  Save
+  Update
 } from '@mui/icons-material';
 import { formatFullDateTime } from '../../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
@@ -25,7 +24,6 @@ interface OrderHeaderProps {
   restaurant: any;
   onBack: () => void;
   onStatusUpdate: () => void;
-  onSaveChanges?: () => void;
   hasUnsavedChanges?: boolean;
   isSaving?: boolean;
   canCompleteOrder?: boolean;
@@ -60,7 +58,6 @@ export default function OrderHeader({
   restaurant,
   onBack,
   onStatusUpdate,
-  onSaveChanges,
   hasUnsavedChanges = false,
   isSaving = false,
   canCompleteOrder = false,
@@ -83,22 +80,12 @@ export default function OrderHeader({
         
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {hasUnsavedChanges && onSaveChanges && (
-            <Button
-              variant="contained"
-              startIcon={<Save />}
-              onClick={onSaveChanges}
-              disabled={isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          )}
-          
-          
           <Button
             variant="outlined"
             startIcon={<Update />}
             onClick={onStatusUpdate}
+            disabled={order.status === 'cancelled' || order.status === 'completed'}
+            title={order.status === 'cancelled' || order.status === 'completed' ? 'Cannot update status of cancelled or completed orders' : ''}
           >
             Update Status
           </Button>

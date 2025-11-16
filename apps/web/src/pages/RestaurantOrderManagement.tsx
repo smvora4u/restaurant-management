@@ -27,7 +27,6 @@ import {
   AccessTime,
   CheckCircle,
   Cancel,
-  Update,
   ArrowBack
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
@@ -42,7 +41,7 @@ import {
 } from '../graphql/mutations/orders';
 import { UPDATE_ORDER_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
 import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
-import { syncOrderStatus, calculateOrderStatus, getItemStatusSummary, getNextStatus, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
+import { syncOrderStatus, calculateOrderStatus, getItemStatusSummary, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
@@ -60,7 +59,6 @@ export default function RestaurantOrderManagement() {
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
-  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
@@ -102,6 +100,15 @@ export default function RestaurantOrderManagement() {
   const menuItems = menuData?.menuItems || [];
 
   // Use order status hook for consistent status management
+  // Store order data before update to check for table detachment
+  const orderBeforeUpdateRef = useRef<any>(null);
+  
+  useEffect(() => {
+    if (data?.order) {
+      orderBeforeUpdateRef.current = data.order;
+    }
+  }, [data?.order]);
+
   const {
     isUpdating,
     handleCompleteOrder,
@@ -110,18 +117,32 @@ export default function RestaurantOrderManagement() {
     orderId: orderId!,
     order: data?.order,
     onSuccess: () => {
-      // Check if order was completed and table was detached
-      const order = data?.order;
-      const wasTableDetached = order?.status === 'completed' && order?.orderType === 'dine-in' && order?.tableNumber;
+      // Check if order was completed/cancelled and table was detached
+      // Use stored order data before update to check if table was present
+      const orderBeforeUpdate = orderBeforeUpdateRef.current || data?.order;
+      const hadTable = orderBeforeUpdate?.orderType === 'dine-in' && orderBeforeUpdate?.tableNumber;
       
-      if (wasTableDetached) {
-        setSnackbarMessage('Order completed and table detached successfully!');
-      } else {
-        setSnackbarMessage('Order status updated successfully!');
-      }
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-      refetch();
+      // Refetch to get updated order data
+      refetch().then(() => {
+        const updatedOrder = data?.order;
+        const isCompleted = updatedOrder?.status === 'completed';
+        const isCancelled = updatedOrder?.status === 'cancelled';
+        const tableDetached = hadTable && !updatedOrder?.tableNumber;
+        
+        if (isCompleted && tableDetached) {
+          setSnackbarMessage('Order completed and table detached successfully!');
+        } else if (isCancelled && tableDetached) {
+          setSnackbarMessage('Order cancelled and table released successfully!');
+        } else if (isCancelled) {
+          setSnackbarMessage('Order cancelled successfully!');
+        } else if (isCompleted) {
+          setSnackbarMessage('Order completed successfully!');
+        } else {
+          setSnackbarMessage('Order status updated successfully!');
+        }
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      });
     },
     onError: (error) => {
       setSnackbarMessage(`Error updating status: ${error.message}`);
@@ -175,69 +196,6 @@ export default function RestaurantOrderManagement() {
       refetch();
     }, 100); // 100ms debounce
   }, [refetch]);
-  
-  // Custom function to update status to next calculated status
-  const handleQuickStatusUpdate = useCallback(async (nextStatus: string) => {
-    if (!orderId || !data?.order) return;
-    
-    const order = data.order;
-    
-    // Check circuit breaker for user-initiated updates
-    if (isOrderUpdateBlocked(orderId, true)) {
-      console.log('User-initiated order update blocked by circuit breaker:', orderId);
-      setSnackbarMessage('Order is being updated too frequently. Please wait a moment and try again.');
-      setSnackbarSeverity('warning');
-      setSnackbarOpen(true);
-      return;
-    }
-    
-    try {
-      // Record this user-initiated update attempt
-      recordOrderUpdate(orderId, true);
-      
-      // Auto-detach table when order is completed
-      const shouldDetachTable = nextStatus === 'completed' && order.orderType === 'dine-in' && order.tableNumber;
-      
-      await updateOrderItems({
-        variables: {
-          id: orderId,
-          input: {
-            restaurantId: restaurant?.id || order.restaurantId,
-            status: nextStatus,
-            tableNumber: shouldDetachTable ? null : order.tableNumber,
-            orderType: order.orderType,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            notes: order.notes,
-            sessionId: order.sessionId,
-            userId: order.userId,
-            items: order.items.map((item: any) => ({
-              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-              quantity: item.quantity,
-              price: item.price,
-              status: item.status,
-              specialInstructions: item.specialInstructions
-            })),
-            totalAmount: order.totalAmount
-          }
-        }
-      });
-      
-      // Show success message with table detachment info
-      if (shouldDetachTable) {
-        setSnackbarMessage('Order completed and table detached successfully!');
-      } else {
-        setSnackbarMessage(`Order status updated to ${nextStatus}!`);
-      }
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      setSnackbarMessage('Error updating order status');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    }
-  }, [orderId, data?.order, restaurant?.id, updateOrderItems]);
   
   // Check if order is being updated too frequently (circuit breaker)
   const isOrderUpdateBlocked = useCallback((orderId: string, isUserInitiated: boolean = false) => {
@@ -452,6 +410,8 @@ export default function RestaurantOrderManagement() {
     if (data?.order?.items) {
       setEditingItems([...data.order.items]);
       setHasUnsavedChanges(false);
+      // Mark as initialized once we have order data and items
+      isInitializedRef.current = true;
     }
   }, [data]);
 
@@ -497,9 +457,6 @@ export default function RestaurantOrderManagement() {
     setAddItemDialogOpen(false);
   };
 
-  const handleSaveOrderChanges = () => {
-    setSaveConfirmationOpen(true);
-  };
 
   const handleCancelOrder = () => {
     setCancelConfirmationOpen(true);
@@ -524,11 +481,12 @@ export default function RestaurantOrderManagement() {
   };
 
 
-  const confirmSaveChanges = async () => {
-    if (!orderId || !order) return;
+  // Extract save logic to be reusable for both manual and auto-save
+  const performSave = useCallback(async (silent = false) => {
+    const currentOrder = data?.order;
+    if (!orderId || !currentOrder || !hasUnsavedChanges) return;
     
     setIsSaving(true);
-    setSaveConfirmationOpen(false);
     
     try {
       // Calculate new total amount
@@ -538,8 +496,8 @@ export default function RestaurantOrderManagement() {
 
       // Sync order status based on item statuses
       const syncedOrder = syncOrderStatus({
-        id: order.id,
-        status: order.status,
+        id: currentOrder.id,
+        status: currentOrder.status,
         items: editingItems.map((item: any) => ({
           menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
           quantity: item.quantity,
@@ -549,37 +507,83 @@ export default function RestaurantOrderManagement() {
         }))
       });
 
-    await updateOrderItems({
+      await updateOrderItems({
         variables: {
           id: orderId,
           input: {
-          restaurantId: restaurant?.id || order.restaurantId,
+            restaurantId: restaurant?.id || currentOrder.restaurantId,
             status: syncedOrder.status, // Use synced status
-            tableNumber: order.tableNumber,
-            orderType: order.orderType,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            notes: order.notes,
-            sessionId: order.sessionId,
-            userId: order.userId,
+            tableNumber: currentOrder.tableNumber,
+            orderType: currentOrder.orderType,
+            customerName: currentOrder.customerName,
+            customerPhone: currentOrder.customerPhone,
+            notes: currentOrder.notes,
+            sessionId: currentOrder.sessionId,
+            userId: currentOrder.userId,
             items: syncedOrder.items,
             totalAmount: totalAmount
           }
         }
       });
       
-      setSnackbarMessage(`Order changes saved successfully! Order status updated to: ${syncedOrder.status}`);
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      // Only show notification for manual saves
+      if (!silent) {
+        setSnackbarMessage(`Order changes saved successfully! Order status updated to: ${syncedOrder.status}`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      }
     } catch (error) {
       console.error('Error updating order items:', error);
-      setSnackbarMessage('Failed to save order changes. Please try again.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
+      // Only show error notification for manual saves
+      if (!silent) {
+        setSnackbarMessage('Failed to save order changes. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [orderId, data?.order, editingItems, hasUnsavedChanges, restaurant?.id, updateOrderItems]);
+
+
+  // Auto-save effect: automatically save changes after a delay
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
+  const performSaveRef = useRef(performSave);
+
+  // Keep performSave ref up to date
+  useEffect(() => {
+    performSaveRef.current = performSave;
+  }, [performSave]);
+
+  // Auto-save when there are unsaved changes
+  useEffect(() => {
+    // Don't auto-save if:
+    // - There are no unsaved changes
+    // - Currently saving
+    // - Not yet initialized (to avoid saving on initial load)
+    // - Order is not loaded
+    if (!hasUnsavedChanges || isSaving || !isInitializedRef.current || !data?.order) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (immediate save - 100ms delay to debounce rapid changes)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performSaveRef.current(true); // Silent auto-save using ref to avoid dependency issues
+    }, 100);
+
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [editingItems, hasUnsavedChanges, isSaving, data?.order]);
 
 
   const getStatusIcon = (status: string) => {
@@ -780,7 +784,6 @@ export default function RestaurantOrderManagement() {
                     }
                   }}
                   isEditing={true}
-                  onSaveChanges={handleSaveOrderChanges}
                   hasUnsavedChanges={hasUnsavedChanges}
                   isSaving={isSaving}
                 />
@@ -844,26 +847,13 @@ export default function RestaurantOrderManagement() {
                 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
                   {(() => {
-                    const calculatedStatus = calculateOrderStatus(editingItems);
-                    const nextStatus = getNextStatus(calculatedStatus as any);
                     const canComplete = canCompleteOrder(editingItems);
                     const canCancel = canCancelOrder(order.status as any, editingItems);
+                    const isTerminalState = order.status === 'cancelled' || order.status === 'completed';
                     
                     return (
                       <>
-                        {nextStatus && nextStatus !== 'completed' && (
-                          <Button
-                            variant="outlined"
-                            onClick={() => handleQuickStatusUpdate(nextStatus)}
-                            disabled={isUpdating}
-                            startIcon={<Update />}
-                            size="small"
-                          >
-                            Mark as {nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1)}
-                          </Button>
-                        )}
-                        
-                        {canComplete && order.status !== 'completed' && (
+                        {canComplete && order.status !== 'completed' && !isTerminalState && (
                           <Button
                             variant="contained"
                             color="success"
@@ -876,7 +866,7 @@ export default function RestaurantOrderManagement() {
                           </Button>
                         )}
                         
-                        {canCancel && (
+                        {canCancel && !isTerminalState && (
                           <Button
                             variant="outlined"
                             color="error"
@@ -1151,20 +1141,6 @@ export default function RestaurantOrderManagement() {
           </DialogActions>
         </Dialog>
 
-        {/* Save Confirmation Dialog */}
-        <ConfirmationDialog
-          open={saveConfirmationOpen}
-          onClose={() => setSaveConfirmationOpen(false)}
-          onConfirm={confirmSaveChanges}
-          title="Save Order Changes"
-          message="Are you sure you want to save these changes to the order? This action cannot be undone."
-          confirmText="Save Changes"
-          cancelText="Cancel"
-          confirmColor="success"
-          loading={isSaving}
-        />
-
-
         {/* Mark Paid Confirmation Dialog */}
         <ConfirmationDialog
           open={confirmMarkPaidOpen}
@@ -1210,6 +1186,11 @@ export default function RestaurantOrderManagement() {
               <Typography variant="body2" color="warning.main" fontWeight="bold">
                 Order #{order.id.slice(-8)} - {order.customerName || 'Walk-in Customer'}
               </Typography>
+              {order.orderType === 'dine-in' && order.tableNumber && (
+                <Typography variant="body2" color="info.main" sx={{ mt: 1, fontWeight: 'medium' }}>
+                  This will also release Table {order.tableNumber} and make it available for new customers.
+                </Typography>
+              )}
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 This action will change the order status to "cancelled" and notify the customer.
               </Typography>

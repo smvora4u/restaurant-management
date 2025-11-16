@@ -107,6 +107,17 @@ export const staffManagementResolvers = {
           throw new Error('Invalid order status');
         }
 
+        // Get the current order to check its status
+        const currentOrder = await Order.findById(id);
+        if (!currentOrder) {
+          throw new Error('Order not found');
+        }
+
+        // Prevent updating cancelled or completed orders (terminal states)
+        if (currentOrder.status === 'cancelled' || currentOrder.status === 'completed') {
+          throw new Error(`Cannot update order that is ${currentOrder.status}. This is a terminal state.`);
+        }
+
         const order = await Order.findByIdAndUpdate(
           id,
           { status, updatedAt: new Date() },

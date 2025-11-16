@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_ORDER } from '../graphql/mutations/orders';
 import { handleQuantityChange, removeOrderItem, addNewOrderItem } from '../utils/orderItemManagement';
@@ -10,28 +10,39 @@ interface UseOrderManagementProps {
   restaurantId?: string;
   onSuccess?: () => void;
   onError?: (error: any) => void;
+  autoSave?: boolean; // Enable/disable auto-save (default: true)
+  autoSaveDelay?: number; // Delay in milliseconds before auto-saving (default: 1000ms)
 }
 
-export const useOrderManagement = ({ orderId, originalOrder, restaurantId, onSuccess, onError }: UseOrderManagementProps) => {
+export const useOrderManagement = ({ 
+  orderId, 
+  originalOrder, 
+  restaurantId, 
+  onSuccess, 
+  onError,
+  autoSave = true,
+  autoSaveDelay = 1000
+}: UseOrderManagementProps) => {
   const [editingItems, setEditingItems] = useState<any[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
 
   const [updateOrder] = useMutation(UPDATE_ORDER, {
     onCompleted: () => {
       setIsSaving(false);
       setHasUnsavedChanges(false);
-      onSuccess?.();
     },
     onError: (error) => {
       setIsSaving(false);
-      onError?.(error);
     }
   });
 
   const initializeEditing = useCallback((originalItems: any[]) => {
     setEditingItems([...originalItems]);
     setHasUnsavedChanges(false);
+    isInitializedRef.current = true;
   }, []);
 
   const handleQuantityChangeWrapper = useCallback((index: number, newQuantity: number) => {
@@ -96,7 +107,7 @@ export const useOrderManagement = ({ orderId, originalOrder, restaurantId, onSuc
     });
   }, []);
 
-  const saveChanges = useCallback(async () => {
+  const saveChanges = useCallback(async (silent = false) => {
     if (!hasUnsavedChanges) return;
 
     setIsSaving(true);
@@ -135,11 +146,55 @@ export const useOrderManagement = ({ orderId, originalOrder, restaurantId, onSuc
           }
         }
       });
+      
+      // Always call onSuccess to refetch data, but pass silent flag to control notifications
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error saving order changes:', error);
+      // Only show error notification if not silent (manual save)
+      if (!silent && onError) {
+        onError(error);
+      }
       throw error;
     }
-  }, [orderId, editingItems, hasUnsavedChanges, updateOrder, originalOrder, restaurantId]);
+  }, [orderId, editingItems, hasUnsavedChanges, updateOrder, originalOrder, restaurantId, onSuccess, onError]);
+
+  // Use ref to avoid dependency issues with saveChanges
+  const saveChangesRef = useRef(saveChanges);
+  useEffect(() => {
+    saveChangesRef.current = saveChanges;
+  }, [saveChanges]);
+
+  // Auto-save effect: automatically save changes after a delay
+  useEffect(() => {
+    // Don't auto-save if:
+    // - Auto-save is disabled
+    // - There are no unsaved changes
+    // - Currently saving
+    // - Not yet initialized (to avoid saving on initial load)
+    if (!autoSave || !hasUnsavedChanges || isSaving || !isInitializedRef.current) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (100ms delay to debounce rapid changes)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      saveChangesRef.current(true); // Silent save using ref to avoid dependency issues
+    }, 100);
+
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [editingItems, autoSave, hasUnsavedChanges, isSaving, autoSaveDelay]);
 
   const canCompleteOrder = useCallback((currentStatus: string) => {
     return currentStatus === 'ready' || currentStatus === 'served';

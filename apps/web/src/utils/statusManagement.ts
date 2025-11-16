@@ -110,6 +110,11 @@ export const isValidStatusTransition = (
   currentStatus: ItemStatus | OrderStatus,
   newStatus: ItemStatus | OrderStatus
 ): boolean => {
+  // Cannot transition FROM cancelled or completed - these are terminal states
+  if (currentStatus === 'cancelled' || currentStatus === 'completed') {
+    return false;
+  }
+
   const statusHierarchy: (ItemStatus | OrderStatus)[] = [
     'pending',
     'confirmed', 

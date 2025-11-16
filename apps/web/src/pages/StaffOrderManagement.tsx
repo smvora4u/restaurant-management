@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -87,24 +87,31 @@ export default function StaffOrderManagement() {
     handleRemoveItem,
     handleAddItem,
     handleUpdateItemStatus,
-    saveChanges,
     canCancelOrder
   } = useOrderManagement({
     orderId: orderId!,
     originalOrder: orderData?.order,
     restaurantId: staff?.restaurantId,
+    autoSave: true, // Enable auto-save
+    autoSaveDelay: 100, // 100ms delay to debounce rapid changes
     onSuccess: () => {
-      setSnackbarMessage('Order updated successfully!');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      // Auto-save: silently refetch without showing notification
       refetch();
     },
     onError: (error) => {
-      setSnackbarMessage(`Error updating order: ${error.message}`);
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
+      // Only show error for manual saves (auto-save errors are logged but not shown)
+      console.error('Auto-save error (silent):', error);
     }
   });
+
+  // Store order data before update to check for table detachment
+  const orderBeforeUpdateRef = useRef<any>(null);
+  
+  useEffect(() => {
+    if (orderData?.order) {
+      orderBeforeUpdateRef.current = orderData.order;
+    }
+  }, [orderData?.order]);
 
   const {
     statusDialogOpen,
@@ -120,18 +127,32 @@ export default function StaffOrderManagement() {
     orderId: orderId!,
     order: orderData?.order, // Pass order data for auto-detach functionality
     onSuccess: () => {
-      // Check if order was completed and table was detached
-      const order = orderData?.order;
-      const wasTableDetached = order?.status === 'completed' && order?.orderType === 'dine-in' && order?.tableNumber;
+      // Check if order was completed/cancelled and table was detached
+      // Use stored order data before update to check if table was present
+      const orderBeforeUpdate = orderBeforeUpdateRef.current || orderData?.order;
+      const hadTable = orderBeforeUpdate?.orderType === 'dine-in' && orderBeforeUpdate?.tableNumber;
       
-      if (wasTableDetached) {
-        setSnackbarMessage('Order completed and table detached successfully!');
-      } else {
-        setSnackbarMessage('Order status updated successfully!');
-      }
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-      refetch();
+      // Refetch to get updated order data
+      refetch().then(() => {
+        const updatedOrder = orderData?.order;
+        const isCompleted = updatedOrder?.status === 'completed';
+        const isCancelled = updatedOrder?.status === 'cancelled';
+        const tableDetached = hadTable && !updatedOrder?.tableNumber;
+        
+        if (isCompleted && tableDetached) {
+          setSnackbarMessage('Order completed and table detached successfully!');
+        } else if (isCancelled && tableDetached) {
+          setSnackbarMessage('Order cancelled and table released successfully!');
+        } else if (isCancelled) {
+          setSnackbarMessage('Order cancelled successfully!');
+        } else if (isCompleted) {
+          setSnackbarMessage('Order completed successfully!');
+        } else {
+          setSnackbarMessage('Order status updated successfully!');
+        }
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      });
     },
     onError: (error) => {
       setSnackbarMessage(`Error updating status: ${error.message}`);
@@ -194,13 +215,6 @@ export default function StaffOrderManagement() {
   };
 
 
-  const handleSaveChanges = async () => {
-    try {
-      await saveChanges();
-    } catch (error) {
-      console.error('Error saving changes:', error);
-    }
-  };
 
   const handleCompleteOrderClick = () => {
     setCompleteConfirmationOpen(true);
@@ -285,7 +299,6 @@ export default function StaffOrderManagement() {
           restaurant={restaurant}
           onBack={handleBack}
           onStatusUpdate={handleStatusUpdateClick}
-          onSaveChanges={handleSaveChanges}
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSaving}
           canCompleteOrder={canCompleteFromItems(editingItems) && order.status !== 'completed'}
@@ -362,6 +375,7 @@ export default function StaffOrderManagement() {
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                   label="New Status"
+                  disabled={order.status === 'cancelled' || order.status === 'completed'}
                 >
                   <MenuItem value="pending">Pending</MenuItem>
                   <MenuItem value="confirmed">Confirmed</MenuItem>
@@ -369,9 +383,14 @@ export default function StaffOrderManagement() {
                   <MenuItem value="ready">Ready</MenuItem>
                   <MenuItem value="served">Served</MenuItem>
                   <MenuItem value="completed">Completed</MenuItem>
-                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  <MenuItem value="cancelled" disabled={order.status === 'cancelled'}>Cancelled</MenuItem>
                 </Select>
               </FormControl>
+              {(order.status === 'cancelled' || order.status === 'completed') && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  This order is {order.status} and cannot be updated to another status.
+                </Alert>
+              )}
             </Box>
           </DialogContent>
           <DialogActions>
@@ -379,7 +398,7 @@ export default function StaffOrderManagement() {
             <Button 
               onClick={() => handleStatusUpdate(order.status)} 
               variant="contained"
-              disabled={isUpdating}
+              disabled={isUpdating || order.status === 'cancelled' || order.status === 'completed'}
             >
               {isUpdating ? 'Updating...' : 'Update Status'}
             </Button>
