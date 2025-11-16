@@ -143,29 +143,55 @@ export default function KitchenBoard() {
     }, {});
   }, [menuData]);
 
-  // Flatten and process order items
+  // Flatten and process order items with merging
   const flattenedItems = useMemo(() => {
     if (!ordersData?.ordersForStaff) return [];
     
     const items: FlattenedItem[] = [];
     
     ordersData.ordersForStaff.forEach((order: any) => {
+      // Merge items within each order that have same menuItemId, status, and specialInstructions
+      const mergedItemsMap = new Map<string, { item: any; itemIndex: number }>();
+      
       order.items.forEach((item: any, itemIndex: number) => {
         // Skip cancelled items
         if (item.status === 'cancelled') return;
         
+        // Normalize specialInstructions: undefined, null, or empty string all become empty string
+        const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
+        const key = `${item.menuItemId}-${item.status}-${normalizedInstructions}`;
+        
+        if (mergedItemsMap.has(key)) {
+          // Merge with existing item - update quantity
+          const existing = mergedItemsMap.get(key)!;
+          existing.item.quantity += item.quantity;
+          // Ensure specialInstructions is normalized in the merged item
+          existing.item.specialInstructions = normalizedInstructions || undefined;
+        } else {
+          // Add new item with normalized specialInstructions
+          const newItem = { ...item };
+          newItem.specialInstructions = normalizedInstructions || undefined;
+          mergedItemsMap.set(key, { item: newItem, itemIndex });
+        }
+      });
+      
+      // Convert merged items to FlattenedItem format
+      mergedItemsMap.forEach(({ item, itemIndex }) => {
         const itemKey = `${order.id}-${itemIndex}`;
         const isItemUpdating = updatingItems.has(itemKey);
         
+        // Preserve the normalized specialInstructions to ensure consistency
+        const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
+        
         items.push({
           orderId: order.id,
-          itemIndex,
+          itemIndex, // Use original index for tracking
           menuItemId: item.menuItemId,
-          quantity: item.quantity, // Show total quantity
+          quantity: item.quantity, // Show merged quantity
           status: item.status as 'pending' | 'preparing' | 'ready' | 'served',
           tableNumber: order.tableNumber,
           orderType: order.orderType,
-          specialInstructions: item.specialInstructions,
+          specialInstructions: normalizedInstructions || undefined, // Use normalized value, or undefined if empty
           itemName: menuItemsMap[item.menuItemId]?.name || 'Loading...',
           isUpdating: isItemUpdating
         });
@@ -204,7 +230,39 @@ export default function KitchenBoard() {
       return;
     }
 
-    const itemKey = `${item.orderId}-${item.itemIndex}`;
+    // Find the actual item index in the order (since items may be merged)
+    const order = ordersData?.ordersForStaff?.find((o: any) => o.id === item.orderId);
+    if (!order) {
+      setSnackbar({
+        open: true,
+        message: 'Order not found',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Find the first item that matches this menuItemId, current status, and specialInstructions
+    // Normalize specialInstructions for comparison
+    const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+    
+    const actualItemIndex = order.items.findIndex((orderItem: any) => {
+      const orderItemInstructions = normalizeInstructions(orderItem.specialInstructions);
+      return orderItem.menuItemId === item.menuItemId &&
+        orderItem.status === item.status &&
+        orderItemInstructions === itemInstructions;
+    });
+
+    if (actualItemIndex === -1) {
+      setSnackbar({
+        open: true,
+        message: 'Item not found in order',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const itemKey = `${item.orderId}-${actualItemIndex}`;
     
     // Check if this item is already being updated
     if (updatingItems.has(itemKey)) {
@@ -217,7 +275,7 @@ export default function KitchenBoard() {
     
     console.log('Updating item status:', {
       orderId: item.orderId,
-      itemIndex: item.itemIndex,
+      itemIndex: actualItemIndex,
       status: nextStatus,
       quantity: item.quantity
     });
@@ -226,7 +284,7 @@ export default function KitchenBoard() {
       await updateItemStatus({
         variables: {
           orderId: item.orderId,
-          itemIndex: item.itemIndex,
+          itemIndex: actualItemIndex,
           status: nextStatus
         }
       });

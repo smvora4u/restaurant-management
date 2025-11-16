@@ -52,21 +52,47 @@ export const staffManagementResolvers = {
           .sort({ createdAt: -1 })
           .limit(50); // Limit to recent orders for performance
         
-        return orders.map(order => ({
-          id: order._id,
-          tableNumber: order.tableNumber,
-          orderType: order.orderType,
-          items: order.items,
-          status: order.status,
-          totalAmount: order.totalAmount,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          notes: order.notes,
-          sessionId: order.sessionId,
-          userId: order.userId,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt
-        }));
+        return orders.map(order => {
+          // Merge items with same menuItemId, status, and specialInstructions
+          const mergedItemsMap = new Map<string, any>();
+          
+          order.items.forEach((item: any) => {
+            // Normalize specialInstructions: undefined, null, or empty string all become empty string
+            const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
+            const key = `${item.menuItemId}-${item.status}-${normalizedInstructions}`;
+            
+            if (mergedItemsMap.has(key)) {
+              // Merge with existing item
+              const existing = mergedItemsMap.get(key);
+              existing.quantity += item.quantity;
+              // Ensure specialInstructions is normalized in the merged item
+              existing.specialInstructions = normalizedInstructions || undefined;
+            } else {
+              // Add new item with normalized specialInstructions
+              const itemObj = item.toObject ? item.toObject() : { ...item };
+              itemObj.specialInstructions = normalizedInstructions || undefined;
+              mergedItemsMap.set(key, itemObj);
+            }
+          });
+          
+          const mergedItems = Array.from(mergedItemsMap.values());
+          
+          return {
+            id: order._id,
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            items: mergedItems,
+            status: order.status,
+            totalAmount: order.totalAmount,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt
+          };
+        });
       } catch (error) {
         throw new Error(`Failed to fetch orders: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -166,7 +192,38 @@ export const staffManagementResolvers = {
           throw new Error('Invalid item index');
         }
 
-        order.items[itemIndex]!.status = status as OrderItemStatus;
+        const currentItem = order.items[itemIndex];
+        if (!currentItem) {
+          throw new Error('Item not found');
+        }
+
+        // Update the item status
+        currentItem.status = status as OrderItemStatus;
+
+        // Merge items with same menuItemId, status, and specialInstructions
+        const mergedItemsMap = new Map<string, any>();
+
+        order.items.forEach((item) => {
+          // Normalize specialInstructions: undefined, null, or empty string all become empty string
+          const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
+          const key = `${item.menuItemId}-${item.status}-${normalizedInstructions}`;
+          
+          if (mergedItemsMap.has(key)) {
+            // Merge with existing item - add quantities
+            const existing = mergedItemsMap.get(key);
+            existing.quantity += item.quantity;
+            // Ensure specialInstructions is normalized in the merged item
+            existing.specialInstructions = normalizedInstructions || undefined;
+          } else {
+            // Add new item - convert to plain object if needed
+            const itemObj = item.toObject ? item.toObject() : { ...item };
+            itemObj.specialInstructions = normalizedInstructions || undefined;
+            mergedItemsMap.set(key, itemObj);
+          }
+        });
+
+        // Update order with merged items
+        order.items = Array.from(mergedItemsMap.values());
         order.updatedAt = new Date();
         await order.save();
 

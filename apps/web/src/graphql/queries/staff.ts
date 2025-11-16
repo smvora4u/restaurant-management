@@ -46,6 +46,7 @@ export const GET_ORDERS_FOR_STAFF = gql`
         quantity
         price
         status
+        specialInstructions
       }
     }
   }

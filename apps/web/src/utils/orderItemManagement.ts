@@ -59,12 +59,16 @@ export const handleQuantityChange = (
     }
     
     // If current item is NOT pending, create new pending item or merge with existing pending
-    const existingPendingIndex = items.findIndex((item, idx) => 
-      idx !== index && 
-      (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-      item.status === 'pending' &&
-      item.specialInstructions === currentItem.specialInstructions
-    );
+    // Normalize specialInstructions for comparison
+    const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+    const currentInstructions = normalizeInstructions(currentItem.specialInstructions);
+    const existingPendingIndex = items.findIndex((item, idx) => {
+      const itemInstructions = normalizeInstructions(item.specialInstructions);
+      return idx !== index && 
+        (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
+        item.status === 'pending' &&
+        itemInstructions === currentInstructions;
+    });
     
     if (existingPendingIndex !== -1) {
       // Merge with existing pending item
@@ -102,11 +106,15 @@ export const addNewOrderItem = (
     : newItem.menuItemId?.id;
   
   // Check if there's already a pending item for the same menuItemId and special instructions
-  const existingPendingIndex = items.findIndex((item) => 
-    (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-    item.status === 'pending' &&
-    item.specialInstructions === newItem.specialInstructions
-  );
+  // Normalize specialInstructions for comparison
+  const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+  const newItemInstructions = normalizeInstructions(newItem.specialInstructions);
+  const existingPendingIndex = items.findIndex((item) => {
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+    return (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
+      item.status === 'pending' &&
+      itemInstructions === newItemInstructions;
+  });
   
   if (existingPendingIndex !== -1) {
     // Merge with existing pending item (Option A: Merge)
@@ -137,7 +145,9 @@ export const mergeOrderItemsByStatus = (items: OrderItem[]): OrderItem[] => {
     const menuItemId = typeof item.menuItemId === 'string' 
       ? item.menuItemId 
       : item.menuItemId?.id;
-    const key = `${menuItemId}-${item.status}-${item.specialInstructions || ''}`;
+    // Normalize specialInstructions: undefined, null, or empty string all become empty string
+    const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
+    const key = `${menuItemId}-${item.status}-${normalizedInstructions}`;
     
     if (mergedMap.has(key)) {
       const existing = mergedMap.get(key)!;
@@ -174,12 +184,16 @@ export const updateOrderItemStatusWithMerge = (
     : currentItem.menuItemId?.id;
   
   // Check if there's already an item with the same menuItemId, newStatus, and special instructions
-  const existingSameStatusIndex = items.findIndex((item, idx) => 
-    idx !== index && 
-    (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-    item.status === newStatus &&
-    item.specialInstructions === currentItem.specialInstructions
-  );
+  // Normalize specialInstructions for comparison
+  const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+  const currentInstructions = normalizeInstructions(currentItem.specialInstructions);
+  const existingSameStatusIndex = items.findIndex((item, idx) => {
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+    return idx !== index && 
+      (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
+      item.status === newStatus &&
+      itemInstructions === currentInstructions;
+  });
   
   if (existingSameStatusIndex !== -1) {
     // Merge with existing item of the same status
@@ -225,12 +239,16 @@ export const updatePartialQuantityStatus = (
     : currentItem.menuItemId?.id;
   
   // Check if there's already an item with the same menuItemId, newStatus, and special instructions
-  const existingSameStatusIndex = items.findIndex((item, idx) => 
-    idx !== index && 
-    (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-    item.status === newStatus &&
-    item.specialInstructions === currentItem.specialInstructions
-  );
+  // Normalize specialInstructions for comparison
+  const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+  const currentInstructions = normalizeInstructions(currentItem.specialInstructions);
+  const existingSameStatusIndex = items.findIndex((item, idx) => {
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+    return idx !== index && 
+      (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
+      item.status === newStatus &&
+      itemInstructions === currentInstructions;
+  });
   
   const updatedItems = [...items];
   
