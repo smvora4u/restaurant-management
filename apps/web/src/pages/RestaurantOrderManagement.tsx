@@ -40,7 +40,7 @@ import {
   UPDATE_ORDER
 } from '../graphql/mutations/orders';
 import { UPDATE_ORDER_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
-import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus } from '../utils/orderItemManagement';
+import { handleQuantityChange as handleQuantityChangeUtil, removeOrderItem, addNewOrderItem, updatePartialQuantityStatus, mergeOrderItemsByStatus } from '../utils/orderItemManagement';
 import { syncOrderStatus, calculateOrderStatus, getItemStatusSummary, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
@@ -408,7 +408,9 @@ export default function RestaurantOrderManagement() {
   // Initialize editing items when order data loads
   useEffect(() => {
     if (data?.order?.items) {
-      setEditingItems([...data.order.items]);
+      // Merge any duplicate items with same status, menuItemId, and specialInstructions
+      const mergedItems = mergeOrderItemsByStatus(data.order.items);
+      setEditingItems(mergedItems);
       setHasUnsavedChanges(false);
       // Mark as initialized once we have order data and items
       isInitializedRef.current = true;
@@ -416,7 +418,9 @@ export default function RestaurantOrderManagement() {
   }, [data]);
 
   const handleQuantityChange = (index: number, newQuantity: number) => {
-    const updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
+    let updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
+    // Merge any duplicates that might have been created
+    updatedItems = mergeOrderItemsByStatus(updatedItems);
     setEditingItems(updatedItems);
     setHasUnsavedChanges(true);
   };
@@ -757,12 +761,14 @@ export default function RestaurantOrderManagement() {
                   menuItems={menuItems}
                   onUpdateItemStatus={(itemIndex, status, quantity) => {
                     // Handle status update directly since OrderItemsTable manages its own dialog
-                    const updatedItems = updatePartialQuantityStatus(
+                    let updatedItems = updatePartialQuantityStatus(
                       editingItems, 
                       itemIndex, 
                       status as any, 
                       quantity || editingItems[itemIndex]?.quantity || 1
                     );
+                    // Merge any duplicates that might have been created
+                    updatedItems = mergeOrderItemsByStatus(updatedItems);
                     setEditingItems(updatedItems);
                     setHasUnsavedChanges(true);
                   }}
@@ -775,10 +781,13 @@ export default function RestaurantOrderManagement() {
                         menuItemId,
                         quantity,
                         price: selectedMenuItem.price,
-                        status: 'pending',
+                        status: 'pending' as const,
                         specialInstructions
                       };
-                      const updatedItems = [...editingItems, newItem];
+                      // Use addNewOrderItem to merge with existing items of same status
+                      let updatedItems = addNewOrderItem(editingItems, newItem);
+                      // Merge any duplicates that might have been created (safety check)
+                      updatedItems = mergeOrderItemsByStatus(updatedItems);
                       setEditingItems(updatedItems);
                       setHasUnsavedChanges(true);
                     }
@@ -786,6 +795,7 @@ export default function RestaurantOrderManagement() {
                   isEditing={true}
                   hasUnsavedChanges={hasUnsavedChanges}
                   isSaving={isSaving}
+                  restrictCancelToPending={true}
                 />
 
                 <Divider sx={{ my: 2 }} />

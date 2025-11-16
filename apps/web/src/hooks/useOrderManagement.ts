@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_ORDER } from '../graphql/mutations/orders';
-import { handleQuantityChange, removeOrderItem, addNewOrderItem } from '../utils/orderItemManagement';
+import { handleQuantityChange, removeOrderItem, addNewOrderItem, updateOrderItemStatusWithMerge, updatePartialQuantityStatus, mergeOrderItemsByStatus } from '../utils/orderItemManagement';
 import { calculateOrderStatus } from '../utils/statusManagement';
 
 interface UseOrderManagementProps {
@@ -40,7 +40,9 @@ export const useOrderManagement = ({
   });
 
   const initializeEditing = useCallback((originalItems: any[]) => {
-    setEditingItems([...originalItems]);
+    // Merge any duplicate items with same status, menuItemId, and specialInstructions
+    const mergedItems = mergeOrderItemsByStatus(originalItems);
+    setEditingItems(mergedItems);
     setHasUnsavedChanges(false);
     isInitializedRef.current = true;
   }, []);
@@ -75,7 +77,9 @@ export const useOrderManagement = ({
         status: 'pending' as const,
         specialInstructions
       };
-      const updated = addNewOrderItem(prev, newItem);
+      let updated = addNewOrderItem(prev, newItem);
+      // Merge any duplicates that might have been created (safety check)
+      updated = mergeOrderItemsByStatus(updated);
       setHasUnsavedChanges(true);
       return updated;
     });
@@ -83,25 +87,22 @@ export const useOrderManagement = ({
 
   const handleUpdateItemStatus = useCallback((itemIndex: number, status: string, quantity?: number) => {
     setEditingItems(prev => {
-      const updated = [...prev];
       // Allow cancelling only from pending or confirmed
-      if (status === 'cancelled' && !['pending', 'confirmed'].includes(updated[itemIndex]?.status)) {
+      if (status === 'cancelled' && !['pending', 'confirmed'].includes(prev[itemIndex]?.status)) {
         return prev; // no changes
       }
-      if (quantity && quantity < updated[itemIndex].quantity) {
-        // Split the item if updating partial quantity
-        const remainingQuantity = updated[itemIndex].quantity - quantity;
-        updated[itemIndex] = { ...updated[itemIndex], quantity, status };
-        
-        // Add remaining quantity as separate item with original status
-        updated.splice(itemIndex + 1, 0, {
-          ...updated[itemIndex],
-          quantity: remainingQuantity,
-          status: prev[itemIndex].status
-        });
+      
+      let updated;
+      if (quantity && quantity < prev[itemIndex].quantity) {
+        // Use updatePartialQuantityStatus to handle partial quantity updates with merging
+        updated = updatePartialQuantityStatus(prev, itemIndex, status as any, quantity);
       } else {
-        updated[itemIndex] = { ...updated[itemIndex], status };
+        // Use updateOrderItemStatusWithMerge to merge with existing items of same status
+        updated = updateOrderItemStatusWithMerge(prev, itemIndex, status as any);
       }
+      
+      // Merge any duplicates that might have been created
+      updated = mergeOrderItemsByStatus(updated);
       setHasUnsavedChanges(true);
       return updated;
     });

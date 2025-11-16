@@ -26,11 +26,11 @@ import {
   Edit,
   Delete,
   Add,
-  Remove,
-  Update
+  Remove
 } from '@mui/icons-material';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { ItemStatus, getStatusColor } from '../../utils/statusColors';
+import { ConfirmationDialog } from '../common';
 
 interface OrderItemsTableProps {
   items: any[];
@@ -80,9 +80,32 @@ export default function OrderItemsTable({
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [itemToDeleteIndex, setItemToDeleteIndex] = useState<number | null>(null);
 
   const getMenuItemDetails = (menuItemId: string) => {
     return menuItems.find((item: any) => item.id === menuItemId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (itemToDeleteIndex !== null) {
+      onRemoveItem(itemToDeleteIndex);
+      setDeleteConfirmationOpen(false);
+      setItemToDeleteIndex(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmationOpen(false);
+    setItemToDeleteIndex(null);
+  };
+
+  const getItemNameForDelete = () => {
+    if (itemToDeleteIndex === null) return '';
+    const item = items[itemToDeleteIndex];
+    if (!item) return '';
+    const menuItem = getMenuItemDetails(item.menuItemId);
+    return menuItem?.name || 'this item';
   };
 
   const handleItemStatusClick = (itemIndex: number) => {
@@ -243,21 +266,32 @@ export default function OrderItemsTable({
                   </TableCell>
                   {isEditing && (
                     <TableCell>
-                      <Tooltip 
-                        title={(restrictCancelToPending && item.status !== 'pending') ? 'Cannot delete item once status changes from pending' : 'Delete item'}
-                        arrow
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => onRemoveItem(index)}
-                            disabled={restrictCancelToPending ? (item.status !== 'pending') : false}
+                      {(() => {
+                        const isDeleteDisabled = restrictCancelToPending && item.status !== 'pending';
+                        return (
+                          <Tooltip 
+                            title={isDeleteDisabled ? 'Cannot delete item once status changes from pending' : 'Delete item'}
+                            arrow
                           >
-                            <Delete />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  if (isDeleteDisabled) {
+                                    return; // Don't show dialog for non-pending items when restriction is enabled
+                                  }
+                                  setItemToDeleteIndex(index);
+                                  setDeleteConfirmationOpen(true);
+                                }}
+                                disabled={isDeleteDisabled}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        );
+                      })()}
                     </TableCell>
                   )}
                 </TableRow>
@@ -365,6 +399,18 @@ export default function OrderItemsTable({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmationOpen}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Item"
+        message={`Are you sure you want to delete "${getItemNameForDelete()}" from this order? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmColor="error"
+      />
     </Box>
   );
 }
