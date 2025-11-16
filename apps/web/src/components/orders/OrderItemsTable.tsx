@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Table,
@@ -20,13 +20,23 @@ import {
   Select,
   MenuItem,
   TextField,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  CardMedia,
+  InputAdornment,
+  Tabs,
+  Tab,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   Edit,
   Delete,
   Add,
-  Remove
+  Remove,
+  Search,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { ItemStatus, getStatusColor } from '../../utils/statusColors';
@@ -82,6 +92,11 @@ export default function OrderItemsTable({
   const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDeleteIndex, setItemToDeleteIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const theme = useTheme();
+  // Full screen on mobile, tablets, and small laptops (up to md breakpoint)
+  const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
 
   const getMenuItemDetails = (menuItemId: string) => {
     return menuItems.find((item: any) => item.id === menuItemId);
@@ -134,7 +149,47 @@ export default function OrderItemsTable({
       setSelectedMenuItemId('');
       setNewItemQuantity(1);
       setNewItemSpecialInstructions('');
+      setSearchQuery('');
+      setSelectedCategory('all');
     }
+  };
+
+  // Get unique categories from menu items
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    menuItems.forEach((item: any) => {
+      if (item.category) {
+        cats.add(item.category);
+      }
+    });
+    return Array.from(cats).sort();
+  }, [menuItems]);
+
+  // Filter and group menu items
+  const filteredAndGroupedItems = useMemo(() => {
+    let filtered = menuItems.filter((item: any) => {
+      const matchesSearch = searchQuery === '' || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    // Group by category
+    const grouped: Record<string, any[]> = {};
+    filtered.forEach((item: any) => {
+      const category = item.category || 'Uncategorized';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(item);
+    });
+
+    return grouped;
+  }, [menuItems, searchQuery, selectedCategory]);
+
+  const handleMenuItemSelect = (menuItemId: string) => {
+    setSelectedMenuItemId(menuItemId);
   };
 
   const handleQuantityChange = (itemIndex: number, newQuantity: number) => {
@@ -351,52 +406,312 @@ export default function OrderItemsTable({
         </DialogActions>
       </Dialog>
 
-      {/* Add Item Dialog */}
-      <Dialog open={addItemDialogOpen} onClose={() => setAddItemDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Item</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Menu Item</InputLabel>
-              <Select
-                value={selectedMenuItemId}
-                onChange={(e) => setSelectedMenuItemId(e.target.value)}
-                label="Menu Item"
+      {/* Enhanced Add Item Dialog */}
+      <Dialog 
+        open={addItemDialogOpen} 
+        onClose={() => {
+          setAddItemDialogOpen(false);
+          setSearchQuery('');
+          setSelectedCategory('all');
+          setSelectedMenuItemId('');
+        }} 
+        maxWidth="lg" 
+        fullWidth
+        fullScreen={isSmallDevice}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6">Add New Item</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {selectedMenuItemId && (
+                <Chip 
+                  label="Item Selected" 
+                  color="primary" 
+                  size="small"
+                />
+              )}
+              {/* Search Bar in Header */}
+              <TextField
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ 
+                  width: { xs: 150, sm: 200, md: 250 },
+                  '& .MuiOutlinedInput-root': {
+                    height: 36
+                  }
+                }}
+              />
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent 
+          dividers
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            p: 0,
+            overflow: 'hidden'
+          }}
+        >
+          {/* Fixed Header Section - Only Category Tabs */}
+          <Box sx={{ px: 3, pt: 2, pb: 1, flexShrink: 0 }}>
+            {/* Category Filter Tabs */}
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs
+                value={selectedCategory}
+                onChange={(_e, newValue) => setSelectedCategory(newValue)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ mb: -1 }}
               >
-                {menuItems.map((item: any) => (
-                  <MenuItem key={item.id} value={item.id} disabled={!item.available}>
-                    {item.name} - {formatCurrencyFromRestaurant(item.price, restaurant)} {item.available ? '' : '(Unavailable)'}
-                  </MenuItem>
+                <Tab label="All" value="all" />
+                {categories.map((category) => (
+                  <Tab key={category} label={category} value={category} />
                 ))}
-              </Select>
-            </FormControl>
-            
+              </Tabs>
+            </Box>
+          </Box>
+
+          {/* Scrollable Menu Items Grid */}
+          <Box 
+            sx={{ 
+              flex: 1,
+              overflow: 'auto',
+              px: 3,
+              pb: 3
+            }}
+          >
+            {Object.keys(filteredAndGroupedItems).length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body1" color="text.secondary">
+                  No items found
+                </Typography>
+              </Box>
+            ) : (
+              Object.entries(filteredAndGroupedItems).map(([category, items]) => (
+                <Box key={category} sx={{ mb: 4 }}>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      mb: 2, 
+                      fontWeight: 600,
+                      color: 'primary.main',
+                      borderBottom: '2px solid',
+                      borderColor: 'primary.main',
+                      pb: 0.5
+                    }}
+                  >
+                    {category}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: 'repeat(2, 1fr)',
+                        md: 'repeat(3, 1fr)',
+                        lg: 'repeat(4, 1fr)'
+                      },
+                      gap: 2
+                    }}
+                  >
+                    {items.map((item: any) => (
+                      <Card
+                        key={item.id}
+                        onClick={() => handleMenuItemSelect(item.id)}
+                        sx={{
+                          cursor: item.available ? 'pointer' : 'not-allowed',
+                          height: '100%',
+                          border: selectedMenuItemId === item.id ? 2 : 1,
+                          borderColor: selectedMenuItemId === item.id ? 'primary.main' : 'divider',
+                          backgroundColor: selectedMenuItemId === item.id ? 'action.selected' : 'background.paper',
+                          opacity: item.available ? 1 : 0.6,
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            transform: item.available ? 'translateY(-4px)' : 'none',
+                            boxShadow: item.available ? 4 : 1,
+                          }
+                        }}
+                      >
+                          <CardMedia
+                            component="div"
+                            sx={{
+                              height: 140,
+                              backgroundColor: 'grey.200',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              position: 'relative'
+                            }}
+                          >
+                            {item.imageUrl ? (
+                              <Box
+                                component="img"
+                                src={item.imageUrl}
+                                alt={item.name}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon sx={{ fontSize: 48, color: 'grey.400' }} />
+                            )}
+                            {!item.available && (
+                              <Chip
+                                label="Unavailable"
+                                color="error"
+                                size="small"
+                                sx={{
+                                  position: 'absolute',
+                                  top: 8,
+                                  right: 8
+                                }}
+                              />
+                            )}
+                            {selectedMenuItemId === item.id && (
+                              <Chip
+                                label="Selected"
+                                color="primary"
+                                size="small"
+                                sx={{
+                                  position: 'absolute',
+                                  top: 8,
+                                  left: 8
+                                }}
+                              />
+                            )}
+                          </CardMedia>
+                          <CardContent>
+                            <Typography 
+                              variant="h6" 
+                              component="div"
+                              sx={{
+                                fontWeight: 600,
+                                mb: 0.5,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical'
+                              }}
+                            >
+                              {item.name}
+                            </Typography>
+                            {item.description && (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{
+                                  mb: 1,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  minHeight: '2.5em'
+                                }}
+                              >
+                                {item.description}
+                              </Typography>
+                            )}
+                            <Typography
+                              variant="h6"
+                              color="primary"
+                              sx={{ fontWeight: 700 }}
+                            >
+                              {formatCurrencyFromRestaurant(item.price, restaurant)}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                    ))}
+                  </Box>
+                </Box>
+              ))
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+          {/* Left side: Quantity and Special Instructions */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 2,
+              flex: 1,
+              width: { xs: '100%', sm: 'auto' }
+            }}
+          >
             <TextField
-              fullWidth
               label="Quantity"
               type="number"
               value={newItemQuantity}
               onChange={(e) => setNewItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              margin="normal"
               inputProps={{ min: 1 }}
+              size="small"
+              sx={{ 
+                minWidth: { xs: '100%', sm: 120 },
+                flex: { xs: '1 1 auto', sm: '0 0 auto' }
+              }}
+              disabled={!selectedMenuItemId}
             />
-            
             <TextField
-              fullWidth
               label="Special Instructions"
               value={newItemSpecialInstructions}
               onChange={(e) => setNewItemSpecialInstructions(e.target.value)}
-              margin="normal"
               multiline
-              rows={2}
+              rows={1}
+              size="small"
+              placeholder="e.g., No onions, extra cheese..."
+              sx={{ 
+                flex: { xs: '1 1 auto', sm: '1 1 200px' },
+                minWidth: { xs: '100%', sm: 200 }
+              }}
+              disabled={!selectedMenuItemId}
             />
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddItemDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddItem} variant="contained" disabled={!selectedMenuItemId}>
-            Add Item
-          </Button>
+
+          {/* Right side: Buttons */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              gap: 1,
+              flexDirection: { xs: 'row', sm: 'row' },
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'flex-end', sm: 'flex-end' }
+            }}
+          >
+            <Button 
+              onClick={() => {
+                setAddItemDialogOpen(false);
+                setSearchQuery('');
+                setSelectedCategory('all');
+                setSelectedMenuItemId('');
+                setNewItemQuantity(1);
+                setNewItemSpecialInstructions('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddItem} 
+              variant="contained" 
+              disabled={!selectedMenuItemId}
+              startIcon={<Add />}
+            >
+              Add Item
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
 
