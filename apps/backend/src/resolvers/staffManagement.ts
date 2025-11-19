@@ -69,7 +69,9 @@ export const staffManagementResolvers = {
               existing.specialInstructions = normalizedInstructions || undefined;
             } else {
               // Add new item with normalized specialInstructions
-              const itemObj = item.toObject ? item.toObject() : { ...item };
+              const itemObj = ('toObject' in item && typeof (item as any).toObject === 'function') 
+                ? (item as any).toObject() 
+                : { ...item };
               itemObj.specialInstructions = normalizedInstructions || undefined;
               mergedItemsMap.set(key, itemObj);
             }
@@ -216,7 +218,9 @@ export const staffManagementResolvers = {
             existing.specialInstructions = normalizedInstructions || undefined;
           } else {
             // Add new item - convert to plain object if needed
-            const itemObj = item.toObject ? item.toObject() : { ...item };
+            const itemObj = ('toObject' in item && typeof (item as any).toObject === 'function') 
+              ? (item as any).toObject() 
+              : { ...item };
             itemObj.specialInstructions = normalizedInstructions || undefined;
             mergedItemsMap.set(key, itemObj);
           }
