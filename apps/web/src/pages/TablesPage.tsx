@@ -467,21 +467,53 @@ export default function TablesPage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
               <TextField
                 label="Table Number"
-                type="number"
+                type="text"
                 value={formData.number}
-                onChange={handleInputChange('number')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string for editing, or valid numbers
+                  if (value === '' || /^\d+$/.test(value)) {
+                    handleInputChange('number')(e);
+                  }
+                }}
+                onBlur={(e) => {
+                  // Ensure minimum value of 1 when field loses focus
+                  const numValue = parseInt(e.target.value) || 1;
+                  setFormData(prev => ({ ...prev, number: Math.max(1, numValue).toString() }));
+                }}
                 fullWidth
                 required
-                inputProps={{ min: 1 }}
+                inputProps={{ 
+                  min: 1,
+                  maxLength: 10,
+                  inputMode: 'numeric',
+                  pattern: '[0-9]*'
+                }}
               />
               <TextField
                 label="Capacity"
-                type="number"
+                type="text"
                 value={formData.capacity}
-                onChange={handleInputChange('capacity')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string for editing, or valid numbers
+                  if (value === '' || /^\d+$/.test(value)) {
+                    handleInputChange('capacity')(e);
+                  }
+                }}
+                onBlur={(e) => {
+                  // Ensure minimum value of 1 when field loses focus
+                  const numValue = parseInt(e.target.value) || 1;
+                  setFormData(prev => ({ ...prev, capacity: Math.max(1, numValue).toString() }));
+                }}
                 fullWidth
                 required
-                inputProps={{ min: 1 }}
+                inputProps={{ 
+                  min: 1,
+                  maxLength: 10,
+                  inputMode: 'numeric',
+                  pattern: '[0-9]*'
+                }}
               />
               <TextField
                 label="Status"

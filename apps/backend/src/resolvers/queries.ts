@@ -51,12 +51,15 @@ export const queryResolvers = {
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
     
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    
     // Get all tables
-    const allTables = await Table.find({ restaurantId }).sort({ number: 1 });
+    const allTables = await Table.find({ restaurantId: restaurantObjectId }).sort({ number: 1 });
     
     // Get tables with active orders
     const activeOrders = await Order.find({
-      restaurantId,
+      restaurantId: restaurantObjectId,
       orderType: 'dine-in',
       status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
     });
@@ -75,7 +78,9 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    return await Order.find({ restaurantId }).populate('items.menuItemId').sort({ createdAt: -1 });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    return await Order.find({ restaurantId: restaurantObjectId }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   feeLedgers: async (_: any, { restaurantId, limit = 50, offset = 0 }: any, context: GraphQLContext) => {
     if (!context.admin && (!context.restaurant || context.restaurant.id !== restaurantId)) {
@@ -147,17 +152,49 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    return await Order.findOne({ _id: id, restaurantId }).populate('items.menuItemId');
+    
+    if (!restaurantId) {
+      throw new Error('Restaurant ID is required');
+    }
+    
+    try {
+      // Convert restaurantId string to ObjectId for proper MongoDB comparison
+      const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+      const order = await Order.findOne({ _id: id, restaurantId: restaurantObjectId }).populate('items.menuItemId');
+      
+      if (!order) {
+        console.error(`Order not found - ID: ${id}, RestaurantId: ${restaurantId} (ObjectId: ${restaurantObjectId})`);
+        // Try to find the order without restaurantId filter to see if it exists
+        const orderWithoutFilter = await Order.findById(id);
+        if (orderWithoutFilter) {
+          const orderRestaurantIdStr = orderWithoutFilter.restaurantId?.toString();
+          const contextRestaurantIdStr = restaurantId;
+          console.error(`Order exists but restaurantId mismatch - Order restaurantId: ${orderRestaurantIdStr}, Context restaurantId: ${contextRestaurantIdStr}`);
+          console.error(`Order restaurantId type: ${typeof orderWithoutFilter.restaurantId}, Context restaurantId type: ${typeof restaurantId}`);
+        } else {
+          console.error(`Order with ID ${id} does not exist in database`);
+        }
+        // Don't return the order - it doesn't belong to this restaurant or doesn't exist
+        return null;
+      }
+      
+      return order;
+    } catch (error: any) {
+      console.error('Error querying order:', error);
+      throw error;
+    }
   },
   orderByTable: async (_: any, { tableNumber }: { tableNumber: number }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
     return await Order.findOne({ 
       tableNumber, 
       orderType: 'dine-in', 
-      restaurantId 
+      restaurantId: restaurantObjectId 
     }).populate('items.menuItemId');
   },
   orderById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
@@ -165,17 +202,21 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    return await Order.findOne({ _id: id, restaurantId }).populate('items.menuItemId');
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    return await Order.findOne({ _id: id, restaurantId: restaurantObjectId }).populate('items.menuItemId');
   },
   ordersBySession: async (_: any, { sessionId, orderType }: { sessionId: string; orderType: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
     return await Order.find({ 
       sessionId, 
       orderType, 
-      restaurantId 
+      restaurantId: restaurantObjectId 
     }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   ordersByUser: async (_: any, { userId, orderType }: { userId: string; orderType: string }, context: GraphQLContext) => {
@@ -183,10 +224,12 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
     return await Order.find({ 
       userId, 
       orderType, 
-      restaurantId 
+      restaurantId: restaurantObjectId 
     }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   ordersByMobile: async (_: any, { mobileNumber, orderType }: { mobileNumber: string; orderType: string }, context: GraphQLContext) => {
@@ -194,10 +237,12 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
     return await Order.find({ 
       customerPhone: mobileNumber, 
       orderType,
-      restaurantId,
+      restaurantId: restaurantObjectId,
       status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] } // Only incomplete orders
     }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
@@ -210,13 +255,17 @@ export const queryResolvers = {
     if (context.staff.restaurantId !== restaurantId) {
       throw new Error('Access denied: Cannot access orders from different restaurant');
     }
-    return await Order.find({ restaurantId }).populate('items.menuItemId').sort({ createdAt: -1 });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    return await Order.find({ restaurantId: restaurantObjectId }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   orderByIdForStaff: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.staff) {
       throw new Error('Staff authentication required');
     }
-    return await Order.findOne({ _id: id, restaurantId: context.staff.restaurantId }).populate('items.menuItemId');
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(context.staff.restaurantId);
+    return await Order.findOne({ _id: id, restaurantId: restaurantObjectId }).populate('items.menuItemId');
   },
   
   userByMobile: async (_: any, { mobileNumber }: { mobileNumber: string }, context: GraphQLContext) => {

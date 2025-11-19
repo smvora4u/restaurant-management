@@ -60,7 +60,7 @@ export default function StaffOrderManagement() {
     }
   }, [orderError]);
 
-  const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
+  const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network' });
 
   // Mutation for marking order as paid
   const [, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
@@ -164,10 +164,17 @@ export default function StaffOrderManagement() {
   // Set up real-time subscriptions
   useOrderSubscriptions({
     restaurantId: staff?.restaurantId || '',
-    onOrderUpdated: (_updatedOrder) => {
-      refetch();
+    onOrderUpdated: (updatedOrder) => {
+      // Only refetch if this is the order we're currently viewing
+      if (updatedOrder.id === orderId) {
+        refetch();
+      }
     },
     onOrderItemStatusUpdated: (updatedOrder) => {
+      // Only process if this is the order we're currently viewing
+      if (updatedOrder.id !== orderId) {
+        return;
+      }
       // Recalculate order status based on updated item statuses
       if (updatedOrder && updatedOrder.items) {
         const calculatedStatus = calculateOrderStatus(updatedOrder.items);
@@ -179,8 +186,8 @@ export default function StaffOrderManagement() {
       }
       refetch();
     },
-    onNewOrder: (newOrder) => {
-      console.log('New order received:', newOrder);
+    onNewOrder: (_newOrder) => {
+      // Don't refetch on new orders - we're viewing a specific order
     }
   });
 

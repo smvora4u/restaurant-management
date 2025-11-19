@@ -14,6 +14,7 @@
     "@apollo/server": "^4.11.1",
     "@graphql-tools/schema": "^10.0.0",
     "@sendgrid/mail": "^8.1.6",
+    "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.3",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
@@ -25,6 +26,7 @@
     "graphql-ws": "^6.0.6",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.0",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
     "ws": "^8.18.3"
   },

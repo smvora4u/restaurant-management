@@ -51,7 +51,10 @@ export const authenticateUser = async (req: any): Promise<AuthContext> => {
     
     if (decoded.restaurantId) {
       // Restaurant authentication
-      const restaurant = await Restaurant.findById(decoded.restaurantId);
+      // Ensure restaurantId is converted to ObjectId for database lookup
+      const mongoose = await import('mongoose');
+      const restaurantObjectId = new mongoose.default.Types.ObjectId(decoded.restaurantId);
+      const restaurant = await Restaurant.findById(restaurantObjectId);
       if (!restaurant || !restaurant.isActive) {
         throw new Error('Restaurant not found or inactive');
       }
@@ -80,7 +83,10 @@ export const authenticateUser = async (req: any): Promise<AuthContext> => {
       };
     } else if (decoded.staffId) {
       // Staff authentication
-      const staff = await Staff.findById(decoded.staffId);
+      // Ensure IDs are converted to ObjectId for database lookup
+      const mongoose = await import('mongoose');
+      const staffObjectId = new mongoose.default.Types.ObjectId(decoded.staffId);
+      const staff = await Staff.findById(staffObjectId);
       if (!staff || !staff.isActive) {
         throw new Error('Staff not found or inactive');
       }

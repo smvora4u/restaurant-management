@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery } from '@apollo/client';
 import {
   Box,
@@ -16,11 +16,14 @@ import {
   Chip,
   Alert,
   CircularProgress,
+  TextField,
+  InputLabel,
 } from '@mui/material';
 import {
   Add,
   Edit,
   Delete,
+  CloudUpload,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
@@ -48,6 +51,18 @@ export default function MenuPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get backend URL from GraphQL URI
+  const getBackendUrl = () => {
+    const graphqlUri = (import.meta as any).env?.VITE_GRAPHQL_URI || 
+                      (import.meta as any).env?.VITE_API_URL || 
+                      'http://localhost:4000/graphql';
+    return graphqlUri.replace('/graphql', '');
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -110,6 +125,8 @@ export default function MenuPage() {
         allergens: item.allergens?.join(', ') || '',
         preparationTime: item.preparationTime?.toString() || '',
       });
+      setImagePreview(item.imageUrl || null);
+      setSelectedFile(null);
     } else {
       setEditingItem(null);
       setFormData({
@@ -123,6 +140,8 @@ export default function MenuPage() {
         allergens: '',
         preparationTime: '',
       });
+      setImagePreview(null);
+      setSelectedFile(null);
     }
     setOpenDialog(true);
   };
@@ -141,20 +160,126 @@ export default function MenuPage() {
       allergens: '',
       preparationTime: '',
     });
+    setImagePreview(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        return;
+      }
+      
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      
+      // Clear URL field when file is selected
+      setFormData(prev => ({ ...prev, imageUrl: '' }));
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/upload/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      const fullUrl = `${backendUrl}${data.url}`;
+      setFormData(prev => ({ ...prev, imageUrl: fullUrl }));
+      setSelectedFile(null);
+      setImagePreview(fullUrl);
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setSelectedFile(null);
+    setFormData(prev => ({ ...prev, imageUrl: '' }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
+    // If a file is selected but not uploaded yet, upload it first
+    let finalImageUrl = formData.imageUrl;
+    
+    if (selectedFile && !formData.imageUrl) {
+      setUploading(true);
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('image', selectedFile);
+
+        const backendUrl = getBackendUrl();
+        const response = await fetch(`${backendUrl}/api/upload/image`, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Upload failed');
+        }
+
+        const data = await response.json();
+        finalImageUrl = `${backendUrl}${data.url}`;
+      } catch (error: any) {
+        alert(error.message || 'Failed to upload image');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     const input = {
       name: formData.name,
       description: formData.description || null,
       price: parseFloat(formData.price),
       category: formData.category,
       available: formData.available,
-      imageUrl: formData.imageUrl || null,
+      imageUrl: finalImageUrl || null,
       ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()).filter(i => i) : [],
       allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()).filter(a => a) : [],
       preparationTime: formData.preparationTime ? parseInt(formData.preparationTime) : null,
@@ -356,13 +481,92 @@ export default function MenuPage() {
                 />
               </Box>
             </Box>
-            <FormField
-              type="text"
-              name="imageUrl"
-              label="Image URL"
-              value={formData.imageUrl}
-              onChange={(field, value) => handleInputChange(field, value)}
-            />
+            {/* Image Upload Section */}
+            <Box>
+              <InputLabel sx={{ mb: 1 }}>Image</InputLabel>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Image Preview */}
+                {imagePreview && (
+                  <Box sx={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                    <Box
+                      component="img"
+                      src={imagePreview}
+                      alt="Preview"
+                      sx={{
+                        maxWidth: '100%',
+                        maxHeight: '200px',
+                        objectFit: 'contain',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveImage}
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+
+                {/* File Upload */}
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                    id="image-upload-input"
+                  />
+                  <label htmlFor="image-upload-input">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      startIcon={<CloudUpload />}
+                      disabled={uploading}
+                    >
+                      {selectedFile ? 'Change Image' : 'Upload Image'}
+                    </Button>
+                  </label>
+                  {selectedFile && (
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedFile.name}
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Or URL Input */}
+                <Box>
+                  <TextField
+                    fullWidth
+                    label="Or enter image URL"
+                    value={formData.imageUrl}
+                    onChange={(e) => {
+                      handleInputChange('imageUrl', e.target.value);
+                      if (e.target.value) {
+                        setImagePreview(e.target.value);
+                        setSelectedFile(null);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }
+                    }}
+                    placeholder="https://example.com/image.jpg"
+                    helperText="Enter a URL or upload an image from your device"
+                  />
+                </Box>
+              </Box>
+            </Box>
             <FormField
               type="text"
               name="ingredients"

@@ -45,9 +45,10 @@ export const restaurantAuthResolvers = {
         await createSampleDataForRestaurant(restaurant._id as any);
 
         // Generate JWT token
+        // Convert ObjectId to string to ensure consistent serialization
         const token = jwt.sign(
           { 
-            restaurantId: restaurant._id, 
+            restaurantId: restaurant._id.toString(), 
             email: restaurant.email,
             slug: restaurant.slug
           },
@@ -129,9 +130,10 @@ export const restaurantAuthResolvers = {
         }
 
         // Generate JWT token
+        // Convert ObjectId to string to ensure consistent serialization
         const token = jwt.sign(
           { 
-            restaurantId: restaurant._id, 
+            restaurantId: restaurant._id.toString(), 
             email: restaurant.email,
             slug: restaurant.slug
           },

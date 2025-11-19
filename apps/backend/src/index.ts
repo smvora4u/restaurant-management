@@ -2,6 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { makeExecutableSchema } from '@graphql-tools/schema';
@@ -36,9 +40,52 @@ async function start() {
     // Create HTTP server
     const httpServer = createServer(app);
     
+    // Get __dirname equivalent for ES modules
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    
+    // Ensure uploads directory exists
+    const uploadPath = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    // Configure multer for file uploads
+    const storage = multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadPath);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'menu-item-' + uniqueSuffix + ext);
+      }
+    });
+    
+    const upload = multer({
+      storage: storage,
+      limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        
+        if (mimetype && extname) {
+          return cb(null, true);
+        } else {
+          cb(new Error('Only image files (jpeg, jpg, png, gif, webp) are allowed!'));
+        }
+      }
+    });
+
     // Middleware
     app.use(cors());
     app.use(bodyParser.json());
+    
+    // Serve uploaded files statically
+    app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
     // Create GraphQL schema
     const schema = makeExecutableSchema({ typeDefs, resolvers });
@@ -107,6 +154,22 @@ async function start() {
         return await authenticateUser(req);
       }
     }) as any);
+
+    // File upload endpoint for menu item images
+    app.post('/api/upload/image', upload.single('image') as any, (req: express.Request, res: express.Response) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+        
+        // Return the URL to access the uploaded file
+        const fileUrl = `/uploads/${req.file.filename}`;
+        return res.json({ url: fileUrl });
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        return res.status(500).json({ error: error.message || 'Failed to upload file' });
+      }
+    });
 
     // Settlement PDF endpoint (server-side PDF generation)
     app.get('/settlements/:id/pdf', async (req, res) => {

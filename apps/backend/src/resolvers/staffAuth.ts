@@ -79,13 +79,14 @@ export const staffAuthResolvers = {
         }
 
         // Generate JWT token
+        // Convert ObjectIds to strings to ensure consistent serialization
         const token = jwt.sign(
           { 
-            staffId: staff._id, 
+            staffId: staff._id.toString(), 
             email: staff.email,
             role: staff.role,
             permissions: staff.permissions,
-            restaurantId: staff.restaurantId
+            restaurantId: staff.restaurantId.toString()
           },
           process.env.JWT_SECRET || 'your-secret-key',
           { expiresIn: '24h' }

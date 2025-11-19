@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSubscription } from '@apollo/client';
 import {
   ORDER_UPDATED_SUBSCRIPTION,
@@ -21,6 +21,24 @@ export const useOrderSubscriptions = ({
 }: UseOrderSubscriptionsProps) => {
   console.log('Setting up subscriptions for restaurantId:', restaurantId);
 
+  // Use refs to store callbacks to avoid recreating effects when callbacks change
+  const onOrderUpdatedRef = useRef(onOrderUpdated);
+  const onOrderItemStatusUpdatedRef = useRef(onOrderItemStatusUpdated);
+  const onNewOrderRef = useRef(onNewOrder);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onOrderUpdatedRef.current = onOrderUpdated;
+  }, [onOrderUpdated]);
+
+  useEffect(() => {
+    onOrderItemStatusUpdatedRef.current = onOrderItemStatusUpdated;
+  }, [onOrderItemStatusUpdated]);
+
+  useEffect(() => {
+    onNewOrderRef.current = onNewOrder;
+  }, [onNewOrder]);
+
   const { data: orderUpdatedData, error: orderUpdatedError } = useSubscription(ORDER_UPDATED_SUBSCRIPTION, {
     variables: { restaurantId },
     skip: !restaurantId,
@@ -41,24 +59,25 @@ export const useOrderSubscriptions = ({
   if (orderItemStatusUpdatedError) console.error('Order item status updated subscription error:', orderItemStatusUpdatedError);
   if (newOrderError) console.error('New order subscription error:', newOrderError);
 
+  // Use refs in effects to avoid dependency on callback functions
   useEffect(() => {
-    if (orderUpdatedData?.orderUpdated && onOrderUpdated) {
+    if (orderUpdatedData?.orderUpdated && onOrderUpdatedRef.current) {
       console.log('Order updated received:', orderUpdatedData.orderUpdated);
-      onOrderUpdated(orderUpdatedData.orderUpdated);
+      onOrderUpdatedRef.current(orderUpdatedData.orderUpdated);
     }
-  }, [orderUpdatedData, onOrderUpdated]);
+  }, [orderUpdatedData]); // Only depend on data, not callback
 
   useEffect(() => {
-    if (orderItemStatusUpdatedData?.orderItemStatusUpdated && onOrderItemStatusUpdated) {
+    if (orderItemStatusUpdatedData?.orderItemStatusUpdated && onOrderItemStatusUpdatedRef.current) {
       console.log('Order item status updated received:', orderItemStatusUpdatedData.orderItemStatusUpdated);
-      onOrderItemStatusUpdated(orderItemStatusUpdatedData.orderItemStatusUpdated);
+      onOrderItemStatusUpdatedRef.current(orderItemStatusUpdatedData.orderItemStatusUpdated);
     }
-  }, [orderItemStatusUpdatedData, onOrderItemStatusUpdated]);
+  }, [orderItemStatusUpdatedData]); // Only depend on data, not callback
 
   useEffect(() => {
-    if (newOrderData?.newOrder && onNewOrder) {
+    if (newOrderData?.newOrder && onNewOrderRef.current) {
       console.log('New order received:', newOrderData.newOrder);
-      onNewOrder(newOrderData.newOrder);
+      onNewOrderRef.current(newOrderData.newOrder);
     }
-  }, [newOrderData, onNewOrder]);
+  }, [newOrderData]); // Only depend on data, not callback
 };

@@ -85,10 +85,10 @@ export default function OrderItemsTable({
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [newItemStatus, setNewItemStatus] = useState<ItemStatus>('pending');
-  const [statusUpdateQuantity, setStatusUpdateQuantity] = useState(1);
+  const [statusUpdateQuantity, setStatusUpdateQuantity] = useState<string>('1');
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [newItemQuantity, setNewItemQuantity] = useState<string>('1');
   const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDeleteIndex, setItemToDeleteIndex] = useState<number | null>(null);
@@ -126,28 +126,30 @@ export default function OrderItemsTable({
   const handleItemStatusClick = (itemIndex: number) => {
     setSelectedItemIndex(itemIndex);
     setNewItemStatus(items[itemIndex].status);
-    setStatusUpdateQuantity(items[itemIndex].quantity);
+    setStatusUpdateQuantity(items[itemIndex].quantity.toString());
     setItemStatusDialogOpen(true);
   };
 
   const handleStatusUpdate = () => {
     if (selectedItemIndex !== null) {
-      onUpdateItemStatus(selectedItemIndex, newItemStatus, statusUpdateQuantity);
+      const quantity = parseInt(statusUpdateQuantity) || 1;
+      onUpdateItemStatus(selectedItemIndex, newItemStatus, quantity);
       setItemStatusDialogOpen(false);
       setSelectedItemIndex(null);
     }
   };
 
   const handleAddItem = () => {
-    if (selectedMenuItemId && newItemQuantity > 0) {
+    const quantity = parseInt(newItemQuantity) || 1;
+    if (selectedMenuItemId && quantity > 0) {
       const menuItem = getMenuItemDetails(selectedMenuItemId);
       if (!menuItem?.available) {
         return; // silently ignore or optionally show feedback via parent in future
       }
-      onAddItem(selectedMenuItemId, newItemQuantity, newItemSpecialInstructions);
+      onAddItem(selectedMenuItemId, quantity, newItemSpecialInstructions);
       setAddItemDialogOpen(false);
       setSelectedMenuItemId('');
-      setNewItemQuantity(1);
+      setNewItemQuantity('1');
       setNewItemSpecialInstructions('');
       setSearchQuery('');
       setSelectedCategory('all');
@@ -390,11 +392,28 @@ export default function OrderItemsTable({
             <TextField
               fullWidth
               label="Quantity to Update"
-              type="number"
+              type="text"
               value={statusUpdateQuantity}
-              onChange={(e) => setStatusUpdateQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty string for editing, or valid numbers
+                if (value === '' || /^\d+$/.test(value)) {
+                  setStatusUpdateQuantity(value);
+                }
+              }}
+              onBlur={(e) => {
+                // Ensure minimum value of 1 when field loses focus
+                const numValue = parseInt(e.target.value) || 1;
+                const maxValue = selectedItemIndex !== null ? items[selectedItemIndex].quantity : 1;
+                const finalValue = Math.max(1, Math.min(numValue, maxValue));
+                setStatusUpdateQuantity(finalValue.toString());
+              }}
               margin="normal"
-              inputProps={{ min: 1, max: selectedItemIndex !== null ? items[selectedItemIndex].quantity : 1 }}
+              inputProps={{ 
+                maxLength: 10,
+                inputMode: 'numeric',
+                pattern: '[0-9]*'
+              }}
             />
           </Box>
         </DialogContent>
@@ -414,6 +433,7 @@ export default function OrderItemsTable({
           setSearchQuery('');
           setSelectedCategory('all');
           setSelectedMenuItemId('');
+          setNewItemQuantity('1');
         }} 
         maxWidth="lg" 
         fullWidth
@@ -654,10 +674,26 @@ export default function OrderItemsTable({
           >
             <TextField
               label="Quantity"
-              type="number"
+              type="text"
               value={newItemQuantity}
-              onChange={(e) => setNewItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              inputProps={{ min: 1 }}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty string for editing, or valid numbers
+                if (value === '' || /^\d+$/.test(value)) {
+                  setNewItemQuantity(value);
+                }
+              }}
+              onBlur={(e) => {
+                // Ensure minimum value of 1 when field loses focus
+                const numValue = parseInt(e.target.value) || 1;
+                setNewItemQuantity(Math.max(1, numValue).toString());
+              }}
+              inputProps={{ 
+                min: 1,
+                maxLength: 10,
+                inputMode: 'numeric',
+                pattern: '[0-9]*'
+              }}
               size="small"
               sx={{ 
                 minWidth: { xs: '100%', sm: 120 },
@@ -697,7 +733,7 @@ export default function OrderItemsTable({
                 setSearchQuery('');
                 setSelectedCategory('all');
                 setSelectedMenuItemId('');
-                setNewItemQuantity(1);
+                setNewItemQuantity('1');
                 setNewItemSpecialInstructions('');
               }}
             >

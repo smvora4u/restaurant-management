@@ -19,24 +19,60 @@ export const PLATFORM_ANALYTICS_UPDATED = 'PLATFORM_ANALYTICS_UPDATED';
 export const subscriptionResolvers = {
   Subscription: {
     orderUpdated: {
-      subscribe: () => {
-        console.log('New subscription to orderUpdated');
-        return pubsub.asyncIterator([ORDER_UPDATED]);
-      },
+      subscribe: withFilter(
+        () => {
+          console.log('New subscription to orderUpdated');
+          return pubsub.asyncIterator([ORDER_UPDATED]);
+        },
+        (payload: IOrder, variables: { restaurantId: string }) => {
+          // Convert both to strings for comparison (handle ObjectId and string)
+          const payloadRestaurantId = payload.restaurantId?.toString();
+          const variableRestaurantId = variables.restaurantId?.toString();
+          const matches = payloadRestaurantId === variableRestaurantId;
+          if (!matches) {
+            console.log(`Filtering out order update - RestaurantId mismatch: ${payloadRestaurantId} !== ${variableRestaurantId}`);
+          }
+          return matches;
+        }
+      ),
       resolve: (payload: IOrder) => payload,
     },
     orderItemStatusUpdated: {
-      subscribe: () => {
-        console.log('New subscription to orderItemStatusUpdated');
-        return pubsub.asyncIterator([ORDER_ITEM_STATUS_UPDATED]);
-      },
+      subscribe: withFilter(
+        () => {
+          console.log('New subscription to orderItemStatusUpdated');
+          return pubsub.asyncIterator([ORDER_ITEM_STATUS_UPDATED]);
+        },
+        (payload: IOrder, variables: { restaurantId: string }) => {
+          // Convert both to strings for comparison (handle ObjectId and string)
+          const payloadRestaurantId = payload.restaurantId?.toString();
+          const variableRestaurantId = variables.restaurantId?.toString();
+          const matches = payloadRestaurantId === variableRestaurantId;
+          if (!matches) {
+            console.log(`Filtering out order item status update - RestaurantId mismatch: ${payloadRestaurantId} !== ${variableRestaurantId}`);
+          }
+          return matches;
+        }
+      ),
       resolve: (payload: IOrder) => payload,
     },
     newOrder: {
-      subscribe: () => {
-        console.log('New subscription to newOrder');
-        return pubsub.asyncIterator([NEW_ORDER]);
-      },
+      subscribe: withFilter(
+        () => {
+          console.log('New subscription to newOrder');
+          return pubsub.asyncIterator([NEW_ORDER]);
+        },
+        (payload: IOrder, variables: { restaurantId: string }) => {
+          // Convert both to strings for comparison (handle ObjectId and string)
+          const payloadRestaurantId = payload.restaurantId?.toString();
+          const variableRestaurantId = variables.restaurantId?.toString();
+          const matches = payloadRestaurantId === variableRestaurantId;
+          if (!matches) {
+            console.log(`Filtering out new order - RestaurantId mismatch: ${payloadRestaurantId} !== ${variableRestaurantId}`);
+          }
+          return matches;
+        }
+      ),
       resolve: (payload: IOrder) => payload,
     },
     auditLogCreated: {
@@ -67,8 +103,10 @@ export const subscriptionResolvers = {
 };
 
 export const publishOrderUpdated = async (order: IOrder) => {
-  console.log('Publishing order updated event for restaurant:', order.restaurantId);
-  await pubsub.publish(ORDER_UPDATED, order);
+  // Ensure restaurantId is a string for consistent comparison in subscriptions
+  const restaurantIdStr = order.restaurantId?.toString();
+  console.log('Publishing order updated event for restaurant:', restaurantIdStr);
+  await pubsub.publish(ORDER_UPDATED, { ...order, restaurantId: restaurantIdStr });
 };
 
 export const publishFeeLedgerUpdated = async (feeLedger: any) => {
@@ -106,13 +144,17 @@ export const publishDueFeesUpdated = async (restaurantId: string) => {
 };
 
 export const publishOrderItemStatusUpdated = async (order: IOrder) => {
-  console.log('Publishing order item status updated event for restaurant:', order.restaurantId);
-  await pubsub.publish(ORDER_ITEM_STATUS_UPDATED, order);
+  // Ensure restaurantId is a string for consistent comparison in subscriptions
+  const restaurantIdStr = order.restaurantId?.toString();
+  console.log('Publishing order item status updated event for restaurant:', restaurantIdStr);
+  await pubsub.publish(ORDER_ITEM_STATUS_UPDATED, { ...order, restaurantId: restaurantIdStr });
 };
 
 export const publishNewOrder = async (order: IOrder) => {
-  console.log('Publishing new order event for restaurant:', order.restaurantId);
-  await pubsub.publish(NEW_ORDER, order);
+  // Ensure restaurantId is a string for consistent comparison in subscriptions
+  const restaurantIdStr = order.restaurantId?.toString();
+  console.log('Publishing new order event for restaurant:', restaurantIdStr);
+  await pubsub.publish(NEW_ORDER, { ...order, restaurantId: restaurantIdStr });
 };
 
 export const publishAuditLogCreated = async (log: any) => {

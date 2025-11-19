@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
@@ -89,6 +90,10 @@ export const mutationResolvers = {
 
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
     
+    if (!restaurantId) {
+      throw new Error('Restaurant ID is required');
+    }
+    
     // Validate table availability for dine-in orders
     if (input.orderType === 'dine-in' && input.tableNumber) {
       // Check if table exists
@@ -129,23 +134,51 @@ export const mutationResolvers = {
       }
     }
 
-    const order = new Order({ 
-      ...input, 
-      restaurantId: restaurantId,
-      status: input.status || 'pending'
-    });
+    // Create order with proper restaurantId from context (ignore input.restaurantId for security)
+    // This ensures orders are always created for the authenticated restaurant, not what the frontend sends
+    const orderData = {
+      restaurantId: restaurantId, // Always use authenticated restaurantId, never from input
+      orderType: input.orderType,
+      tableNumber: input.tableNumber || null,
+      items: input.items || [],
+      totalAmount: input.totalAmount || 0,
+      status: input.status || 'pending',
+      customerName: input.customerName || null,
+      customerPhone: input.customerPhone || null,
+      notes: input.notes || null,
+      sessionId: input.sessionId || null,
+      userId: input.userId || null
+    };
     
-    const savedOrder = await order.save();
-    await publishNewOrder(savedOrder);
-    return savedOrder;
+    console.log(`Creating order for restaurantId: ${restaurantId} (from context), ignoring input.restaurantId: ${input.restaurantId}`);
+
+    const order = new Order(orderData);
+    
+    try {
+      const savedOrder = await order.save();
+      console.log(`Order created successfully - ID: ${savedOrder._id}, RestaurantId: ${savedOrder.restaurantId}`);
+      await publishNewOrder(savedOrder);
+      return savedOrder;
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      throw new Error(`Failed to create order: ${error.message || 'Unknown error'}`);
+    }
   },
   updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
-    if (!context.restaurant) {
+    if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
     
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    
+    if (!restaurantId) {
+      throw new Error('Restaurant ID is required');
+    }
+    
     // Get the current order to check its status
-    const currentOrder = await Order.findOne({ _id: id, restaurantId: context.restaurant.id });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const currentOrder = await Order.findOne({ _id: id, restaurantId: restaurantObjectId });
     if (!currentOrder) {
       throw new Error('Order not found');
     }
@@ -163,9 +196,16 @@ export const mutationResolvers = {
       }
     }
     
+    // Never update restaurantId - always preserve the original from the order
+    const updateData = {
+      ...input,
+      restaurantId: currentOrder.restaurantId, // Preserve original restaurantId
+      updatedAt: new Date()
+    };
+    
     const updatedOrder = await Order.findOneAndUpdate(
-      { _id: id, restaurantId: context.restaurant.id }, 
-      { ...input, updatedAt: new Date() }, 
+      { _id: id, restaurantId: restaurantObjectId }, 
+      updateData, 
       { new: true }
     );
     if (updatedOrder) {
@@ -178,7 +218,9 @@ export const mutationResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    const order = await Order.findOne({ _id: id, restaurantId });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const order = await Order.findOne({ _id: id, restaurantId: restaurantObjectId });
     if (!order) throw new Error('Order not found');
     if (order.status !== 'completed') {
       throw new Error('Only completed orders can be marked paid');
@@ -271,7 +313,9 @@ export const mutationResolvers = {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
-    const order = await Order.findOne({ _id: orderId, restaurantId: context.restaurant.id });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(context.restaurant.id);
+    const order = await Order.findOne({ _id: orderId, restaurantId: restaurantObjectId });
     if (!order) {
       throw new Error('Order not found');
     }
@@ -312,7 +356,9 @@ export const mutationResolvers = {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
-    const result = await Order.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
+    // Convert restaurantId string to ObjectId for proper MongoDB comparison
+    const restaurantObjectId = new mongoose.Types.ObjectId(context.restaurant.id);
+    const result = await Order.findOneAndDelete({ _id: id, restaurantId: restaurantObjectId });
     return !!result;
   },
   

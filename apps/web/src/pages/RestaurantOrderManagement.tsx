@@ -57,7 +57,7 @@ export default function RestaurantOrderManagement() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [newItemQuantity, setNewItemQuantity] = useState<string>('1');
   const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -84,7 +84,9 @@ export default function RestaurantOrderManagement() {
   // Queries
   const { data, loading, error, refetch } = useQuery(GET_ORDER_BY_ID, {
     variables: { id: orderId },
-    skip: !orderId
+    skip: !orderId,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: false // Prevent re-renders on network status changes
   });
 
   // Handle query errors
@@ -96,7 +98,9 @@ export default function RestaurantOrderManagement() {
     }
   }, [error]);
 
-  const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network', pollInterval: 5000 });
+  const { data: menuData } = useQuery(GET_MENU_ITEMS, { 
+    fetchPolicy: 'cache-first' // Use cache-first to prevent unnecessary network requests
+  });
   const menuItems = menuData?.menuItems || [];
 
   // Use order status hook for consistent status management
@@ -261,7 +265,7 @@ export default function RestaurantOrderManagement() {
   }, []);
   
   // Get restaurant ID for subscriptions
-  const restaurantId = data?.orderById?.restaurantId || '';
+  const restaurantId = data?.order?.restaurantId || '';
   console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
 
   // Also try to get restaurant ID from localStorage as fallback
@@ -287,16 +291,33 @@ export default function RestaurantOrderManagement() {
     restaurantId: finalRestaurantId,
     onOrderUpdated: (updatedOrder) => {
       console.log('Restaurant page - Order updated received:', updatedOrder);
+      // Only process if this is the order we're currently viewing
+      if (updatedOrder.id !== orderId) {
+        console.log('Skipping order updated event - different order:', updatedOrder.id);
+        return;
+      }
       // If this is an order we recently updated, don't process it to prevent loops
       if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
         console.log('Skipping order updated event - recently updated by us:', updatedOrder.id);
         return;
       }
-      // Use debounced refetch to prevent rapid successive calls
-      debouncedRefetch();
+      // Update local state from subscription data instead of refetching
+      // This prevents the loop: update -> subscription -> refetch -> update
+      // The subscription already provides the updated order data
+      if (updatedOrder.items) {
+        const mergedItems = mergeOrderItemsByStatus(updatedOrder.items);
+        setEditingItems(mergedItems);
+        setHasUnsavedChanges(false);
+      }
     },
     onOrderItemStatusUpdated: (updatedOrder) => {
       console.log('Restaurant page - Order item status updated received:', updatedOrder);
+      
+      // Only process if this is the order we're currently viewing
+      if (updatedOrder.id !== orderId) {
+        console.log('Skipping order item status update - different order:', updatedOrder.id);
+        return;
+      }
       
       // Emergency brake check - stop all updates if we detect a severe loop
       if (emergencyBrake.current) {
@@ -320,7 +341,7 @@ export default function RestaurantOrderManagement() {
         // Additional check: if order is already completed, don't try to update it
         if (updatedOrder.status === 'completed' && calculatedStatus === 'completed') {
           console.log('Order is already completed, skipping update');
-          debouncedRefetch();
+          // Don't refetch - status is already correct and we don't need to update
           return;
         }
         
@@ -330,7 +351,7 @@ export default function RestaurantOrderManagement() {
           // Check circuit breaker first (automatic update)
           if (isOrderUpdateBlocked(updatedOrder.id, false)) {
             console.log('Order update blocked by circuit breaker:', updatedOrder.id);
-            debouncedRefetch();
+            // Don't refetch if blocked - prevents loops
             return;
           }
           
@@ -348,13 +369,13 @@ export default function RestaurantOrderManagement() {
             }
           }).then(() => {
             console.log('Order status updated successfully to:', calculatedStatus);
-            // Use debounced refetch after successful update
-            debouncedRefetch();
+            // Don't refetch immediately - the subscription will notify us of the update
+            // This prevents loops where update -> subscription -> refetch -> update
           }).catch((error) => {
             console.error('Failed to update order status:', error);
             // Remove from tracking set on error so it can be retried
             recentlyUpdatedOrders.current.delete(updatedOrder.id);
-            // Use debounced refetch even on error to get latest state
+            // Only refetch on error to get the actual state
             debouncedRefetch();
           });
           
@@ -366,16 +387,18 @@ export default function RestaurantOrderManagement() {
           }, delay);
         } else {
           console.log('Order status is already correct, no update needed');
-          debouncedRefetch();
+          // Don't refetch if status is already correct - prevents unnecessary requests
         }
-      } else {
-        // If no valid order data, just refetch
-        debouncedRefetch();
       }
+      // Removed else block that was always refetching - this was causing continuous requests
     },
     onNewOrder: (newOrder) => {
       console.log('Restaurant page - New order received:', newOrder);
-      debouncedRefetch();
+      // Don't refetch on new orders - we're viewing a specific order, not the list
+      // Only refetch if somehow the new order is the one we're viewing (shouldn't happen)
+      if (newOrder.id === orderId) {
+        debouncedRefetch();
+      }
     }
   });
 
@@ -406,16 +429,33 @@ export default function RestaurantOrderManagement() {
   }, [navigate]);
 
   // Initialize editing items when order data loads
+  // Use a ref to track the last order ID to prevent re-initializing on every data change
+  const lastOrderIdRef = useRef<string | null>(null);
+  const lastItemsHashRef = useRef<string>('');
+  
   useEffect(() => {
-    if (data?.order?.items) {
+    if (data?.order?.items && data?.order?.id) {
+      // Only update if order ID changed or items actually changed
+      const currentOrderId = data.order.id;
+      const itemsHash = JSON.stringify(data.order.items);
+      
+      // Skip if same order and same items (prevent loop from refetches)
+      if (lastOrderIdRef.current === currentOrderId && lastItemsHashRef.current === itemsHash) {
+        return;
+      }
+      
       // Merge any duplicate items with same status, menuItemId, and specialInstructions
       const mergedItems = mergeOrderItemsByStatus(data.order.items);
       setEditingItems(mergedItems);
       setHasUnsavedChanges(false);
       // Mark as initialized once we have order data and items
       isInitializedRef.current = true;
+      
+      // Update refs
+      lastOrderIdRef.current = currentOrderId;
+      lastItemsHashRef.current = itemsHash;
     }
-  }, [data]);
+  }, [data?.order?.id, data?.order?.items]);
 
   const handleQuantityChange = (index: number, newQuantity: number) => {
     let updatedItems = handleQuantityChangeUtil(editingItems, index, newQuantity);
@@ -442,9 +482,11 @@ export default function RestaurantOrderManagement() {
     const selectedMenuItem = menuData.menuItems.find((item: any) => item.id === selectedMenuItemId);
     if (!selectedMenuItem) return;
     
+    const quantity = parseInt(newItemQuantity) || 1;
+    
     const newItem = {
       menuItemId: selectedMenuItemId,
-      quantity: newItemQuantity,
+      quantity: quantity,
       price: selectedMenuItem.price,
       status: 'pending' as const, // Will be overridden by addNewOrderItem
       specialInstructions: newItemSpecialInstructions
@@ -456,7 +498,7 @@ export default function RestaurantOrderManagement() {
     
     // Reset form
     setSelectedMenuItemId('');
-    setNewItemQuantity(1);
+    setNewItemQuantity('1');
     setNewItemSpecialInstructions('');
     setAddItemDialogOpen(false);
   };
@@ -561,6 +603,7 @@ export default function RestaurantOrderManagement() {
   }, [performSave]);
 
   // Auto-save when there are unsaved changes
+  // Only depend on hasUnsavedChanges to prevent loops from editingItems changes
   useEffect(() => {
     // Don't auto-save if:
     // - There are no unsaved changes
@@ -587,7 +630,7 @@ export default function RestaurantOrderManagement() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [editingItems, hasUnsavedChanges, isSaving, data?.order]);
+  }, [hasUnsavedChanges, isSaving, data?.order?.id]); // Removed editingItems and data?.order to prevent loops
 
 
   const getStatusIcon = (status: string) => {
@@ -1123,10 +1166,26 @@ export default function RestaurantOrderManagement() {
               fullWidth
               margin="normal"
               label="Quantity"
-              type="number"
+              type="text"
               value={newItemQuantity}
-              onChange={(e) => setNewItemQuantity(parseInt(e.target.value) || 1)}
-              inputProps={{ min: 1 }}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty string for editing, or valid numbers
+                if (value === '' || /^\d+$/.test(value)) {
+                  setNewItemQuantity(value);
+                }
+              }}
+              onBlur={(e) => {
+                // Ensure minimum value of 1 when field loses focus
+                const numValue = parseInt(e.target.value) || 1;
+                setNewItemQuantity(Math.max(1, numValue).toString());
+              }}
+              inputProps={{ 
+                min: 1,
+                maxLength: 10,
+                inputMode: 'numeric',
+                pattern: '[0-9]*'
+              }}
             />
             
             <TextField

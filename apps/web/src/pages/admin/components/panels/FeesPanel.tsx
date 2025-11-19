@@ -34,8 +34,8 @@ import { useFeeSubscriptions } from '../../../../hooks/useFeeSubscriptions';
 
 export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
   const [mode, setMode] = React.useState<'fixed' | 'percentage'>('percentage');
-  const [amount, setAmount] = React.useState<number>(10);
-  const [freeOrders, setFreeOrders] = React.useState<number>(0);
+  const [amount, setAmount] = React.useState<string>('10');
+  const [freeOrders, setFreeOrders] = React.useState<string>('0');
   const [page, setPage] = React.useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = React.useState<number>(25);
   const [snackbar, setSnackbar] = React.useState({
@@ -116,8 +116,8 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
     const cfg = cfgData?.restaurantFeeConfig;
     if (cfg) {
       setMode(cfg.mode);
-      setAmount(cfg.amount);
-      setFreeOrders(cfg.freeOrdersRemaining);
+      setAmount(cfg.amount?.toString() || '10');
+      setFreeOrders(cfg.freeOrdersRemaining?.toString() || '0');
     }
   }, [cfgData?.restaurantFeeConfig]);
 
@@ -132,7 +132,10 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
       return;
     }
 
-    if (amount < 0) {
+    const amountNum = parseFloat(amount) || 0;
+    const freeOrdersNum = parseInt(freeOrders, 10) || 0;
+
+    if (amountNum < 0) {
       setSnackbar({
         open: true,
         message: 'Amount cannot be negative',
@@ -141,7 +144,7 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
       return;
     }
 
-    if (freeOrders < 0) {
+    if (freeOrdersNum < 0) {
       setSnackbar({
         open: true,
         message: 'Free orders cannot be negative',
@@ -155,8 +158,8 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
       variables: { 
         restaurantId, 
         mode, 
-        amount, 
-        freeOrdersRemaining: freeOrders 
+        amount: amountNum, 
+        freeOrdersRemaining: freeOrdersNum 
       } 
     });
   };
@@ -216,8 +219,52 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
               <MenuItem value="percentage">Percentage</MenuItem>
             </Select>
           </FormControl>
-          <TextField size="small" label={mode === 'fixed' ? 'Amount' : 'Percentage'} type="number" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value || '0'))} />
-          <TextField size="small" label="Free Orders" type="number" value={freeOrders} onChange={(e) => setFreeOrders(parseInt(e.target.value || '0', 10))} />
+          <TextField 
+            size="small" 
+            label={mode === 'fixed' ? 'Amount' : 'Percentage'} 
+            type="text"
+            value={amount} 
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow empty string for editing, or valid numbers (including decimals for amount)
+              if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+                setAmount(value);
+              }
+            }}
+            onBlur={(e) => {
+              // Ensure valid number when field loses focus
+              const numValue = parseFloat(e.target.value) || 0;
+              setAmount(Math.max(0, numValue).toString());
+            }}
+            inputProps={{ 
+              inputMode: 'decimal',
+              pattern: '[0-9]*',
+              maxLength: 20
+            }}
+          />
+          <TextField 
+            size="small" 
+            label="Free Orders" 
+            type="text"
+            value={freeOrders} 
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow empty string for editing, or valid numbers
+              if (value === '' || /^\d+$/.test(value)) {
+                setFreeOrders(value);
+              }
+            }}
+            onBlur={(e) => {
+              // Ensure valid number when field loses focus
+              const numValue = parseInt(e.target.value, 10) || 0;
+              setFreeOrders(Math.max(0, numValue).toString());
+            }}
+            inputProps={{ 
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 10
+            }}
+          />
           <Button 
             variant="contained" 
             disabled={saving} 

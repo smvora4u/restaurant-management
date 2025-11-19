@@ -455,19 +455,51 @@ export default function ReservationsPage() {
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
                   label="Table Number"
-                  type="number"
+                  type="text"
                   value={formData.tableNumber}
-                  onChange={handleInputChange('tableNumber')}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string for editing, or valid numbers
+                    if (value === '' || /^\d+$/.test(value)) {
+                      handleInputChange('tableNumber')(e);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Ensure minimum value of 1 when field loses focus
+                    const numValue = parseInt(e.target.value) || 1;
+                    setFormData(prev => ({ ...prev, tableNumber: Math.max(1, numValue).toString() }));
+                  }}
                   required
-                  inputProps={{ min: 1 }}
+                  inputProps={{ 
+                    min: 1,
+                    maxLength: 10,
+                    inputMode: 'numeric',
+                    pattern: '[0-9]*'
+                  }}
                 />
                 <TextField
                   label="Party Size"
-                  type="number"
+                  type="text"
                   value={formData.partySize}
-                  onChange={handleInputChange('partySize')}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string for editing, or valid numbers
+                    if (value === '' || /^\d+$/.test(value)) {
+                      handleInputChange('partySize')(e);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Ensure minimum value of 1 when field loses focus
+                    const numValue = parseInt(e.target.value) || 1;
+                    setFormData(prev => ({ ...prev, partySize: Math.max(1, numValue).toString() }));
+                  }}
                   required
-                  inputProps={{ min: 1 }}
+                  inputProps={{ 
+                    min: 1,
+                    maxLength: 10,
+                    inputMode: 'numeric',
+                    pattern: '[0-9]*'
+                  }}
                 />
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
