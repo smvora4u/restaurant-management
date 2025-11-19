@@ -80,8 +80,49 @@ async function start() {
       }
     });
 
+    // CORS configuration
+    const allowedOrigins = [
+      'https://www.restrowise.com',
+      'https://restrowise.com',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5174',
+    ];
+
+    // Add environment variable for additional origins if needed
+    if (process.env.ALLOWED_ORIGINS) {
+      const additionalOrigins = process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
+      allowedOrigins.push(...additionalOrigins);
+    }
+
+    const corsOptions = {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          // In development, allow all origins for easier testing
+          if (process.env.NODE_ENV !== 'production') {
+            callback(null, true);
+          } else {
+            callback(new Error('Not allowed by CORS'));
+          }
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-restaurant-id', 'x-restaurant-slug'],
+      exposedHeaders: ['Content-Type'],
+    };
+
+    app.use(cors(corsOptions));
+    
+    // Handle preflight OPTIONS requests explicitly
+    app.options('*', cors(corsOptions));
+    
     // Middleware
-    app.use(cors());
     app.use(bodyParser.json());
     
     // Serve uploaded files statically
