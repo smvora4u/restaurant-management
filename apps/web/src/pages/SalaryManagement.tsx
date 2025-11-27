@@ -129,7 +129,7 @@ export default function SalaryManagement() {
     skip: !staffId
   });
 
-  const { data: advanceSummaryData, loading: advanceSummaryLoading, refetch: refetchAdvanceSummary } = useQuery(GET_STAFF_ADVANCE_SUMMARY, {
+  const { data: advanceSummaryData, refetch: refetchAdvanceSummary } = useQuery(GET_STAFF_ADVANCE_SUMMARY, {
     variables: { staffId },
     skip: !staffId
   });
