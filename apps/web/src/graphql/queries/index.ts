@@ -18,3 +18,6 @@ export * from './reservations';
 
 // Admin queries
 export * from './admin';
+
+// Salary queries
+export * from './salary';

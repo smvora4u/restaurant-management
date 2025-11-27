@@ -5,9 +5,13 @@ import { adminAuthResolvers } from './adminAuth.js';
 import { adminQueries, adminMutations } from './adminManagement.js';
 import { staffAuthResolvers } from './staffAuth.js';
 import { staffManagementResolvers } from './staffManagement.js';
+import { salaryManagementResolvers } from './salaryManagement.js';
 import { subscriptionResolvers } from './subscriptions.js';
 
 export const resolvers = {
+  Staff: {
+    ...salaryManagementResolvers.Staff
+  },
   Query: {
     ...queryResolvers,
     ...adminQueries,
@@ -20,6 +24,7 @@ export const resolvers = {
       return await (AuditLog as any).find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit);
     },
     ...staffManagementResolvers.Query,
+    ...salaryManagementResolvers.Query,
   },
   Mutation: {
     ...mutationResolvers,
@@ -28,6 +33,7 @@ export const resolvers = {
     ...adminMutations,
     ...staffAuthResolvers.Mutation,
     ...staffManagementResolvers.Mutation,
+    ...salaryManagementResolvers.Mutation,
     createAuditLog: async (_: any, { input }: any) => {
       const { AuditLog } = await import('../models/index.js');
       const { publishAuditLogCreated } = await import('./subscriptions.js');

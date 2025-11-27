@@ -11,3 +11,6 @@ export { default as AuditLog } from './AuditLog.js';
 export { default as RestaurantFeeConfig } from './RestaurantFeeConfig.js';
 export { default as FeeLedger } from './FeeLedger.js';
 export { default as Settlement } from './Settlement.js';
+export { default as SalaryConfig } from './SalaryConfig.js';
+export { default as SalaryPayment } from './SalaryPayment.js';
+export { default as AdvancePayment } from './AdvancePayment.js';

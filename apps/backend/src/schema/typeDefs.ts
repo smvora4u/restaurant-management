@@ -52,6 +52,7 @@ export const typeDefs = `#graphql
     permissions: [String!]!
     restaurantId: ID!
     isActive: Boolean!
+    salaryConfig: SalaryConfig
     createdAt: String!
     updatedAt: String!
   }
@@ -186,6 +187,14 @@ export const typeDefs = `#graphql
     restaurantFeeConfig(restaurantId: ID!): RestaurantFeeConfig
     settlements(restaurantId: ID!, limit: Int, offset: Int): [Settlement!]!
     dueFeesSummary: [DueFeesSummary!]!
+    
+    # Salary Management queries
+    staffSalaryConfig(staffId: ID!): SalaryConfig
+    staffSalaryPayments(staffId: ID!, limit: Int, offset: Int): SalaryPaymentConnection!
+    staffSalarySummary(staffId: ID!): SalarySummary
+    allStaffSalaryPayments(restaurantId: ID!, limit: Int, offset: Int, paymentStatus: String): SalaryPaymentConnection!
+    staffAdvancePayments(staffId: ID!, limit: Int, offset: Int, isSettled: Boolean): AdvancePaymentConnection!
+    staffAdvanceSummary(staffId: ID!): AdvanceSummary
   }
 
   type Mutation {
@@ -248,6 +257,16 @@ export const typeDefs = `#graphql
     generateWeeklySettlement(restaurantId: ID!, periodStart: String!, periodEnd: String!): Settlement!
     updateFeePaymentStatus(feeLedgerId: ID!, paymentStatus: String!, paymentMethod: String, paymentTransactionId: String, reason: String): FeeLedger!
     payPlatformFees(restaurantId: ID!, paymentMethod: String!, paymentTransactionId: String): PaymentResult!
+    
+    # Salary Management mutations
+    setStaffSalaryConfig(input: SalaryConfigInput!): SalaryConfig!
+    updateStaffSalaryConfig(id: ID!, input: UpdateSalaryConfigInput!): SalaryConfig!
+    createSalaryPayment(input: SalaryPaymentInput!): SalaryPayment!
+    updateSalaryPayment(id: ID!, input: UpdateSalaryPaymentInput!): SalaryPayment!
+    deleteSalaryPayment(id: ID!): Boolean!
+    createAdvancePayment(input: AdvancePaymentInput!): AdvancePayment!
+    updateAdvancePayment(id: ID!, input: UpdateAdvancePaymentInput!): AdvancePayment!
+    deleteAdvancePayment(id: ID!): Boolean!
   }
   type RestaurantFeeConfig {
     restaurantId: ID!
@@ -314,6 +333,95 @@ export const typeDefs = `#graphql
     paidFeesCount: Int!
     totalAmountPaid: Float!
     transactionId: String!
+  }
+
+  type SalaryConfig {
+    id: ID!
+    staffId: ID!
+    restaurantId: ID!
+    salaryType: String!
+    baseSalary: Float
+    hourlyRate: Float
+    currency: String!
+    paymentFrequency: String!
+    effectiveDate: String!
+    notes: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type SalaryPayment {
+    id: ID!
+    staffId: ID!
+    restaurantId: ID!
+    paymentPeriodStart: String!
+    paymentPeriodEnd: String!
+    baseAmount: Float!
+    hoursWorked: Float
+    hourlyRate: Float
+    bonusAmount: Float!
+    deductionAmount: Float!
+    advanceDeduction: Float!
+    totalAmount: Float!
+    paymentStatus: String!
+    paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
+    notes: String
+    createdBy: String!
+    createdById: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type AdvancePayment {
+    id: ID!
+    staffId: ID!
+    restaurantId: ID!
+    amount: Float!
+    paymentStatus: String!
+    paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
+    notes: String
+    isSettled: Boolean!
+    settledAt: String
+    settledByPaymentId: String
+    createdBy: String!
+    createdById: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type AdvancePaymentConnection {
+    data: [AdvancePayment!]!
+    totalCount: Int!
+  }
+
+  type AdvanceSummary {
+    staffId: ID!
+    totalAdvance: Float!
+    totalSettled: Float!
+    pendingSettlement: Float!
+    unsettledCount: Int!
+    currency: String!
+  }
+
+  type SalaryPaymentConnection {
+    data: [SalaryPayment!]!
+    totalCount: Int!
+  }
+
+  type SalarySummary {
+    staffId: ID!
+    staffName: String!
+    totalPaid: Float!
+    totalPending: Float!
+    totalFailed: Float!
+    paymentCount: Int!
+    lastPaymentDate: String
+    currency: String!
   }
 
   input AdminInput {
@@ -432,6 +540,83 @@ export const typeDefs = `#graphql
     partySize: Int!
     status: String
     specialRequests: String
+  }
+
+  input SalaryConfigInput {
+    staffId: ID!
+    restaurantId: ID!
+    salaryType: String!
+    baseSalary: Float
+    hourlyRate: Float
+    currency: String!
+    paymentFrequency: String!
+    effectiveDate: String!
+    notes: String
+  }
+
+  input UpdateSalaryConfigInput {
+    salaryType: String
+    baseSalary: Float
+    hourlyRate: Float
+    currency: String
+    paymentFrequency: String
+    effectiveDate: String
+    notes: String
+    isActive: Boolean
+  }
+
+  input SalaryPaymentInput {
+    staffId: ID!
+    restaurantId: ID!
+    paymentPeriodStart: String!
+    paymentPeriodEnd: String!
+    baseAmount: Float!
+    hoursWorked: Float
+    hourlyRate: Float
+    bonusAmount: Float
+    deductionAmount: Float
+    advanceDeduction: Float
+    totalAmount: Float!
+    paymentStatus: String
+    paymentMethod: String
+    paymentTransactionId: String
+    notes: String
+  }
+
+  input UpdateSalaryPaymentInput {
+    paymentPeriodStart: String
+    paymentPeriodEnd: String
+    baseAmount: Float
+    hoursWorked: Float
+    hourlyRate: Float
+    bonusAmount: Float
+    deductionAmount: Float
+    advanceDeduction: Float
+    totalAmount: Float
+    paymentStatus: String
+    paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
+    notes: String
+  }
+
+  input AdvancePaymentInput {
+    staffId: ID!
+    restaurantId: ID!
+    amount: Float!
+    paymentStatus: String
+    paymentMethod: String
+    paymentTransactionId: String
+    notes: String
+  }
+
+  input UpdateAdvancePaymentInput {
+    amount: Float
+    paymentStatus: String
+    paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
+    notes: String
   }
 
   type SampleDataResponse {

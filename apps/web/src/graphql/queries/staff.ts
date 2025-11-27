@@ -9,6 +9,14 @@ export const GET_STAFF_BY_RESTAURANT = gql`
       role
       permissions
       isActive
+      salaryConfig {
+        id
+        salaryType
+        baseSalary
+        hourlyRate
+        currency
+        paymentFrequency
+      }
       createdAt
       updatedAt
     }

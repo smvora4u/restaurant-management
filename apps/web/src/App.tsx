@@ -23,6 +23,8 @@ import PasswordReset from './pages/PasswordReset';
 import RestaurantSettlements from './pages/RestaurantSettlements';
 import RestaurantFees from './pages/RestaurantFees';
 import KitchenBoard from './pages/KitchenBoard';
+import SalaryManagement from './pages/SalaryManagement';
+import StaffSalaryView from './pages/StaffSalaryView';
 
 // Create theme
 const theme = createTheme({
@@ -190,6 +192,14 @@ function App() {
                 </ProtectedRestaurantRoute>
               } 
             />
+            <Route 
+              path="/restaurant/salary-management/:staffId" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <SalaryManagement />
+                </ProtectedRestaurantRoute>
+              } 
+            />
             
             {/* Staff Routes */}
             <Route 
@@ -214,6 +224,14 @@ function App() {
                 <ProtectedKitchenRoute>
                   <KitchenBoard />
                 </ProtectedKitchenRoute>
+              } 
+            />
+            <Route 
+              path="/staff/salary" 
+              element={
+                <ProtectedStaffRoute>
+                  <StaffSalaryView />
+                </ProtectedStaffRoute>
               } 
             />
             

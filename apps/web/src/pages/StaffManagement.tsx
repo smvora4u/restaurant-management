@@ -37,6 +37,7 @@ import {
   MoreVert,
   Edit,
   Delete,
+  Payment,
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import CryptoJS from 'crypto-js';
@@ -512,6 +513,17 @@ export default function StaffManagement() {
           }}>
             <Edit sx={{ mr: 1 }} />
             Edit
+          </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              if (selectedStaff) {
+                handleMenuClose();
+                navigate(`/restaurant/salary-management/${selectedStaff.id}`);
+              }
+            }}
+          >
+            <Payment sx={{ mr: 1 }} />
+            Manage Salary
           </MenuItem>
           <MenuItem 
             onClick={() => {

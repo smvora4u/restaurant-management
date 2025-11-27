@@ -21,3 +21,6 @@ export * from './reservations';
 
 // Admin mutations
 export * from './admin';
+
+// Salary mutations
+export * from './salary';
