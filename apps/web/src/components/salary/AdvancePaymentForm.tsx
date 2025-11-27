@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,16 +10,21 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
-  Alert,
-  Box
+  Box,
+  Typography,
+  IconButton,
+  Paper,
+  InputAdornment
 } from '@mui/material';
+import { Close as CloseIcon, AttachMoney, Payment, Note } from '@mui/icons-material';
+import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
 
 interface AdvancePaymentFormProps {
   open: boolean;
   mode: 'create' | 'edit';
   initialData?: any;
   currency?: string;
+  restaurant?: any;
   loading?: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
@@ -30,6 +35,7 @@ export default function AdvancePaymentForm({
   mode,
   initialData,
   currency = 'USD',
+  restaurant,
   loading = false,
   onClose,
   onSubmit
@@ -110,89 +116,183 @@ export default function AdvancePaymentForm({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{mode === 'create' ? 'Create Advance Payment' : 'Update Advance Payment'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Advance Amount"
-                type="number"
-                value={formData.amount}
-                onChange={(e) => handleChange('amount', e.target.value)}
-                error={!!errors.amount}
-                helperText={errors.amount}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-                required
-              />
-            </Grid>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          maxHeight: '90vh'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        pb: 1,
+        borderBottom: 1,
+        borderColor: 'divider'
+      }}>
+        <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+          {mode === 'create' ? 'Create Advance Payment' : 'Update Advance Payment'}
+        </Typography>
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ pt: 3, pb: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Amount Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <AttachMoney color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                ADVANCE AMOUNT
+              </Typography>
+            </Box>
+            <TextField
+              fullWidth
+              label="Advance Amount"
+              type="number"
+              value={formData.amount}
+              onChange={(e) => handleChange('amount', e.target.value)}
+              error={!!errors.amount}
+              helperText={errors.amount || "Enter the advance amount to be paid to the staff"}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">{
+                  restaurant 
+                    ? getRestaurantCurrency(restaurant).symbol 
+                    : getCurrencySymbolFromCode(currency)
+                }</InputAdornment>
+              }}
+              required
+              size="small"
+            />
+          </Paper>
 
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Status</InputLabel>
-                <Select
-                  value={formData.paymentStatus}
-                  onChange={(e) => handleChange('paymentStatus', e.target.value)}
-                  label="Payment Status"
-                >
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="paid">Paid</MenuItem>
-                  <MenuItem value="failed">Failed</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+          {/* Payment Status Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Payment color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                PAYMENT STATUS
+              </Typography>
+            </Box>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr', 
+                sm: formData.paymentStatus === 'paid' ? 'repeat(3, 1fr)' : '1fr',
+                md: formData.paymentStatus === 'paid' ? 'repeat(3, 1fr)' : '1fr'
+              }, 
+              gap: 2 
+            }}>
+              <Box>
+                <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={formData.paymentStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      handleChange('paymentStatus', newStatus);
+                      // Clear payment method if status changes away from paid
+                      if (newStatus !== 'paid') {
+                        handleChange('paymentMethod', '');
+                        handleChange('paymentTransactionId', '');
+                      }
+                    }}
+                    label="Payment Status"
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
 
-            {formData.paymentStatus === 'paid' && (
-              <>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.paymentMethod}>
-                    <InputLabel>Payment Method</InputLabel>
-                    <Select
-                      value={formData.paymentMethod}
-                      onChange={(e) => handleChange('paymentMethod', e.target.value)}
-                      label="Payment Method"
-                    >
-                      <MenuItem value="cash">Cash</MenuItem>
-                      <MenuItem value="card">Card</MenuItem>
-                      <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-                      <MenuItem value="other">Other</MenuItem>
-                    </Select>
-                    {errors.paymentMethod && <Alert severity="error" sx={{ mt: 1 }}>{errors.paymentMethod}</Alert>}
-                  </FormControl>
-                </Grid>
+              {formData.paymentStatus === 'paid' ? (
+                <>
+                  <Box>
+                    <FormControl fullWidth error={!!errors.paymentMethod} size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Payment Method</InputLabel>
+                      <Select
+                        value={formData.paymentMethod}
+                        onChange={(e) => handleChange('paymentMethod', e.target.value)}
+                        label="Payment Method"
+                      >
+                        <MenuItem value="cash">Cash</MenuItem>
+                        <MenuItem value="card">Card</MenuItem>
+                        <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                        <MenuItem value="other">Other</MenuItem>
+                      </Select>
+                      {errors.paymentMethod && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                          {errors.paymentMethod}
+                        </Typography>
+                      )}
+                    </FormControl>
+                  </Box>
 
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Transaction ID (Optional)"
-                    value={formData.paymentTransactionId}
-                    onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
-                  />
-                </Grid>
-              </>
-            )}
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Transaction ID (Optional)"
+                      value={formData.paymentTransactionId}
+                      onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
+                      size="small"
+                    />
+                  </Box>
+                </>
+              ) : null}
+            </Box>
+          </Paper>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notes (Optional)"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                placeholder="Reason for advance payment..."
-              />
-            </Grid>
-          </Grid>
+          {/* Notes Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Note color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                ADDITIONAL NOTES
+              </Typography>
+            </Box>
+            <TextField
+              fullWidth
+              label="Notes (Optional)"
+              multiline
+              rows={3}
+              value={formData.notes}
+              onChange={(e) => handleChange('notes', e.target.value)}
+              placeholder="Reason for advance payment..."
+              size="small"
+            />
+          </Paper>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          onClick={onClose} 
+          disabled={loading}
+          size="large"
+          sx={{ minWidth: 100 }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          variant="contained" 
+          disabled={loading}
+          size="large"
+          sx={{ minWidth: 150 }}
+        >
           {loading ? 'Saving...' : mode === 'create' ? 'Create Advance' : 'Update Advance'}
         </Button>
       </DialogActions>

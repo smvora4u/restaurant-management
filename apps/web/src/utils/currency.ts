@@ -137,6 +137,12 @@ export const getCurrencySymbol = (): string => {
   return getCurrentCurrency().symbol;
 };
 
+// Get currency symbol from currency code
+export const getCurrencySymbolFromCode = (currencyCode: string): string => {
+  const currency = CURRENCIES[currencyCode];
+  return currency ? currency.symbol : currencyCode;
+};
+
 // Get currency code
 export const getCurrencyCode = (): string => {
   return getCurrentCurrency().code;

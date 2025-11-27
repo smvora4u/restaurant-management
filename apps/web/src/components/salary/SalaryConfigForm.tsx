@@ -12,8 +12,10 @@ import {
   MenuItem,
   Grid,
   Alert,
-  Box
+  Box,
+  InputAdornment
 } from '@mui/material';
+import { getCurrencySymbolFromCode } from '../../utils/currency';
 
 interface SalaryConfigFormProps {
   open: boolean;
@@ -168,7 +170,7 @@ export default function SalaryConfigForm({
                   error={!!errors.baseSalary}
                   helperText={errors.baseSalary}
                   InputProps={{
-                    startAdornment: <span style={{ marginRight: 8 }}>{formData.currency}</span>
+                    startAdornment: <InputAdornment position="start">{getCurrencySymbolFromCode(formData.currency)}</InputAdornment>
                   }}
                 />
               </Grid>
@@ -185,7 +187,7 @@ export default function SalaryConfigForm({
                   error={!!errors.hourlyRate}
                   helperText={errors.hourlyRate}
                   InputProps={{
-                    startAdornment: <span style={{ marginRight: 8 }}>{formData.currency}</span>
+                    startAdornment: <InputAdornment position="start">{getCurrencySymbolFromCode(formData.currency)}</InputAdornment>
                   }}
                 />
               </Grid>

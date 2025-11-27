@@ -16,6 +16,7 @@ import {
   Payment
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
+import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import SalaryPaymentTable from '../components/salary/SalaryPaymentTable';
 import SalarySummaryCard from '../components/salary/SalarySummaryCard';
@@ -49,6 +50,7 @@ function TabPanel(props: TabPanelProps) {
 export default function StaffSalaryView() {
   const navigate = useNavigate();
   const [staff, setStaff] = useState<any>(null);
+  const [restaurant, setRestaurant] = useState<any>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -61,6 +63,16 @@ export default function StaffSalaryView() {
     }
     const parsedStaff = JSON.parse(staffData);
     setStaff(parsedStaff);
+    
+    // Get restaurant data if available
+    try {
+      const restaurantData = localStorage.getItem('restaurant');
+      if (restaurantData) {
+        setRestaurant(JSON.parse(restaurantData));
+      }
+    } catch (error) {
+      console.error('Error parsing restaurant data:', error);
+    }
   }, [navigate]);
 
   // Queries
@@ -115,7 +127,14 @@ export default function StaffSalaryView() {
           ) : summary ? (
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <SalarySummaryCard summary={summary} />
+                <SalarySummaryCard 
+                  summary={{
+                    ...summary,
+                    currency: restaurant 
+                      ? getRestaurantCurrency(restaurant).symbol 
+                      : getCurrencySymbolFromCode(summary.currency)
+                  }} 
+                />
               </Grid>
             </Grid>
           ) : (
@@ -138,13 +157,23 @@ export default function StaffSalaryView() {
                   {config.baseSalary && (
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body2" color="text.secondary">Base Salary</Typography>
-                      <Typography variant="body1">{config.currency} {config.baseSalary.toFixed(2)}</Typography>
+                      <Typography variant="body1">
+                        {restaurant 
+                          ? getRestaurantCurrency(restaurant).symbol 
+                          : getCurrencySymbolFromCode(config.currency)
+                        } {config.baseSalary.toFixed(2)}
+                      </Typography>
                     </Grid>
                   )}
                   {config.hourlyRate && (
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body2" color="text.secondary">Hourly Rate</Typography>
-                      <Typography variant="body1">{config.currency} {config.hourlyRate.toFixed(2)}</Typography>
+                      <Typography variant="body1">
+                        {restaurant 
+                          ? getRestaurantCurrency(restaurant).symbol 
+                          : getCurrencySymbolFromCode(config.currency)
+                        } {config.hourlyRate.toFixed(2)}
+                      </Typography>
                     </Grid>
                   )}
                   <Grid item xs={12} sm={6}>
@@ -178,7 +207,10 @@ export default function StaffSalaryView() {
               ) : (
                 <SalaryPaymentTable
                   payments={payments}
-                  currency={config?.currency || 'USD'}
+                  currency={restaurant 
+                    ? getRestaurantCurrency(restaurant).symbol 
+                    : getCurrencySymbolFromCode(config?.currency || 'USD')
+                  }
                   canManage={false}
                   page={page}
                   rowsPerPage={rowsPerPage}

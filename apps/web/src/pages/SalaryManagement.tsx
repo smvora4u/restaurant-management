@@ -7,12 +7,6 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Grid,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Snackbar,
   Tabs,
   Tab
@@ -26,6 +20,7 @@ import {
   AccountBalanceWallet
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
+import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../utils/currency';
 import Layout from '../components/Layout';
 import SalaryConfigForm from '../components/salary/SalaryConfigForm';
 import SalaryPaymentForm from '../components/salary/SalaryPaymentForm';
@@ -464,11 +459,16 @@ export default function SalaryManagement() {
               <CircularProgress />
             </Box>
           ) : summary ? (
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <SalarySummaryCard summary={summary} />
-              </Grid>
-            </Grid>
+            <Box>
+              <SalarySummaryCard 
+                summary={{
+                  ...summary,
+                  currency: restaurant 
+                    ? getRestaurantCurrency(restaurant).symbol 
+                    : getCurrencySymbolFromCode(summary.currency)
+                }} 
+              />
+            </Box>
           ) : (
             <Alert severity="info" sx={{ borderRadius: 2 }}>No salary data available</Alert>
           )}
@@ -496,38 +496,48 @@ export default function SalaryManagement() {
                 </Box>
 
                 {config ? (
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+                    <Box>
                       <Typography variant="body2" color="text.secondary">Salary Type</Typography>
                       <Typography variant="body1">{config.salaryType}</Typography>
-                    </Grid>
+                    </Box>
                     {config.baseSalary && (
-                      <Grid item xs={12} sm={6}>
+                      <Box>
                         <Typography variant="body2" color="text.secondary">Base Salary</Typography>
-                        <Typography variant="body1">{config.currency} {config.baseSalary.toFixed(2)}</Typography>
-                      </Grid>
+                        <Typography variant="body1">
+                          {restaurant 
+                            ? getRestaurantCurrency(restaurant).symbol 
+                            : getCurrencySymbolFromCode(config.currency)
+                          } {config.baseSalary.toFixed(2)}
+                        </Typography>
+                      </Box>
                     )}
                     {config.hourlyRate && (
-                      <Grid item xs={12} sm={6}>
+                      <Box>
                         <Typography variant="body2" color="text.secondary">Hourly Rate</Typography>
-                        <Typography variant="body1">{config.currency} {config.hourlyRate.toFixed(2)}</Typography>
-                      </Grid>
+                        <Typography variant="body1">
+                          {restaurant 
+                            ? getRestaurantCurrency(restaurant).symbol 
+                            : getCurrencySymbolFromCode(config.currency)
+                          } {config.hourlyRate.toFixed(2)}
+                        </Typography>
+                      </Box>
                     )}
-                    <Grid item xs={12} sm={6}>
+                    <Box>
                       <Typography variant="body2" color="text.secondary">Payment Frequency</Typography>
                       <Typography variant="body1">{config.paymentFrequency}</Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <Typography variant="body2" color="text.secondary">Effective Date</Typography>
                       <Typography variant="body1">{new Date(config.effectiveDate).toLocaleDateString()}</Typography>
-                    </Grid>
+                    </Box>
                     {config.notes && (
-                      <Grid item xs={12}>
+                      <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' } }}>
                         <Typography variant="body2" color="text.secondary">Notes</Typography>
                         <Typography variant="body1">{config.notes}</Typography>
-                      </Grid>
+                      </Box>
                     )}
-                  </Grid>
+                  </Box>
                 ) : (
                   <Alert severity="info" sx={{ borderRadius: 2 }}>No salary configuration set. Please set one to start managing payments.</Alert>
                 )}
@@ -566,7 +576,10 @@ export default function SalaryManagement() {
               ) : (
                 <SalaryPaymentTable
                   payments={payments}
-                  currency={config?.currency || 'USD'}
+                  currency={restaurant 
+                    ? getRestaurantCurrency(restaurant).symbol 
+                    : getCurrencySymbolFromCode(config?.currency || 'USD')
+                  }
                   onEdit={(payment) => handleOpenPaymentDialog('edit', payment)}
                   onDelete={handleDeletePayment}
                   canManage={true}
@@ -585,79 +598,91 @@ export default function SalaryManagement() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {advanceSummary && (
-              <Grid item xs={12}>
-                <Card sx={{ boxShadow: 3, borderRadius: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+              <Card sx={{ boxShadow: 3, borderRadius: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
                   <Box sx={{ p: 3 }}>
                     <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
                       Advance Payment Summary
                     </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={3}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, gap: 2 }}>
+                      <Box>
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Advance</Typography>
-                        <Typography variant="h6">{advanceSummary.currency} {advanceSummary.totalAdvance.toFixed(2)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
+                        <Typography variant="h6">
+                          {restaurant 
+                            ? getRestaurantCurrency(restaurant).symbol 
+                            : getCurrencySymbolFromCode(advanceSummary.currency)
+                          } {advanceSummary.totalAdvance.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box>
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Settled</Typography>
-                        <Typography variant="h6">{advanceSummary.currency} {advanceSummary.totalSettled.toFixed(2)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
+                        <Typography variant="h6">
+                          {restaurant 
+                            ? getRestaurantCurrency(restaurant).symbol 
+                            : getCurrencySymbolFromCode(advanceSummary.currency)
+                          } {advanceSummary.totalSettled.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box>
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>Pending Settlement</Typography>
                         <Typography variant="h6" sx={{ color: advanceSummary.pendingSettlement > 0 ? 'warning.light' : 'inherit' }}>
-                          {advanceSummary.currency} {advanceSummary.pendingSettlement.toFixed(2)}
+                          {restaurant 
+                            ? getRestaurantCurrency(restaurant).symbol 
+                            : getCurrencySymbolFromCode(advanceSummary.currency)
+                          } {advanceSummary.pendingSettlement.toFixed(2)}
                         </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
+                      </Box>
+                      <Box>
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>Unsettled Count</Typography>
                         <Typography variant="h6">{advanceSummary.unsettledCount}</Typography>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                    </Box>
                   </Box>
                 </Card>
-              </Grid>
             )}
-            <Grid item xs={12}>
-              <Card sx={{ boxShadow: 3, borderRadius: 2 }}>
-                <Box sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>Advance Payment History</Typography>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<Add />}
-                      onClick={() => handleOpenAdvanceDialog('create')}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      Create Advance
-                    </Button>
-                  </Box>
-
-                  {advancesLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                      <CircularProgress />
-                    </Box>
-                  ) : (
-                    <AdvancePaymentTable
-                      advances={advances}
-                      currency={config?.currency || 'USD'}
-                      onEdit={(advance) => handleOpenAdvanceDialog('edit', advance)}
-                      onDelete={handleDeleteAdvance}
-                      canManage={true}
-                      page={advancePage}
-                      rowsPerPage={advanceRowsPerPage}
-                      totalCount={advanceTotalCount}
-                      onPageChange={setAdvancePage}
-                      onRowsPerPageChange={(newRowsPerPage) => {
-                        setAdvanceRowsPerPage(newRowsPerPage);
-                        setAdvancePage(0);
-                      }}
-                    />
-                  )}
+            <Card sx={{ boxShadow: 3, borderRadius: 2 }}>
+              <Box sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>Advance Payment History</Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Add />}
+                    onClick={() => handleOpenAdvanceDialog('create')}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Create Advance
+                  </Button>
                 </Box>
-              </Card>
-            </Grid>
-          </Grid>
+
+                {advancesLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <AdvancePaymentTable
+                    advances={advances}
+                    currency={restaurant 
+                      ? getRestaurantCurrency(restaurant).symbol 
+                      : getCurrencySymbolFromCode(config?.currency || 'USD')
+                    }
+                    onEdit={(advance) => handleOpenAdvanceDialog('edit', advance)}
+                    onDelete={handleDeleteAdvance}
+                    canManage={true}
+                    page={advancePage}
+                    rowsPerPage={advanceRowsPerPage}
+                    totalCount={advanceTotalCount}
+                    onPageChange={setAdvancePage}
+                    onRowsPerPageChange={(newRowsPerPage) => {
+                      setAdvanceRowsPerPage(newRowsPerPage);
+                      setAdvancePage(0);
+                    }}
+                  />
+                )}
+              </Box>
+            </Card>
+          </Box>
         </TabPanel>
 
         <SalaryConfigForm
@@ -675,6 +700,7 @@ export default function SalaryManagement() {
           initialData={selectedPayment}
           salaryConfig={config}
           unsettledAdvance={advanceSummary?.pendingSettlement || 0}
+          restaurant={restaurant}
           loading={createPaymentLoading || updatePaymentLoading}
           onClose={() => {
             setPaymentDialogOpen(false);
@@ -688,6 +714,7 @@ export default function SalaryManagement() {
           mode={advanceMode}
           initialData={selectedAdvance}
           currency={config?.currency || 'USD'}
+          restaurant={restaurant}
           loading={createAdvanceLoading || updateAdvanceLoading}
           onClose={() => {
             setAdvanceDialogOpen(false);
@@ -701,7 +728,7 @@ export default function SalaryManagement() {
           title="Delete Payment"
           message={`Are you sure you want to delete this payment? This action cannot be undone.`}
           onConfirm={confirmDeletePayment}
-          onCancel={() => {
+          onClose={() => {
             setDeleteDialogOpen(false);
             setPaymentToDelete(null);
           }}
@@ -713,7 +740,7 @@ export default function SalaryManagement() {
           title="Delete Advance Payment"
           message={`Are you sure you want to delete this advance payment? This action cannot be undone.`}
           onConfirm={confirmDeleteAdvance}
-          onCancel={() => {
+          onClose={() => {
             setDeleteAdvanceDialogOpen(false);
             setAdvanceToDelete(null);
           }}

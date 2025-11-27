@@ -13,8 +13,14 @@ import {
   Grid,
   Alert,
   Box,
-  Typography
+  Typography,
+  IconButton,
+  Divider,
+  Paper,
+  InputAdornment
 } from '@mui/material';
+import { Close as CloseIcon, CalendarToday, AttachMoney, Calculate, Payment, Note } from '@mui/icons-material';
+import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
 
 interface SalaryPaymentFormProps {
   open: boolean;
@@ -22,6 +28,7 @@ interface SalaryPaymentFormProps {
   initialData?: any;
   salaryConfig?: any;
   unsettledAdvance?: number;
+  restaurant?: any;
   loading?: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
@@ -33,6 +40,7 @@ export default function SalaryPaymentForm({
   initialData,
   salaryConfig,
   unsettledAdvance = 0,
+  restaurant,
   loading = false,
   onClose,
   onSubmit
@@ -200,14 +208,102 @@ export default function SalaryPaymentForm({
     }
   };
 
-  const currency = salaryConfig?.currency || 'USD';
+  // Get currency symbol - prioritize restaurant currency over salary config
+  // Priority: restaurant currency > salary config currency > default USD
+  const currencyCode = restaurant?.settings?.currency || salaryConfig?.currency || 'USD';
+  const currencySymbol = restaurant?.settings?.currency
+    ? getCurrencySymbolFromCode(restaurant.settings.currency)
+    : salaryConfig?.currency
+      ? getCurrencySymbolFromCode(salaryConfig.currency)
+      : getCurrencySymbolFromCode('USD');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{mode === 'create' ? 'Create Salary Payment' : 'Update Salary Payment'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 2 }}>
-          <Grid container spacing={2}>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          maxHeight: '90vh'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        pb: 1,
+        borderBottom: 1,
+        borderColor: 'divider'
+      }}>
+        <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+          {mode === 'create' ? 'Create Salary Payment' : 'Update Salary Payment'}
+        </Typography>
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ pt: 3, pb: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Payment Period Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <CalendarToday color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                PAYMENT PERIOD
+              </Typography>
+            </Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Payment Period Start"
+                  type="date"
+                  value={formData.paymentPeriodStart}
+                  onChange={(e) => handleChange('paymentPeriodStart', e.target.value)}
+                  error={!!errors.paymentPeriodStart}
+                  helperText={errors.paymentPeriodStart}
+                  InputLabelProps={{
+                    shrink: true
+                  }}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Payment Period End"
+                  type="date"
+                  value={formData.paymentPeriodEnd}
+                  onChange={(e) => handleChange('paymentPeriodEnd', e.target.value)}
+                  error={!!errors.paymentPeriodEnd}
+                  helperText={errors.paymentPeriodEnd}
+                  InputLabelProps={{
+                    shrink: true
+                  }}
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* Amount Details Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <AttachMoney color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                AMOUNT DETAILS
+              </Typography>
+            </Box>
+            <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -238,167 +334,230 @@ export default function SalaryPaymentForm({
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Base Amount"
-                type="number"
-                value={formData.baseAmount}
-                onChange={(e) => handleChange('baseAmount', e.target.value)}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-              />
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Base Amount"
+                  type="number"
+                  value={formData.baseAmount}
+                  onChange={(e) => handleChange('baseAmount', e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
+                  }}
+                  size="small"
+                />
+              </Grid>
+
+              {(salaryConfig?.salaryType === 'hourly' || salaryConfig?.salaryType === 'mixed') && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Hours Worked"
+                      type="number"
+                      value={formData.hoursWorked}
+                      onChange={(e) => handleChange('hoursWorked', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Hourly Rate"
+                      type="number"
+                      value={formData.hourlyRate}
+                      onChange={(e) => handleChange('hourlyRate', e.target.value)}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
+                      }}
+                      size="small"
+                    />
+                  </Grid>
+                </>
+              )}
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Bonus Amount"
+                  type="number"
+                  value={formData.bonusAmount}
+                  onChange={(e) => handleChange('bonusAmount', e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
+                  }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Deduction Amount"
+                  type="number"
+                  value={formData.deductionAmount}
+                  onChange={(e) => handleChange('deductionAmount', e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
+                  }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Advance Deduction"
+                  type="number"
+                  value={formData.advanceDeduction}
+                  onChange={(e) => handleChange('advanceDeduction', e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
+                  }}
+                  helperText={unsettledAdvance > 0 ? `Unsettled advances: ${currencySymbol} ${unsettledAdvance.toFixed(2)}` : "Amount deducted for advance payments"}
+                  color={unsettledAdvance > 0 ? "warning" : undefined}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Total Amount"
+                  type="number"
+                  value={formData.totalAmount}
+                  onChange={(e) => handleChange('totalAmount', e.target.value)}
+                  error={!!errors.totalAmount}
+                  helperText={errors.totalAmount || "Calculated automatically"}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Calculate fontSize="small" color="primary" sx={{ mr: 0.5 }} />
+                        {currencySymbol}
+                      </InputAdornment>
+                    ),
+                    readOnly: true
+                  }}
+                  disabled={true}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      bgcolor: 'action.selected',
+                      fontWeight: 600
+                    }
+                  }}
+                  size="small"
+                />
+              </Grid>
             </Grid>
+          </Paper>
 
-            {(salaryConfig?.salaryType === 'hourly' || salaryConfig?.salaryType === 'mixed') && (
-              <>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Hours Worked"
-                    type="number"
-                    value={formData.hoursWorked}
-                    onChange={(e) => handleChange('hoursWorked', e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Hourly Rate"
-                    type="number"
-                    value={formData.hourlyRate}
-                    onChange={(e) => handleChange('hourlyRate', e.target.value)}
-                    InputProps={{
-                      startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                    }}
-                  />
-                </Grid>
-              </>
-            )}
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Bonus Amount"
-                type="number"
-                value={formData.bonusAmount}
-                onChange={(e) => handleChange('bonusAmount', e.target.value)}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Deduction Amount"
-                type="number"
-                value={formData.deductionAmount}
-                onChange={(e) => handleChange('deductionAmount', e.target.value)}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Advance Deduction"
-                type="number"
-                value={formData.advanceDeduction}
-                onChange={(e) => handleChange('advanceDeduction', e.target.value)}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-                helperText={unsettledAdvance > 0 ? `Unsettled advances: ${currency} ${unsettledAdvance.toFixed(2)}` : "Amount deducted for advance payments"}
-                color={unsettledAdvance > 0 ? "warning" : undefined}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Total Amount"
-                type="number"
-                value={formData.totalAmount}
-                onChange={(e) => handleChange('totalAmount', e.target.value)}
-                error={!!errors.totalAmount}
-                helperText={errors.totalAmount}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>{currency}</span>
-                }}
-                disabled={true}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                Calculated automatically
+          {/* Payment Status Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Payment color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                PAYMENT STATUS
               </Typography>
+            </Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={formData.paymentStatus === 'paid' ? 12 : 6} md={formData.paymentStatus === 'paid' ? 4 : 6}>
+                <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={formData.paymentStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      handleChange('paymentStatus', newStatus);
+                      // Clear payment method if status changes away from paid
+                      if (newStatus !== 'paid') {
+                        handleChange('paymentMethod', '');
+                        handleChange('paymentTransactionId', '');
+                      }
+                    }}
+                    label="Payment Status"
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {formData.paymentStatus === 'paid' ? (
+                <>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControl fullWidth error={!!errors.paymentMethod} size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Payment Method</InputLabel>
+                      <Select
+                        value={formData.paymentMethod}
+                        onChange={(e) => handleChange('paymentMethod', e.target.value)}
+                        label="Payment Method"
+                      >
+                        <MenuItem value="cash">Cash</MenuItem>
+                        <MenuItem value="card">Card</MenuItem>
+                        <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                        <MenuItem value="other">Other</MenuItem>
+                      </Select>
+                      {errors.paymentMethod && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                          {errors.paymentMethod}
+                        </Typography>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField
+                      fullWidth
+                      label="Transaction ID (Optional)"
+                      value={formData.paymentTransactionId}
+                      onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                </>
+              ) : null}
             </Grid>
+          </Paper>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Status</InputLabel>
-                <Select
-                  value={formData.paymentStatus}
-                  onChange={(e) => handleChange('paymentStatus', e.target.value)}
-                  label="Payment Status"
-                >
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="paid">Paid</MenuItem>
-                  <MenuItem value="failed">Failed</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {formData.paymentStatus === 'paid' && (
-              <>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.paymentMethod}>
-                    <InputLabel>Payment Method</InputLabel>
-                    <Select
-                      value={formData.paymentMethod}
-                      onChange={(e) => handleChange('paymentMethod', e.target.value)}
-                      label="Payment Method"
-                    >
-                      <MenuItem value="cash">Cash</MenuItem>
-                      <MenuItem value="card">Card</MenuItem>
-                      <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-                      <MenuItem value="other">Other</MenuItem>
-                    </Select>
-                    {errors.paymentMethod && <Alert severity="error" sx={{ mt: 1 }}>{errors.paymentMethod}</Alert>}
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Transaction ID (Optional)"
-                    value={formData.paymentTransactionId}
-                    onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
-                  />
-                </Grid>
-              </>
-            )}
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notes (Optional)"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-              />
-            </Grid>
-          </Grid>
+          {/* Notes Section */}
+          <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Note color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                ADDITIONAL NOTES
+              </Typography>
+            </Box>
+            <TextField
+              fullWidth
+              label="Notes (Optional)"
+              multiline
+              rows={3}
+              value={formData.notes}
+              onChange={(e) => handleChange('notes', e.target.value)}
+              placeholder="Add any additional notes or comments about this payment..."
+              size="small"
+            />
+          </Paper>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+      <DialogActions sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Button 
+          onClick={onClose} 
+          disabled={loading}
+          size="large"
+          sx={{ minWidth: 100 }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          variant="contained" 
+          disabled={loading}
+          size="large"
+          sx={{ minWidth: 150 }}
+        >
           {loading ? 'Saving...' : mode === 'create' ? 'Create Payment' : 'Update Payment'}
         </Button>
       </DialogActions>
