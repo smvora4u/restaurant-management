@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement } from '../models/index.js';
+import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
 
@@ -558,5 +558,205 @@ export const mutationResolvers = {
       totalAmountPaid: totalAmount,
       transactionId: paymentTransactionId
     };
+  },
+  
+  // Purchase Management mutations
+  createPurchaseCategory: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    if (input.restaurantId !== context.restaurant.id) {
+      throw new Error('Unauthorized');
+    }
+    const category = new PurchaseCategory({ ...input, restaurantId: context.restaurant.id });
+    return await category.save();
+  },
+  updatePurchaseCategory: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    return await PurchaseCategory.findOneAndUpdate(
+      { _id: id, restaurantId: context.restaurant.id },
+      { ...input, updatedAt: new Date() },
+      { new: true }
+    );
+  },
+  deletePurchaseCategory: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    // Check if category is used in any purchase items
+    const itemsUsingCategory = await PurchaseItem.countDocuments({ categoryId: id });
+    if (itemsUsingCategory > 0) {
+      throw new Error('Cannot delete category: It is being used in purchase items');
+    }
+    const result = await PurchaseCategory.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
+    return !!result;
+  },
+  createVendor: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    if (input.restaurantId !== context.restaurant.id) {
+      throw new Error('Unauthorized');
+    }
+    const vendor = new Vendor({ ...input, restaurantId: context.restaurant.id });
+    return await vendor.save();
+  },
+  updateVendor: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    return await Vendor.findOneAndUpdate(
+      { _id: id, restaurantId: context.restaurant.id },
+      { ...input, updatedAt: new Date() },
+      { new: true }
+    );
+  },
+  deleteVendor: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    // Check if vendor is used in any purchases
+    const purchasesUsingVendor = await Purchase.countDocuments({ vendorId: id });
+    if (purchasesUsingVendor > 0) {
+      throw new Error('Cannot delete vendor: It is being used in purchases');
+    }
+    const result = await Vendor.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
+    return !!result;
+  },
+  createPurchase: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    if (input.restaurantId !== context.restaurant.id) {
+      throw new Error('Unauthorized');
+    }
+    
+    // Validate vendor exists
+    const vendor = await Vendor.findOne({ _id: input.vendorId, restaurantId: context.restaurant.id });
+    if (!vendor) {
+      throw new Error('Vendor not found');
+    }
+    
+    // Get restaurant currency
+    const Restaurant = (await import('../models/Restaurant.js')).default;
+    const restaurant = await Restaurant.findById(context.restaurant.id);
+    const currency = input.currency || restaurant?.settings?.currency || 'USD';
+    
+    // Create purchase
+    const purchase = new Purchase({
+      restaurantId: context.restaurant.id,
+      vendorId: input.vendorId,
+      purchaseDate: new Date(input.purchaseDate),
+      totalAmount: input.totalAmount,
+      currency,
+      paymentStatus: input.paymentStatus || 'unpaid',
+      paymentMethod: input.paymentMethod,
+      invoiceNumber: input.invoiceNumber,
+      notes: input.notes,
+      createdBy: context.restaurant.email || 'Restaurant',
+      createdById: context.restaurant.id
+    });
+    const savedPurchase = await purchase.save();
+    
+    // Create purchase items
+    const items = [];
+    for (const itemInput of input.items) {
+      const totalPrice = itemInput.quantity * itemInput.unitPrice;
+      const item = new PurchaseItem({
+        purchaseId: savedPurchase._id,
+        itemName: itemInput.itemName,
+        quantity: itemInput.quantity,
+        unit: itemInput.unit,
+        unitPrice: itemInput.unitPrice,
+        totalPrice,
+        categoryId: itemInput.categoryId || null,
+        notes: itemInput.notes
+      });
+      const savedItem = await item.save();
+      items.push(savedItem);
+    }
+    
+    // Populate items for return
+    (savedPurchase as any).items = items;
+    (savedPurchase as any).vendor = vendor;
+    
+    return savedPurchase;
+  },
+  updatePurchase: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    
+    const purchase = await Purchase.findOne({ _id: id, restaurantId: context.restaurant.id });
+    if (!purchase) {
+      throw new Error('Purchase not found');
+    }
+    
+    // Update purchase fields
+    if (input.vendorId) {
+      const vendor = await Vendor.findOne({ _id: input.vendorId, restaurantId: context.restaurant.id });
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+      purchase.vendorId = input.vendorId;
+    }
+    if (input.purchaseDate) purchase.purchaseDate = new Date(input.purchaseDate);
+    if (input.totalAmount !== undefined) purchase.totalAmount = input.totalAmount;
+    if (input.currency) purchase.currency = input.currency;
+    if (input.paymentStatus) purchase.paymentStatus = input.paymentStatus;
+    if (input.paymentMethod !== undefined) purchase.paymentMethod = input.paymentMethod;
+    if (input.invoiceNumber !== undefined) purchase.invoiceNumber = input.invoiceNumber;
+    if (input.notes !== undefined) purchase.notes = input.notes;
+    
+    await purchase.save();
+    
+    // Update items if provided
+    if (input.items) {
+      // Delete existing items
+      await PurchaseItem.deleteMany({ purchaseId: purchase._id });
+      
+      // Create new items
+      const items = [];
+      for (const itemInput of input.items) {
+        const totalPrice = itemInput.quantity * itemInput.unitPrice;
+        const item = new PurchaseItem({
+          purchaseId: purchase._id,
+          itemName: itemInput.itemName,
+          quantity: itemInput.quantity,
+          unit: itemInput.unit,
+          unitPrice: itemInput.unitPrice,
+          totalPrice,
+          categoryId: itemInput.categoryId || null,
+          notes: itemInput.notes
+        });
+        const savedItem = await item.save();
+        items.push(savedItem);
+      }
+      (purchase as any).items = items;
+    } else {
+      // Populate existing items
+      const items = await PurchaseItem.find({ purchaseId: purchase._id }).populate('categoryId');
+      (purchase as any).items = items;
+    }
+    
+    // Populate vendor
+    await purchase.populate('vendorId');
+    (purchase as any).vendor = purchase.vendorId;
+    
+    return purchase;
+  },
+  deletePurchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    
+    // Delete purchase items first
+    await PurchaseItem.deleteMany({ purchaseId: id });
+    
+    // Delete purchase
+    const result = await Purchase.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
+    return !!result;
   },
 };

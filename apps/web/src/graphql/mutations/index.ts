@@ -24,3 +24,6 @@ export * from './admin';
 
 // Salary mutations
 export * from './salary';
+
+// Purchase mutations
+export * from './purchases';

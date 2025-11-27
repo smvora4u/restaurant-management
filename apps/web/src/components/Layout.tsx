@@ -30,6 +30,7 @@ import {
   QrCode as QRCodeIcon,
   Person as PersonIcon,
   Payment as PaymentIcon,
+  Inventory as InventoryIcon,
   Logout,
 } from '@mui/icons-material';
 
@@ -46,6 +47,7 @@ const menuItems = [
   { text: 'Orders', icon: <OrderIcon />, path: '/restaurant/orders' },
   { text: 'Reservations', icon: <ReservationIcon />, path: '/restaurant/reservations' },
   { text: 'Staff', icon: <PersonIcon />, path: '/restaurant/staff-management' },
+  { text: 'Purchases', icon: <InventoryIcon />, path: '/restaurant/purchases' },
   { text: 'Fees', icon: <PaymentIcon />, path: '/restaurant/fees' },
   { text: 'QR Codes', icon: <QRCodeIcon />, path: '/restaurant/qr-codes' },
 ];

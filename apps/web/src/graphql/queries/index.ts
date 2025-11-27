@@ -21,3 +21,6 @@ export * from './admin';
 
 // Salary queries
 export * from './salary';
+
+// Purchase queries
+export * from './purchases';

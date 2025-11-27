@@ -12,6 +12,28 @@ export const resolvers = {
   Staff: {
     ...salaryManagementResolvers.Staff
   },
+  Purchase: {
+    vendor: async (parent: any) => {
+      if (parent.vendor || parent.vendorId) {
+        const { Vendor } = await import('../models/index.js');
+        return await Vendor.findById(parent.vendorId || parent.vendor?._id || parent.vendor);
+      }
+      return null;
+    },
+    items: async (parent: any) => {
+      const { PurchaseItem } = await import('../models/index.js');
+      return await PurchaseItem.find({ purchaseId: parent._id || parent.id }).populate('categoryId');
+    }
+  },
+  PurchaseItem: {
+    category: async (parent: any) => {
+      if (parent.categoryId) {
+        const { PurchaseCategory } = await import('../models/index.js');
+        return await PurchaseCategory.findById(parent.categoryId);
+      }
+      return null;
+    }
+  },
   Query: {
     ...queryResolvers,
     ...adminQueries,

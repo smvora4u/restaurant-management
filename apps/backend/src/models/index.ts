@@ -14,3 +14,7 @@ export { default as Settlement } from './Settlement.js';
 export { default as SalaryConfig } from './SalaryConfig.js';
 export { default as SalaryPayment } from './SalaryPayment.js';
 export { default as AdvancePayment } from './AdvancePayment.js';
+export { default as PurchaseCategory } from './PurchaseCategory.js';
+export { default as Vendor } from './Vendor.js';
+export { default as PurchaseItem } from './PurchaseItem.js';
+export { default as Purchase } from './Purchase.js';

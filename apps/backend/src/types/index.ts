@@ -216,6 +216,129 @@ export interface StaffInput {
   permissions?: string[];
 }
 
+export interface IPurchaseCategory extends Document {
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IVendor extends Document {
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPurchaseItem extends Document {
+  _id: Types.ObjectId;
+  purchaseId: Types.ObjectId;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  totalPrice: number;
+  categoryId?: Types.ObjectId;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPurchase extends Document {
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
+  vendorId: Types.ObjectId;
+  purchaseDate: Date;
+  totalAmount: number;
+  currency: string;
+  paymentStatus: 'paid' | 'unpaid' | 'partial';
+  paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
+  invoiceNumber?: string;
+  notes?: string;
+  createdBy: string;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PurchaseCategoryInput {
+  restaurantId: string;
+  name: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface UpdatePurchaseCategoryInput {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface VendorInput {
+  restaurantId: string;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateVendorInput {
+  name?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  isActive?: boolean;
+}
+
+export interface PurchaseItemInput {
+  itemName: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  categoryId?: string;
+  notes?: string;
+}
+
+export interface PurchaseInput {
+  restaurantId: string;
+  vendorId: string;
+  purchaseDate: string;
+  items: PurchaseItemInput[];
+  totalAmount: number;
+  currency?: string;
+  paymentStatus?: 'paid' | 'unpaid' | 'partial';
+  paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
+  invoiceNumber?: string;
+  notes?: string;
+}
+
+export interface UpdatePurchaseInput {
+  vendorId?: string;
+  purchaseDate?: string;
+  items?: PurchaseItemInput[];
+  totalAmount?: number;
+  currency?: string;
+  paymentStatus?: 'paid' | 'unpaid' | 'partial';
+  paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
+  invoiceNumber?: string;
+  notes?: string;
+}
+
 // GraphQL Context
 export interface GraphQLContext {
   restaurant?: {

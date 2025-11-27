@@ -1,4 +1,4 @@
-import { MenuItem, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant } from '../models/index.js';
+import { MenuItem, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import mongoose from 'mongoose';
 
@@ -287,5 +287,99 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     return await Reservation.findOne({ _id: id, restaurantId: context.restaurant.id });
+  },
+  
+  // Purchase Management queries
+  purchaseCategories: async (_: any, { restaurantId }: { restaurantId: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const authRestaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (authRestaurantId !== restaurantId) {
+      throw new Error('Unauthorized');
+    }
+    return await PurchaseCategory.find({ restaurantId, isActive: true }).sort({ name: 1 });
+  },
+  purchaseCategory: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    return await PurchaseCategory.findOne({ _id: id, restaurantId });
+  },
+  vendors: async (_: any, { restaurantId }: { restaurantId: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const authRestaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (authRestaurantId !== restaurantId) {
+      throw new Error('Unauthorized');
+    }
+    return await Vendor.find({ restaurantId, isActive: true }).sort({ name: 1 });
+  },
+  vendor: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    return await Vendor.findOne({ _id: id, restaurantId });
+  },
+  purchases: async (_: any, { restaurantId, limit = 50, offset = 0, vendorId, categoryId, paymentStatus, startDate, endDate }: any, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const authRestaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (authRestaurantId !== restaurantId) {
+      throw new Error('Unauthorized');
+    }
+    
+    const query: any = { restaurantId };
+    if (vendorId) query.vendorId = vendorId;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (startDate || endDate) {
+      query.purchaseDate = {};
+      if (startDate) query.purchaseDate.$gte = new Date(startDate);
+      if (endDate) query.purchaseDate.$lte = new Date(endDate);
+    }
+    
+    const [data, totalCount] = await Promise.all([
+      Purchase.find(query)
+        .populate('vendorId')
+        .sort({ purchaseDate: -1 })
+        .skip(offset)
+        .limit(limit),
+      Purchase.countDocuments(query)
+    ]);
+    
+    // If categoryId filter is provided, filter by items
+    let filteredData = data;
+    if (categoryId) {
+      const purchaseIds = await PurchaseItem.distinct('purchaseId', { categoryId });
+      filteredData = data.filter((p: any) => purchaseIds.includes(p._id));
+    }
+    
+    // Populate items for each purchase
+    for (const purchase of filteredData) {
+      const items = await PurchaseItem.find({ purchaseId: purchase._id }).populate('categoryId');
+      (purchase as any).items = items;
+    }
+    
+    return {
+      data: filteredData,
+      totalCount: categoryId ? filteredData.length : totalCount
+    };
+  },
+  purchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    const purchase = await Purchase.findOne({ _id: id, restaurantId }).populate('vendorId');
+    if (!purchase) return null;
+    
+    const items = await PurchaseItem.find({ purchaseId: purchase._id }).populate('categoryId');
+    (purchase as any).items = items;
+    
+    return purchase;
   },
 };

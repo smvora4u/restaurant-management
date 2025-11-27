@@ -195,6 +195,14 @@ export const typeDefs = `#graphql
     allStaffSalaryPayments(restaurantId: ID!, limit: Int, offset: Int, paymentStatus: String): SalaryPaymentConnection!
     staffAdvancePayments(staffId: ID!, limit: Int, offset: Int, isSettled: Boolean): AdvancePaymentConnection!
     staffAdvanceSummary(staffId: ID!): AdvanceSummary
+    
+    # Purchase Management queries
+    purchaseCategories(restaurantId: ID!): [PurchaseCategory!]!
+    purchaseCategory(id: ID!): PurchaseCategory
+    vendors(restaurantId: ID!): [Vendor!]!
+    vendor(id: ID!): Vendor
+    purchases(restaurantId: ID!, limit: Int, offset: Int, vendorId: ID, categoryId: ID, paymentStatus: String, startDate: String, endDate: String): PurchaseConnection!
+    purchase(id: ID!): Purchase
   }
 
   type Mutation {
@@ -267,6 +275,17 @@ export const typeDefs = `#graphql
     createAdvancePayment(input: AdvancePaymentInput!): AdvancePayment!
     updateAdvancePayment(id: ID!, input: UpdateAdvancePaymentInput!): AdvancePayment!
     deleteAdvancePayment(id: ID!): Boolean!
+    
+    # Purchase Management mutations
+    createPurchaseCategory(input: PurchaseCategoryInput!): PurchaseCategory!
+    updatePurchaseCategory(id: ID!, input: UpdatePurchaseCategoryInput!): PurchaseCategory!
+    deletePurchaseCategory(id: ID!): Boolean!
+    createVendor(input: VendorInput!): Vendor!
+    updateVendor(id: ID!, input: UpdateVendorInput!): Vendor!
+    deleteVendor(id: ID!): Boolean!
+    createPurchase(input: PurchaseInput!): Purchase!
+    updatePurchase(id: ID!, input: UpdatePurchaseInput!): Purchase!
+    deletePurchase(id: ID!): Boolean!
   }
   type RestaurantFeeConfig {
     restaurantId: ID!
@@ -422,6 +441,69 @@ export const typeDefs = `#graphql
     paymentCount: Int!
     lastPaymentDate: String
     currency: String!
+  }
+
+  type PurchaseCategory {
+    id: ID!
+    restaurantId: ID!
+    name: String!
+    description: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type Vendor {
+    id: ID!
+    restaurantId: ID!
+    name: String!
+    contactPerson: String
+    phone: String
+    email: String
+    address: String
+    notes: String
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type PurchaseItem {
+    id: ID!
+    purchaseId: ID!
+    itemName: String!
+    quantity: Float!
+    unit: String!
+    unitPrice: Float!
+    totalPrice: Float!
+    categoryId: ID
+    category: PurchaseCategory
+    notes: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type Purchase {
+    id: ID!
+    restaurantId: ID!
+    vendorId: ID!
+    vendor: Vendor
+    purchaseDate: String!
+    items: [PurchaseItem!]!
+    totalAmount: Float!
+    currency: String!
+    paymentStatus: String!
+    paymentMethod: String
+    invoiceNumber: String
+    notes: String
+    createdBy: String!
+    createdById: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type PurchaseConnection {
+    data: [Purchase!]!
+    totalCount: Int!
   }
 
   input AdminInput {
@@ -616,6 +698,74 @@ export const typeDefs = `#graphql
     paymentMethod: String
     paymentTransactionId: String
     paidAt: String
+    notes: String
+  }
+
+  input PurchaseCategoryInput {
+    restaurantId: ID!
+    name: String!
+    description: String
+    isActive: Boolean
+  }
+
+  input UpdatePurchaseCategoryInput {
+    name: String
+    description: String
+    isActive: Boolean
+  }
+
+  input VendorInput {
+    restaurantId: ID!
+    name: String!
+    contactPerson: String
+    phone: String
+    email: String
+    address: String
+    notes: String
+    isActive: Boolean
+  }
+
+  input UpdateVendorInput {
+    name: String
+    contactPerson: String
+    phone: String
+    email: String
+    address: String
+    notes: String
+    isActive: Boolean
+  }
+
+  input PurchaseItemInput {
+    itemName: String!
+    quantity: Float!
+    unit: String!
+    unitPrice: Float!
+    categoryId: ID
+    notes: String
+  }
+
+  input PurchaseInput {
+    restaurantId: ID!
+    vendorId: ID!
+    purchaseDate: String!
+    items: [PurchaseItemInput!]!
+    totalAmount: Float!
+    currency: String
+    paymentStatus: String
+    paymentMethod: String
+    invoiceNumber: String
+    notes: String
+  }
+
+  input UpdatePurchaseInput {
+    vendorId: ID
+    purchaseDate: String
+    items: [PurchaseItemInput!]
+    totalAmount: Float
+    currency: String
+    paymentStatus: String
+    paymentMethod: String
+    invoiceNumber: String
     notes: String
   }
 
