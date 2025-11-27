@@ -92,7 +92,7 @@ export default function AdvancePaymentTable({
               advances.map((advance) => (
                 <TableRow key={advance.id}>
                   <TableCell>
-                    {formatDate(advance.createdAt).date}
+                    {formatDate(advance.createdAt)}
                   </TableCell>
                   <TableCell align="right">
                     <strong>{currency} {advance.amount.toFixed(2)}</strong>
@@ -110,7 +110,7 @@ export default function AdvancePaymentTable({
                         <Chip label="Settled" color="success" size="small" />
                         {advance.settledAt && (
                           <div style={{ fontSize: '0.75rem', color: 'text.secondary', marginTop: 4 }}>
-                            {formatDate(advance.settledAt).date}
+                            {formatDate(advance.settledAt)}
                           </div>
                         )}
                       </Box>

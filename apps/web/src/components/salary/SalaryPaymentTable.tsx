@@ -106,7 +106,7 @@ export default function SalaryPaymentTable({
               payments.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell>
-                    {formatDate(payment.paymentPeriodStart).date} - {formatDate(payment.paymentPeriodEnd).date}
+                    {formatDate(payment.paymentPeriodStart)} - {formatDate(payment.paymentPeriodEnd)}
                   </TableCell>
                   <TableCell align="right">
                     {currency} {payment.baseAmount.toFixed(2)}
@@ -151,7 +151,7 @@ export default function SalaryPaymentTable({
                         )}
                         {payment.paidAt && (
                           <div style={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                            {formatDate(payment.paidAt).date}
+                            {formatDate(payment.paidAt)}
                           </div>
                         )}
                       </Box>
