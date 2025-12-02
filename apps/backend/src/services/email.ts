@@ -34,8 +34,8 @@ export interface EmailConfig {
 
 export function getEmailConfig(): EmailConfig {
   const service = (process.env.EMAIL_SERVICE as 'gmail' | 'sendgrid') || 'gmail';
-  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@restaurant.com';
-  const fromName = process.env.EMAIL_FROM_NAME || 'Restaurant Management';
+  const from = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@restrowise.com';
+  const fromName = process.env.EMAIL_FROM_NAME || 'Restrowise Management';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
   return {
