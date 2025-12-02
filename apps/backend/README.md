@@ -67,6 +67,11 @@ npm start
 ```env
 PORT=4000
 MONGO_URL=mongodb://localhost:27017/restaurant
+
+# Super Admin Configuration (Optional)
+# If not set, a secure random password will be auto-generated and displayed in console
+SUPER_ADMIN_EMAIL=admin@platform.com
+SUPER_ADMIN_PASSWORD=your-secure-password-here
 ```
 
 ## 📊 GraphQL Playground

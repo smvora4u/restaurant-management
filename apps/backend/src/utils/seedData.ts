@@ -4,18 +4,30 @@ import crypto from 'crypto';
 
 export const seedInitialData = async () => {
   try {
+    // Get super admin credentials from environment variables or use defaults
+    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@platform.com';
+    let superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+    let passwordWasGenerated = false;
+    
+    // Generate secure random password if not provided
+    if (!superAdminPassword) {
+      superAdminPassword = crypto.randomBytes(16).toString('hex');
+      passwordWasGenerated = true;
+    }
+    
     // Check if super admin already exists
-    let superAdmin = await Admin.findOne({ email: 'admin@platform.com' });
+    let superAdmin = await Admin.findOne({ email: superAdminEmail });
     
     if (!superAdmin) {
       console.log('🌱 Creating super admin...');
+      
       // Hash plaintext password: SHA256 first (as frontend does), then bcrypt
-      const sha256Hash = crypto.createHash('sha256').update('admin123').digest('hex');
+      const sha256Hash = crypto.createHash('sha256').update(superAdminPassword).digest('hex');
       const hashedPassword = await hashPassword(sha256Hash);
       
       superAdmin = new Admin({
         name: 'Super Admin',
-        email: 'admin@platform.com',
+        email: superAdminEmail,
         password: hashedPassword,
         role: 'super_admin',
         permissions: ['manage_restaurants', 'view_analytics', 'manage_users', 'system_settings', 'view_all_data'],
@@ -24,6 +36,15 @@ export const seedInitialData = async () => {
       
       await superAdmin.save();
       console.log('✅ Super admin created');
+      
+      // Log password only if it was auto-generated
+      if (passwordWasGenerated) {
+        console.log('⚠️  No SUPER_ADMIN_PASSWORD set. Generated secure password:', superAdminPassword);
+        console.log('⚠️  IMPORTANT: Save this password securely!');
+        console.log('⚠️  Set SUPER_ADMIN_PASSWORD in .env to use a custom password.');
+      } else {
+        console.log('✅ Super admin password set from SUPER_ADMIN_PASSWORD environment variable');
+      }
     }
 
     // Check if restaurant already exists
@@ -122,7 +143,7 @@ export const seedInitialData = async () => {
     }
     
     console.log('🎉 Database seeding completed!');
-    console.log(`👑 Super admin login: admin@platform.com / admin123`);
+    console.log(`👑 Super admin email: ${superAdminEmail}`);
     console.log(`📧 Demo restaurant login: demo@restaurant.com / demo123`);
     console.log(`🔗 Restaurant slug: ${restaurant.slug}`);
   } catch (error) {
