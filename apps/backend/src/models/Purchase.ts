@@ -46,3 +46,4 @@ PurchaseSchema.index({ restaurantId: 1, paymentStatus: 1 });
 
 export default mongoose.model<IPurchase>('Purchase', PurchaseSchema);
 
+

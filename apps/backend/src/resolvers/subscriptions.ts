@@ -102,11 +102,41 @@ export const subscriptionResolvers = {
   },
 };
 
+// Helper function to convert Mongoose order document to plain object with id field
+const convertOrderToPlainObject = (order: any) => {
+  // Convert Mongoose document to plain object if it has toObject method
+  let orderObj: any;
+  if (order && typeof order.toObject === 'function') {
+    orderObj = order.toObject();
+  } else {
+    orderObj = { ...order };
+  }
+  
+  // Get the id from _id or existing id field
+  const orderId = order._id?.toString() || order.id || orderObj._id?.toString() || orderObj.id;
+  const restaurantId = order.restaurantId?.toString() || orderObj.restaurantId?.toString();
+  
+  // Build the order data with proper id field
+  const orderData: any = {
+    ...orderObj,
+    id: orderId,
+    restaurantId: restaurantId
+  };
+  
+  // Remove _id field if it exists to avoid confusion
+  if (orderData._id !== undefined) {
+    delete orderData._id;
+  }
+  
+  return orderData;
+};
+
 export const publishOrderUpdated = async (order: IOrder) => {
   // Ensure restaurantId is a string for consistent comparison in subscriptions
   const restaurantIdStr = order.restaurantId?.toString();
   console.log('Publishing order updated event for restaurant:', restaurantIdStr);
-  await pubsub.publish(ORDER_UPDATED, { ...order, restaurantId: restaurantIdStr });
+  const orderData = convertOrderToPlainObject(order);
+  await pubsub.publish(ORDER_UPDATED, orderData);
 };
 
 export const publishFeeLedgerUpdated = async (feeLedger: any) => {
@@ -147,14 +177,16 @@ export const publishOrderItemStatusUpdated = async (order: IOrder) => {
   // Ensure restaurantId is a string for consistent comparison in subscriptions
   const restaurantIdStr = order.restaurantId?.toString();
   console.log('Publishing order item status updated event for restaurant:', restaurantIdStr);
-  await pubsub.publish(ORDER_ITEM_STATUS_UPDATED, { ...order, restaurantId: restaurantIdStr });
+  const orderData = convertOrderToPlainObject(order);
+  await pubsub.publish(ORDER_ITEM_STATUS_UPDATED, orderData);
 };
 
 export const publishNewOrder = async (order: IOrder) => {
   // Ensure restaurantId is a string for consistent comparison in subscriptions
   const restaurantIdStr = order.restaurantId?.toString();
   console.log('Publishing new order event for restaurant:', restaurantIdStr);
-  await pubsub.publish(NEW_ORDER, { ...order, restaurantId: restaurantIdStr });
+  const orderData = convertOrderToPlainObject(order);
+  await pubsub.publish(NEW_ORDER, orderData);
 };
 
 export const publishAuditLogCreated = async (log: any) => {

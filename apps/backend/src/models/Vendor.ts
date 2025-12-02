@@ -31,3 +31,4 @@ VendorSchema.index({ restaurantId: 1, isActive: 1 });
 
 export default mongoose.model<IVendor>('Vendor', VendorSchema);
 
+
