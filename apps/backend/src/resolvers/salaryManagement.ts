@@ -238,8 +238,9 @@ export const salaryManagementResolvers = {
         .reduce((sum, p) => sum + calculateActualPaid(p), 0);
 
       const paidPayments = payments.filter(p => p.paymentStatus === 'paid');
-      const lastPaymentDate = paidPayments.length > 0
-        ? paidPayments.sort((a, b) => (b.paidAt?.getTime() || 0) - (a.paidAt?.getTime() || 0))[0].paidAt?.toISOString()
+      const sortedPaidPayments = paidPayments.sort((a, b) => (b.paidAt?.getTime() || 0) - (a.paidAt?.getTime() || 0));
+      const lastPaymentDate = sortedPaidPayments.length > 0 && sortedPaidPayments[0]?.paidAt
+        ? sortedPaidPayments[0].paidAt.toISOString()
         : null;
 
       // Get currency from active salary config or default
@@ -512,7 +513,6 @@ export const salaryManagementResolvers = {
         salaryType: updatedConfig.salaryType,
         baseSalary: updatedConfig.baseSalary,
         hourlyRate: updatedConfig.hourlyRate,
-        commissionRate: updatedConfig.commissionRate,
         currency: updatedConfig.currency,
         paymentFrequency: updatedConfig.paymentFrequency,
         effectiveDate: updatedConfig.effectiveDate.toISOString(),

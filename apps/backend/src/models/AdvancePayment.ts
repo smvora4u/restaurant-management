@@ -43,7 +43,7 @@ AdvancePaymentSchema.index({ staffId: 1, createdAt: -1 });
 // Index for restaurant queries
 AdvancePaymentSchema.index({ restaurantId: 1, createdAt: -1 });
 // Index for unsettled advances
-AdvancePaymentSchema.index({ staffId: 1, isSettled: 1, paymentStatus: 'paid' });
+AdvancePaymentSchema.index({ staffId: 1, isSettled: 1 }, { partialFilterExpression: { paymentStatus: 'paid' } });
 
 export default mongoose.model<IAdvancePayment>('AdvancePayment', AdvancePaymentSchema);
 
