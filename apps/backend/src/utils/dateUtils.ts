@@ -3,18 +3,20 @@
  */
 
 /**
- * Parses a YYYY-MM-DD date string as a local date (not UTC)
+ * Parses a YYYY-MM-DD date string as a UTC date (at UTC midnight)
  * This ensures that dates from date input fields are interpreted correctly
- * regardless of the server's timezone.
+ * regardless of the server's timezone. By using UTC midnight, the date
+ * remains consistent when serialized to ISO format and deserialized in different timezones.
  * 
  * @param dateString - Date string in YYYY-MM-DD format (e.g., "2024-12-04")
- * @returns Date object representing the date at local midnight
+ * @returns Date object representing the date at UTC midnight
  * @throws Error if dateString is not in YYYY-MM-DD format
  * 
  * @example
- * // User in EST selects "2024-12-04"
- * // parseLocalDateString("2024-12-04") returns Date for Dec 4, 2024 00:00:00 EST
- * // Instead of Dec 4, 2024 00:00:00 UTC (which would be Dec 3, 2024 19:00:00 EST)
+ * // User selects "2024-12-04"
+ * // parseLocalDateString("2024-12-04") returns Date for Dec 4, 2024 00:00:00 UTC
+ * // When serialized to ISO: "2024-12-04T00:00:00.000Z"
+ * // When parsed in any timezone, the date part remains Dec 4, 2024
  */
 export const parseLocalDateString = (dateString: string): Date => {
   // Split the date string and parse components
@@ -34,8 +36,24 @@ export const parseLocalDateString = (dateString: string): Date => {
     throw new Error(`Invalid date format: expected YYYY-MM-DD, got "${dateString}"`);
   }
   
-  // Create a Date object at local midnight for the given date
+  // Create a Date object at UTC midnight for the given date
+  // Using Date.UTC ensures the date is created in UTC, not local timezone
   // Note: month is 0-indexed in JavaScript Date constructor
-  return new Date(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+/**
+ * Formats a Date object as a YYYY-MM-DD string in UTC
+ * This extracts the date part from a Date object, ensuring consistency
+ * regardless of timezone. Useful for serializing date-only fields.
+ * 
+ * @param date - Date object to format
+ * @returns Date string in YYYY-MM-DD format in UTC
+ */
+export const formatDateAsString = (date: Date): string => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 

@@ -85,10 +85,13 @@ export default function SalaryPaymentForm({
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       
+      // Auto-fill base amount from salary config if available
+      const baseAmount = salaryConfig?.baseSalary ? salaryConfig.baseSalary.toString() : '';
+      
       setFormData({
         paymentPeriodStart: firstDay.toISOString().split('T')[0],
         paymentPeriodEnd: lastDay.toISOString().split('T')[0],
-        baseAmount: '',
+        baseAmount: baseAmount,
         hoursWorked: '',
         hourlyRate: salaryConfig?.hourlyRate?.toString() || '',
         bonusAmount: '',
@@ -111,16 +114,25 @@ export default function SalaryPaymentForm({
     const rate = parseFloat(formData.hourlyRate) || 0;
     const bonus = parseFloat(formData.bonusAmount) || 0;
     const deduction = parseFloat(formData.deductionAmount) || 0;
-    const advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
+    let advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
 
-    let total = base;
-    
-    // Add hourly calculation if applicable
+    // Calculate available salary (before advance deduction)
+    let availableSalary = base;
     if (hours > 0 && rate > 0) {
-      total += hours * rate;
+      availableSalary += hours * rate;
     }
-    
-    total += bonus - deduction - advanceDeduction;
+    availableSalary += bonus - deduction;
+
+    // Cap advance deduction to available salary (standard salary management practice)
+    // Employee cannot receive negative payment - only deduct what's available
+    const maxAdvanceDeduction = Math.max(0, availableSalary);
+    if (advanceDeduction > maxAdvanceDeduction) {
+      advanceDeduction = maxAdvanceDeduction;
+      // Auto-adjust the advance deduction field if it exceeds available salary
+      setFormData(prev => ({ ...prev, advanceDeduction: maxAdvanceDeduction.toFixed(2) }));
+    }
+
+    const total = availableSalary - advanceDeduction;
 
     setFormData(prev => ({ ...prev, totalAmount: Math.max(0, total).toFixed(2) }));
   }, [formData.baseAmount, formData.hoursWorked, formData.hourlyRate, formData.bonusAmount, formData.deductionAmount, formData.advanceDeduction]);
@@ -144,8 +156,27 @@ export default function SalaryPaymentForm({
       }
     }
 
-    if (!formData.totalAmount || parseFloat(formData.totalAmount) <= 0) {
-      newErrors.totalAmount = 'Total amount must be greater than 0';
+    // Calculate available salary to check if 0 total is valid
+    const base = parseFloat(formData.baseAmount) || 0;
+    const hours = parseFloat(formData.hoursWorked) || 0;
+    const rate = parseFloat(formData.hourlyRate) || 0;
+    const bonus = parseFloat(formData.bonusAmount) || 0;
+    const deduction = parseFloat(formData.deductionAmount) || 0;
+    const advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
+    const availableSalary = base + (hours * rate) + bonus - deduction;
+    const totalAmount = parseFloat(formData.totalAmount) || 0;
+    
+    // Allow 0 total amount if advance deduction equals available salary (valid scenario)
+    // This happens when all salary is used to settle advances - this is a standard practice
+    const isZeroTotalValid = totalAmount === 0 && advanceDeduction > 0 && Math.abs(advanceDeduction - availableSalary) < 0.01;
+    
+    if (!formData.totalAmount) {
+      newErrors.totalAmount = 'Total amount is required';
+    } else if (totalAmount < 0) {
+      newErrors.totalAmount = 'Total amount cannot be negative';
+    } else if (totalAmount === 0 && !isZeroTotalValid) {
+      // Only show error if total is 0 but it's not a valid scenario (advance deduction should equal available salary)
+      newErrors.totalAmount = 'Total amount must be greater than 0, or advance deduction should equal available salary';
     }
 
     if (formData.paymentStatus === 'paid' && !formData.paymentMethod) {
@@ -303,37 +334,26 @@ export default function SalaryPaymentForm({
                 AMOUNT DETAILS
               </Typography>
             </Box>
+            {(() => {
+              const base = parseFloat(formData.baseAmount) || 0;
+              const hours = parseFloat(formData.hoursWorked) || 0;
+              const rate = parseFloat(formData.hourlyRate) || 0;
+              const bonus = parseFloat(formData.bonusAmount) || 0;
+              const deduction = parseFloat(formData.deductionAmount) || 0;
+              const availableSalary = base + (hours * rate) + bonus - deduction;
+              const advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
+              const exceedsAvailable = advanceDeduction > availableSalary;
+              
+              return exceedsAvailable && unsettledAdvance > availableSalary ? (
+                <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Advance deduction exceeds available salary.</strong> Only {currencySymbol} {availableSalary.toFixed(2)} can be deducted from this payment. 
+                    The remaining {currencySymbol} {(advanceDeduction - availableSalary).toFixed(2)} will remain unsettled and can be deducted from future payments.
+                  </Typography>
+                </Alert>
+              ) : null;
+            })()}
             <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Payment Period Start"
-                type="date"
-                value={formData.paymentPeriodStart}
-                onChange={(e) => handleChange('paymentPeriodStart', e.target.value)}
-                error={!!errors.paymentPeriodStart}
-                helperText={errors.paymentPeriodStart}
-                InputLabelProps={{
-                  shrink: true
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Payment Period End"
-                type="date"
-                value={formData.paymentPeriodEnd}
-                onChange={(e) => handleChange('paymentPeriodEnd', e.target.value)}
-                error={!!errors.paymentPeriodEnd}
-                helperText={errors.paymentPeriodEnd}
-                InputLabelProps={{
-                  shrink: true
-                }}
-              />
-            </Grid>
-
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -415,8 +435,33 @@ export default function SalaryPaymentForm({
                   InputProps={{
                     startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment>
                   }}
-                  helperText={unsettledAdvance > 0 ? `Unsettled advances: ${currencySymbol} ${unsettledAdvance.toFixed(2)}` : "Amount deducted for advance payments"}
-                  color={unsettledAdvance > 0 ? "warning" : undefined}
+                  helperText={(() => {
+                    const base = parseFloat(formData.baseAmount) || 0;
+                    const hours = parseFloat(formData.hoursWorked) || 0;
+                    const rate = parseFloat(formData.hourlyRate) || 0;
+                    const bonus = parseFloat(formData.bonusAmount) || 0;
+                    const deduction = parseFloat(formData.deductionAmount) || 0;
+                    const availableSalary = base + (hours * rate) + bonus - deduction;
+                    const advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
+                    
+                    if (unsettledAdvance > 0 && advanceDeduction > availableSalary) {
+                      return `Warning: Only ${currencySymbol} ${availableSalary.toFixed(2)} can be deducted. Remaining ${currencySymbol} ${(advanceDeduction - availableSalary).toFixed(2)} will be carried forward.`;
+                    }
+                    if (unsettledAdvance > 0) {
+                      return `Unsettled advances: ${currencySymbol} ${unsettledAdvance.toFixed(2)}`;
+                    }
+                    return "Amount deducted for advance payments";
+                  })()}
+                  color={(() => {
+                    const base = parseFloat(formData.baseAmount) || 0;
+                    const hours = parseFloat(formData.hoursWorked) || 0;
+                    const rate = parseFloat(formData.hourlyRate) || 0;
+                    const bonus = parseFloat(formData.bonusAmount) || 0;
+                    const deduction = parseFloat(formData.deductionAmount) || 0;
+                    const availableSalary = base + (hours * rate) + bonus - deduction;
+                    const advanceDeduction = parseFloat(formData.advanceDeduction) || 0;
+                    return (unsettledAdvance > 0 || advanceDeduction > availableSalary) ? "warning" : undefined;
+                  })()}
                   size="small"
                 />
               </Grid>

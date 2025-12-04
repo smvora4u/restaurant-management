@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { SalaryConfig, SalaryPayment, AdvancePayment, Staff, Restaurant, AuditLog } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishAuditLogCreated } from './subscriptions.js';
-import { parseLocalDateString } from '../utils/dateUtils.js';
+import { parseLocalDateString, formatDateAsString } from '../utils/dateUtils.js';
 
 // Helper function to check if user can access staff data
 const canAccessStaff = async (staffId: string, context: GraphQLContext): Promise<{ staff: any; canAccess: boolean }> => {
@@ -347,7 +347,7 @@ export const salaryManagementResolvers = {
           staffId: advance.staffId.toString(),
           restaurantId: advance.restaurantId.toString(),
           amount: advance.amount,
-          advanceDate: (advance.advanceDate || advance.paidAt || advance.createdAt).toISOString(),
+          advanceDate: formatDateAsString(advance.advanceDate || advance.paidAt || advance.createdAt),
           paymentStatus: advance.paymentStatus,
           paymentMethod: advance.paymentMethod,
           paymentTransactionId: advance.paymentTransactionId,
@@ -539,6 +539,12 @@ export const salaryManagementResolvers = {
         throw new Error('Staff does not belong to the specified restaurant');
       }
 
+      // Calculate available salary (before advance deduction)
+      const availableSalary = input.baseAmount + 
+        (input.hoursWorked && input.hourlyRate ? input.hoursWorked * input.hourlyRate : 0) +
+        (input.bonusAmount || 0) -
+        (input.deductionAmount || 0);
+
       // Calculate advance deduction from unsettled advances
       let advanceDeduction = input.advanceDeduction || 0;
       const unsettledAdvances = await AdvancePayment.find({
@@ -549,18 +555,17 @@ export const salaryManagementResolvers = {
 
       // If advance deduction not explicitly provided, calculate from unsettled advances
       if (!input.advanceDeduction && unsettledAdvances.length > 0) {
-        // Deduct all unsettled advances
-        advanceDeduction = unsettledAdvances.reduce((sum, advance) => sum + advance.amount, 0);
+        // Deduct all unsettled advances, but cap to available salary
+        const totalUnsettled = unsettledAdvances.reduce((sum, advance) => sum + advance.amount, 0);
+        advanceDeduction = Math.min(totalUnsettled, Math.max(0, availableSalary));
+      } else if (advanceDeduction > 0) {
+        // Cap advance deduction to available salary (standard salary management practice)
+        // Employee cannot receive negative payment - only deduct what's available
+        advanceDeduction = Math.min(advanceDeduction, Math.max(0, availableSalary));
       }
 
       // Calculate final total amount
-      const baseTotal = input.baseAmount + 
-        (input.hoursWorked && input.hourlyRate ? input.hoursWorked * input.hourlyRate : 0) +
-        (input.bonusAmount || 0) -
-        (input.deductionAmount || 0) -
-        advanceDeduction;
-      
-      const finalTotalAmount = Math.max(0, baseTotal); // Ensure non-negative
+      const finalTotalAmount = Math.max(0, availableSalary - advanceDeduction);
 
       const payment = new SalaryPayment({
         staffId: new mongoose.Types.ObjectId(input.staffId),
@@ -691,7 +696,91 @@ export const salaryManagementResolvers = {
         }
       }
 
+      // Calculate available salary (before advance deduction)
+      // Use input values if provided, otherwise use existing payment values
+      const baseAmount = input.baseAmount !== undefined ? input.baseAmount : payment.baseAmount;
+      const hoursWorked = input.hoursWorked !== undefined ? input.hoursWorked : payment.hoursWorked;
+      const hourlyRate = input.hourlyRate !== undefined ? input.hourlyRate : payment.hourlyRate;
+      const bonusAmount = input.bonusAmount !== undefined ? (input.bonusAmount || 0) : (payment.bonusAmount || 0);
+      const deductionAmount = input.deductionAmount !== undefined ? (input.deductionAmount || 0) : (payment.deductionAmount || 0);
+      
+      const availableSalary = baseAmount + 
+        (hoursWorked && hourlyRate ? hoursWorked * hourlyRate : 0) +
+        bonusAmount -
+        deductionAmount;
+
+      // Handle advance deduction changes
+      const oldAdvanceDeduction = payment.advanceDeduction || 0;
+      let newAdvanceDeduction = input.advanceDeduction !== undefined ? input.advanceDeduction : oldAdvanceDeduction;
+      
+      // Cap advance deduction to available salary (standard salary management practice)
+      // Employee cannot receive negative payment - only deduct what's available
+      if (newAdvanceDeduction > 0) {
+        newAdvanceDeduction = Math.min(newAdvanceDeduction, Math.max(0, availableSalary));
+      }
+      
+      const paymentId = new mongoose.Types.ObjectId(id);
+
+      // If advance deduction decreased, unsettle advances that were settled by this payment
+      if (newAdvanceDeduction < oldAdvanceDeduction) {
+        const amountToUnsettle = oldAdvanceDeduction - newAdvanceDeduction;
+        const settledAdvances = await AdvancePayment.find({
+          staffId: payment.staffId,
+          settledByPaymentId: paymentId,
+          isSettled: true
+        }).sort({ settledAt: -1 }); // Most recently settled first
+
+        let remainingToUnsettle = amountToUnsettle;
+        for (const advance of settledAdvances) {
+          if (remainingToUnsettle <= 0) break;
+
+          if (advance.amount <= remainingToUnsettle) {
+            // Fully unsettle this advance
+            advance.isSettled = false;
+            advance.settledAt = undefined;
+            advance.settledByPaymentId = undefined;
+            await advance.save();
+            remainingToUnsettle -= advance.amount;
+          } else {
+            // Partially unsettle - create a new unsettled advance for the remaining amount
+            const unsettledAmount = remainingToUnsettle;
+            const remainingSettledAmount = advance.amount - unsettledAmount;
+
+            // Create new unsettled advance
+            const newUnsettledAdvance = new AdvancePayment({
+              staffId: advance.staffId,
+              restaurantId: advance.restaurantId,
+              amount: unsettledAmount,
+              advanceDate: advance.advanceDate,
+              paymentStatus: advance.paymentStatus,
+              paymentMethod: advance.paymentMethod,
+              paymentTransactionId: advance.paymentTransactionId,
+              notes: advance.notes,
+              isSettled: false,
+              createdBy: advance.createdBy,
+              createdById: advance.createdById
+            });
+            await newUnsettledAdvance.save();
+
+            // Update the original advance to reflect the remaining settled amount
+            advance.amount = remainingSettledAmount;
+            await advance.save();
+            remainingToUnsettle = 0;
+          }
+        }
+      }
+
       const updateData: any = { ...input };
+      
+      // Update advance deduction with capped value
+      if (input.advanceDeduction !== undefined) {
+        updateData.advanceDeduction = newAdvanceDeduction;
+      }
+      
+      // Recalculate total amount based on capped advance deduction
+      const finalTotalAmount = Math.max(0, availableSalary - newAdvanceDeduction);
+      updateData.totalAmount = finalTotalAmount;
+      
       if (input.paymentPeriodStart) {
         updateData.paymentPeriodStart = new Date(input.paymentPeriodStart);
       }
@@ -710,6 +799,111 @@ export const salaryManagementResolvers = {
 
       if (!updatedPayment) {
         throw new Error('Failed to update salary payment');
+      }
+
+      // Check if payment has advance deduction but no advances are settled by it
+      // This handles the case where payments were created before the settlement logic was added
+      const advancesSettledByThisPayment = await AdvancePayment.find({
+        staffId: payment.staffId,
+        settledByPaymentId: paymentId,
+        isSettled: true
+      });
+      const totalSettledByThisPayment = advancesSettledByThisPayment.reduce((sum, a) => sum + a.amount, 0);
+      
+      // If payment has advance deduction but advances aren't settled, settle them now
+      if (newAdvanceDeduction > 0 && totalSettledByThisPayment < newAdvanceDeduction) {
+        const amountToSettle = newAdvanceDeduction - totalSettledByThisPayment;
+        const unsettledAdvances = await AdvancePayment.find({
+          staffId: payment.staffId,
+          paymentStatus: 'paid',
+          isSettled: false
+        }).sort({ createdAt: 1 }); // Oldest first
+
+        let remainingToSettle = amountToSettle;
+        for (const advance of unsettledAdvances) {
+          if (remainingToSettle <= 0) break;
+
+          const settleAmount = Math.min(advance.amount, remainingToSettle);
+          if (settleAmount >= advance.amount) {
+            // Fully settle this advance
+            advance.isSettled = true;
+            advance.settledAt = new Date();
+            advance.settledByPaymentId = paymentId;
+            await advance.save();
+            remainingToSettle -= advance.amount;
+          } else {
+            // Partially settle - create a new advance for the remaining amount
+            const remainingAdvance = new AdvancePayment({
+              staffId: advance.staffId,
+              restaurantId: advance.restaurantId,
+              amount: advance.amount - settleAmount,
+              advanceDate: advance.advanceDate,
+              paymentStatus: advance.paymentStatus,
+              paymentMethod: advance.paymentMethod,
+              paymentTransactionId: advance.paymentTransactionId,
+              notes: advance.notes,
+              isSettled: false,
+              createdBy: advance.createdBy,
+              createdById: advance.createdById
+            });
+            await remainingAdvance.save();
+
+            // Update the original advance to reflect the settled amount
+            advance.isSettled = true;
+            advance.settledAt = new Date();
+            advance.settledByPaymentId = paymentId;
+            advance.amount = settleAmount;
+            await advance.save();
+            remainingToSettle -= settleAmount;
+          }
+        }
+      } else if (newAdvanceDeduction > oldAdvanceDeduction) {
+        // If advance deduction increased, settle additional advances
+        const amountToSettle = newAdvanceDeduction - oldAdvanceDeduction;
+        const unsettledAdvances = await AdvancePayment.find({
+          staffId: payment.staffId,
+          paymentStatus: 'paid',
+          isSettled: false
+        }).sort({ createdAt: 1 }); // Oldest first
+
+        let remainingToSettle = amountToSettle;
+        for (const advance of unsettledAdvances) {
+          if (remainingToSettle <= 0) break;
+
+          const settleAmount = Math.min(advance.amount, remainingToSettle);
+          if (settleAmount >= advance.amount) {
+            // Fully settle this advance
+            advance.isSettled = true;
+            advance.settledAt = new Date();
+            advance.settledByPaymentId = paymentId;
+            await advance.save();
+            remainingToSettle -= advance.amount;
+          } else {
+            // Partially settle - create a new advance for the remaining amount
+            const remainingAdvance = new AdvancePayment({
+              staffId: advance.staffId,
+              restaurantId: advance.restaurantId,
+              amount: advance.amount - settleAmount,
+              advanceDate: advance.advanceDate,
+              paymentStatus: advance.paymentStatus,
+              paymentMethod: advance.paymentMethod,
+              paymentTransactionId: advance.paymentTransactionId,
+              notes: advance.notes,
+              isSettled: false,
+              createdBy: advance.createdBy,
+              createdById: advance.createdById
+            });
+            await remainingAdvance.save();
+
+            // Update the original advance to reflect the settled amount
+            advance.isSettled = true;
+            advance.settledAt = new Date();
+            advance.settledByPaymentId = paymentId;
+            advance.amount = settleAmount;
+            await advance.save();
+            remainingToSettle -= settleAmount;
+          }
+        }
       }
 
       // Create audit log
@@ -838,7 +1032,7 @@ export const salaryManagementResolvers = {
         staffId: advance.staffId.toString(),
         restaurantId: advance.restaurantId.toString(),
         amount: advance.amount,
-        advanceDate: (advance.advanceDate || advance.paidAt || advance.createdAt).toISOString(),
+        advanceDate: formatDateAsString(advance.advanceDate || advance.paidAt || advance.createdAt),
         paymentStatus: advance.paymentStatus,
         paymentMethod: advance.paymentMethod,
         paymentTransactionId: advance.paymentTransactionId,
@@ -909,7 +1103,7 @@ export const salaryManagementResolvers = {
         staffId: updatedAdvance.staffId.toString(),
         restaurantId: updatedAdvance.restaurantId.toString(),
         amount: updatedAdvance.amount,
-        advanceDate: (updatedAdvance.advanceDate || updatedAdvance.paidAt || updatedAdvance.createdAt).toISOString(),
+        advanceDate: formatDateAsString(updatedAdvance.advanceDate || updatedAdvance.paidAt || updatedAdvance.createdAt),
         paymentStatus: updatedAdvance.paymentStatus,
         paymentMethod: updatedAdvance.paymentMethod,
         paymentTransactionId: updatedAdvance.paymentTransactionId,

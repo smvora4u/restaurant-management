@@ -25,14 +25,21 @@ export const formatDate = (dateString: string | Date | number | undefined | null
     }
     // If it's a string, try to parse it
     else {
+      // Check if it's a date-only string (YYYY-MM-DD)
+      // Date-only strings are parsed as UTC midnight, so we use UTC methods for consistency
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        date = new Date(dateString + 'T00:00:00.000Z');
+      }
       // Check if it's a numeric string (Unix timestamp)
-      const numericValue = Number(dateString);
-      if (!isNaN(numericValue) && numericValue > 0) {
-        // It's a Unix timestamp as a string
-        date = new Date(numericValue);
-      } else {
-        // It's a regular date string (ISO format, etc.)
-        date = new Date(dateString);
+      else {
+        const numericValue = Number(dateString);
+        if (!isNaN(numericValue) && numericValue > 0) {
+          // It's a Unix timestamp as a string
+          date = new Date(numericValue);
+        } else {
+          // It's a regular date string (ISO format, etc.)
+          date = new Date(dateString);
+        }
       }
     }
     
@@ -40,6 +47,17 @@ export const formatDate = (dateString: string | Date | number | undefined | null
     if (isNaN(date.getTime())) {
       console.warn('Invalid date received:', dateString, 'Type:', typeof dateString);
       return 'Invalid Date';
+    }
+    
+    // For date-only strings, use UTC methods to ensure consistent display
+    // For other dates, use local methods as before
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC'
+      });
     }
     
     return date.toLocaleDateString('en-US', {
@@ -176,16 +194,27 @@ export const getLocalDateString = (): string => {
 };
 
 /**
- * Converts an ISO date string to local date string (YYYY-MM-DD) for date input fields
- * This ensures the date input shows the correct local date regardless of timezone
- * @param isoString - ISO date string (e.g., "2024-01-15T10:30:00.000Z")
- * @returns Date string in YYYY-MM-DD format in local timezone
+ * Converts an ISO date string or date-only string to local date string (YYYY-MM-DD) for date input fields
+ * This ensures the date input shows the correct date regardless of timezone.
+ * Handles both ISO strings (e.g., "2024-01-15T10:30:00.000Z") and date-only strings (e.g., "2024-01-15").
+ * For date-only strings, returns them as-is since they're already in the correct format.
+ * For ISO strings, extracts the UTC date part to avoid timezone shifts.
+ * 
+ * @param dateString - ISO date string (e.g., "2024-01-15T10:30:00.000Z") or date-only string (e.g., "2024-01-15")
+ * @returns Date string in YYYY-MM-DD format
  */
-export const isoToLocalDateString = (isoString: string): string => {
-  const date = new Date(isoString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+export const isoToLocalDateString = (dateString: string): string => {
+  // If it's already a date-only string (YYYY-MM-DD), return it as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+  
+  // Otherwise, parse as ISO string and extract UTC date part
+  // Using UTC methods ensures we get the correct date regardless of browser timezone
+  const date = new Date(dateString);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 

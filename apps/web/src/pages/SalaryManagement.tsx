@@ -201,6 +201,8 @@ export default function SalaryManagement() {
       setSelectedPayment(null);
       refetchPayments();
       refetchSummary();
+      refetchAdvances();
+      refetchAdvanceSummary();
       setSnackbar({
         open: true,
         message: 'Salary payment updated successfully!',

@@ -18,6 +18,7 @@ import { formatDate } from '../../utils/dateFormatting';
 interface AdvancePayment {
   id: string;
   amount: number;
+  advanceDate: string;
   paymentStatus: string;
   paymentMethod?: string;
   paymentTransactionId?: string;
@@ -92,7 +93,7 @@ export default function AdvancePaymentTable({
               advances.map((advance) => (
                 <TableRow key={advance.id}>
                   <TableCell>
-                    {formatDate(advance.createdAt)}
+                    {formatDate(advance.advanceDate)}
                   </TableCell>
                   <TableCell align="right">
                     <strong>{currency} {advance.amount.toFixed(2)}</strong>
