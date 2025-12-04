@@ -4,6 +4,7 @@ export interface IAdvancePayment extends Document {
   staffId: mongoose.Types.ObjectId;
   restaurantId: mongoose.Types.ObjectId;
   amount: number;
+  advanceDate: Date; // Actual date when advance is given
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentMethod?: 'cash' | 'card' | 'bank_transfer' | 'other';
   paymentTransactionId?: string;
@@ -22,6 +23,7 @@ const AdvancePaymentSchema = new Schema<IAdvancePayment>({
   staffId: { type: Schema.Types.ObjectId, ref: 'Staff', required: true },
   restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   amount: { type: Number, required: true },
+  advanceDate: { type: Date, required: true, default: Date.now }, // Actual date when advance is given
   paymentStatus: { 
     type: String, 
     enum: ['pending', 'paid', 'failed'], 

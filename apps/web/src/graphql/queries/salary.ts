@@ -105,6 +105,7 @@ export const GET_STAFF_ADVANCE_PAYMENTS = gql`
         staffId
         restaurantId
         amount
+        advanceDate
         paymentStatus
         paymentMethod
         paymentTransactionId

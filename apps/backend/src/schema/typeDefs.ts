@@ -399,6 +399,7 @@ export const typeDefs = `#graphql
     staffId: ID!
     restaurantId: ID!
     amount: Float!
+    advanceDate: String!
     paymentStatus: String!
     paymentMethod: String
     paymentTransactionId: String
@@ -686,6 +687,7 @@ export const typeDefs = `#graphql
     staffId: ID!
     restaurantId: ID!
     amount: Float!
+    advanceDate: String!
     paymentStatus: String
     paymentMethod: String
     paymentTransactionId: String
@@ -694,6 +696,7 @@ export const typeDefs = `#graphql
 
   input UpdateAdvancePaymentInput {
     amount: Float
+    advanceDate: String
     paymentStatus: String
     paymentMethod: String
     paymentTransactionId: String

@@ -42,6 +42,7 @@ export default function AdvancePaymentForm({
 }: AdvancePaymentFormProps) {
   const [formData, setFormData] = useState({
     amount: '',
+    advanceDate: new Date().toISOString().split('T')[0],
     paymentStatus: 'paid',
     paymentMethod: '',
     paymentTransactionId: '',
@@ -54,6 +55,7 @@ export default function AdvancePaymentForm({
     if (initialData && mode === 'edit') {
       setFormData({
         amount: initialData.amount?.toString() || '',
+        advanceDate: initialData.advanceDate ? new Date(initialData.advanceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         paymentStatus: initialData.paymentStatus || 'paid',
         paymentMethod: initialData.paymentMethod || '',
         paymentTransactionId: initialData.paymentTransactionId || '',
@@ -62,6 +64,7 @@ export default function AdvancePaymentForm({
     } else {
       setFormData({
         amount: '',
+        advanceDate: new Date().toISOString().split('T')[0],
         paymentStatus: 'paid',
         paymentMethod: '',
         paymentTransactionId: '',
@@ -76,6 +79,10 @@ export default function AdvancePaymentForm({
 
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Amount must be greater than 0';
+    }
+
+    if (!formData.advanceDate) {
+      newErrors.advanceDate = 'Advance date is required';
     }
 
     if (formData.paymentStatus === 'paid' && !formData.paymentMethod) {
@@ -93,6 +100,7 @@ export default function AdvancePaymentForm({
 
     const submitData: any = {
       amount: parseFloat(formData.amount),
+      advanceDate: formData.advanceDate,
       paymentStatus: formData.paymentStatus,
       notes: formData.notes || undefined
     };
@@ -159,24 +167,40 @@ export default function AdvancePaymentForm({
                 ADVANCE AMOUNT
               </Typography>
             </Box>
-            <TextField
-              fullWidth
-              label="Advance Amount"
-              type="number"
-              value={formData.amount}
-              onChange={(e) => handleChange('amount', e.target.value)}
-              error={!!errors.amount}
-              helperText={errors.amount || "Enter the advance amount to be paid to the staff"}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">{
-                  restaurant 
-                    ? getRestaurantCurrency(restaurant).symbol 
-                    : getCurrencySymbolFromCode(currency)
-                }</InputAdornment>
-              }}
-              required
-              size="small"
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Advance Amount"
+                type="number"
+                value={formData.amount}
+                onChange={(e) => handleChange('amount', e.target.value)}
+                error={!!errors.amount}
+                helperText={errors.amount || "Enter the advance amount to be paid to the staff"}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">{
+                    restaurant 
+                      ? getRestaurantCurrency(restaurant).symbol 
+                      : getCurrencySymbolFromCode(currency)
+                  }</InputAdornment>
+                }}
+                required
+                size="small"
+              />
+              <TextField
+                fullWidth
+                label="Advance Date"
+                type="date"
+                value={formData.advanceDate}
+                onChange={(e) => handleChange('advanceDate', e.target.value)}
+                error={!!errors.advanceDate}
+                helperText={errors.advanceDate || "Select the actual date when the advance is given"}
+                InputLabelProps={{
+                  shrink: true
+                }}
+                required
+                size="small"
+              />
+            </Box>
           </Paper>
 
           {/* Payment Status Section */}

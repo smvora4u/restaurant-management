@@ -346,6 +346,7 @@ export const salaryManagementResolvers = {
           staffId: advance.staffId.toString(),
           restaurantId: advance.restaurantId.toString(),
           amount: advance.amount,
+          advanceDate: (advance.advanceDate || advance.paidAt || advance.createdAt).toISOString(),
           paymentStatus: advance.paymentStatus,
           paymentMethod: advance.paymentMethod,
           paymentTransactionId: advance.paymentTransactionId,
@@ -804,6 +805,7 @@ export const salaryManagementResolvers = {
         staffId: new mongoose.Types.ObjectId(input.staffId),
         restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
         amount: input.amount,
+        advanceDate: new Date(input.advanceDate),
         paymentStatus: input.paymentStatus || 'paid',
         paymentMethod: input.paymentMethod,
         paymentTransactionId: input.paymentTransactionId,
@@ -835,6 +837,7 @@ export const salaryManagementResolvers = {
         staffId: advance.staffId.toString(),
         restaurantId: advance.restaurantId.toString(),
         amount: advance.amount,
+        advanceDate: (advance.advanceDate || advance.paidAt || advance.createdAt).toISOString(),
         paymentStatus: advance.paymentStatus,
         paymentMethod: advance.paymentMethod,
         paymentTransactionId: advance.paymentTransactionId,
@@ -869,6 +872,9 @@ export const salaryManagementResolvers = {
       }
 
       const updateData: any = { ...input };
+      if (input.advanceDate) {
+        updateData.advanceDate = new Date(input.advanceDate);
+      }
       if (input.paidAt) {
         updateData.paidAt = new Date(input.paidAt);
       }
@@ -902,6 +908,7 @@ export const salaryManagementResolvers = {
         staffId: updatedAdvance.staffId.toString(),
         restaurantId: updatedAdvance.restaurantId.toString(),
         amount: updatedAdvance.amount,
+        advanceDate: (updatedAdvance.advanceDate || updatedAdvance.paidAt || updatedAdvance.createdAt).toISOString(),
         paymentStatus: updatedAdvance.paymentStatus,
         paymentMethod: updatedAdvance.paymentMethod,
         paymentTransactionId: updatedAdvance.paymentTransactionId,

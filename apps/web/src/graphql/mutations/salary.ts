@@ -109,6 +109,7 @@ export const CREATE_ADVANCE_PAYMENT = gql`
       staffId
       restaurantId
       amount
+      advanceDate
       paymentStatus
       paymentMethod
       paymentTransactionId
@@ -132,6 +133,7 @@ export const UPDATE_ADVANCE_PAYMENT = gql`
       staffId
       restaurantId
       amount
+      advanceDate
       paymentStatus
       paymentMethod
       paymentTransactionId
