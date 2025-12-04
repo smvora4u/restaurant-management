@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { SalaryConfig, SalaryPayment, AdvancePayment, Staff, Restaurant, AuditLog } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishAuditLogCreated } from './subscriptions.js';
+import { parseLocalDateString } from '../utils/dateUtils.js';
 
 // Helper function to check if user can access staff data
 const canAccessStaff = async (staffId: string, context: GraphQLContext): Promise<{ staff: any; canAccess: boolean }> => {
@@ -805,7 +806,7 @@ export const salaryManagementResolvers = {
         staffId: new mongoose.Types.ObjectId(input.staffId),
         restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
         amount: input.amount,
-        advanceDate: new Date(input.advanceDate),
+        advanceDate: parseLocalDateString(input.advanceDate),
         paymentStatus: input.paymentStatus || 'paid',
         paymentMethod: input.paymentMethod,
         paymentTransactionId: input.paymentTransactionId,
@@ -873,7 +874,7 @@ export const salaryManagementResolvers = {
 
       const updateData: any = { ...input };
       if (input.advanceDate) {
-        updateData.advanceDate = new Date(input.advanceDate);
+        updateData.advanceDate = parseLocalDateString(input.advanceDate);
       }
       if (input.paidAt) {
         updateData.paidAt = new Date(input.paidAt);

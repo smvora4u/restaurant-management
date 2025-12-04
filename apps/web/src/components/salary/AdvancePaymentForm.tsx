@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, AttachMoney, Payment, Note } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
+import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
 
 interface AdvancePaymentFormProps {
   open: boolean;
@@ -42,7 +43,7 @@ export default function AdvancePaymentForm({
 }: AdvancePaymentFormProps) {
   const [formData, setFormData] = useState({
     amount: '',
-    advanceDate: new Date().toISOString().split('T')[0],
+    advanceDate: getLocalDateString(),
     paymentStatus: 'paid',
     paymentMethod: '',
     paymentTransactionId: '',
@@ -55,7 +56,7 @@ export default function AdvancePaymentForm({
     if (initialData && mode === 'edit') {
       setFormData({
         amount: initialData.amount?.toString() || '',
-        advanceDate: initialData.advanceDate ? new Date(initialData.advanceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        advanceDate: initialData.advanceDate ? isoToLocalDateString(initialData.advanceDate) : getLocalDateString(),
         paymentStatus: initialData.paymentStatus || 'paid',
         paymentMethod: initialData.paymentMethod || '',
         paymentTransactionId: initialData.paymentTransactionId || '',
@@ -64,7 +65,7 @@ export default function AdvancePaymentForm({
     } else {
       setFormData({
         amount: '',
-        advanceDate: new Date().toISOString().split('T')[0],
+        advanceDate: getLocalDateString(),
         paymentStatus: 'paid',
         paymentMethod: '',
         paymentTransactionId: '',
@@ -211,40 +212,40 @@ export default function AdvancePaymentForm({
                 PAYMENT STATUS
               </Typography>
             </Box>
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: { 
-                xs: '1fr', 
-                sm: formData.paymentStatus === 'paid' ? 'repeat(3, 1fr)' : '1fr',
-                md: formData.paymentStatus === 'paid' ? 'repeat(3, 1fr)' : '1fr'
-              }, 
-              gap: 2 
-            }}>
-              <Box>
-                <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
-                  <InputLabel>Payment Status</InputLabel>
-                  <Select
-                    value={formData.paymentStatus}
-                    onChange={(e) => {
-                      const newStatus = e.target.value;
-                      handleChange('paymentStatus', newStatus);
-                      // Clear payment method if status changes away from paid
-                      if (newStatus !== 'paid') {
-                        handleChange('paymentMethod', '');
-                        handleChange('paymentTransactionId', '');
-                      }
-                    }}
-                    label="Payment Status"
-                  >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="paid">Paid</MenuItem>
-                    <MenuItem value="failed">Failed</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { 
+                  xs: '1fr', 
+                  sm: formData.paymentStatus === 'paid' ? 'repeat(2, 1fr)' : '1fr',
+                  md: formData.paymentStatus === 'paid' ? 'repeat(2, 1fr)' : '1fr'
+                }, 
+                gap: 2 
+              }}>
+                <Box>
+                  <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel>Payment Status</InputLabel>
+                    <Select
+                      value={formData.paymentStatus}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        handleChange('paymentStatus', newStatus);
+                        // Clear payment method if status changes away from paid
+                        if (newStatus !== 'paid') {
+                          handleChange('paymentMethod', '');
+                          handleChange('paymentTransactionId', '');
+                        }
+                      }}
+                      label="Payment Status"
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="paid">Paid</MenuItem>
+                      <MenuItem value="failed">Failed</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
 
-              {formData.paymentStatus === 'paid' ? (
-                <>
+                {formData.paymentStatus === 'paid' ? (
                   <Box>
                     <FormControl fullWidth error={!!errors.paymentMethod} size="small" sx={{ minWidth: 200 }}>
                       <InputLabel>Payment Method</InputLabel>
@@ -265,17 +266,20 @@ export default function AdvancePaymentForm({
                       )}
                     </FormControl>
                   </Box>
+                ) : null}
+              </Box>
 
-                  <Box>
-                    <TextField
-                      fullWidth
-                      label="Transaction ID (Optional)"
-                      value={formData.paymentTransactionId}
-                      onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
-                      size="small"
-                    />
-                  </Box>
-                </>
+              {formData.paymentStatus === 'paid' ? (
+                <Box>
+                  <TextField
+                    fullWidth
+                    label="Transaction ID (Optional)"
+                    value={formData.paymentTransactionId}
+                    onChange={(e) => handleChange('paymentTransactionId', e.target.value)}
+                    size="small"
+                    helperText="Enter the transaction ID if available"
+                  />
+                </Box>
               ) : null}
             </Box>
           </Paper>

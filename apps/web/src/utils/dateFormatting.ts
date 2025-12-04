@@ -164,6 +164,32 @@ export const formatFullDateTime = (dateString: string | Date | number | undefine
 };
 
 /**
+ * Gets today's date in local timezone as YYYY-MM-DD format (for date input fields)
+ * @returns Date string in YYYY-MM-DD format
+ */
+export const getLocalDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Converts an ISO date string to local date string (YYYY-MM-DD) for date input fields
+ * This ensures the date input shows the correct local date regardless of timezone
+ * @param isoString - ISO date string (e.g., "2024-01-15T10:30:00.000Z")
+ * @returns Date string in YYYY-MM-DD format in local timezone
+ */
+export const isoToLocalDateString = (isoString: string): string => {
+  const date = new Date(isoString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Formats a date as a relative time (e.g., "2 hours ago", "3 days ago")
  * @param dateString - Date in various formats (string, Date, number, null, undefined)
  * @returns Relative time string
