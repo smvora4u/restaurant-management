@@ -37,11 +37,10 @@ const SalaryConfigSchema = new Schema<ISalaryConfig>({
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
-// Index for finding active salary config for a staff member
-SalaryConfigSchema.index({ staffId: 1, isActive: 1 });
 // Index for restaurant queries
 SalaryConfigSchema.index({ restaurantId: 1, createdAt: -1 });
 // Ensure one active config per staff at a time (enforced in application logic)
+// This index also serves for finding active salary config for a staff member
 SalaryConfigSchema.index({ staffId: 1, isActive: 1 }, { unique: true, partialFilterExpression: { isActive: true } });
 
 export default mongoose.model<ISalaryConfig>('SalaryConfig', SalaryConfigSchema);
