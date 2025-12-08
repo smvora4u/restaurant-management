@@ -13,10 +13,31 @@ export const resolvers = {
     ...salaryManagementResolvers.Staff
   },
   Purchase: {
+    id: (parent: any) => {
+      return parent._id ? parent._id.toString() : parent.id;
+    },
+    vendorId: (parent: any) => {
+      // Handle populated vendorId (document object) or ObjectId/string
+      if (!parent.vendorId) return null;
+      if (typeof parent.vendorId === 'object' && parent.vendorId._id) {
+        // It's a populated document, return its _id as string
+        return parent.vendorId._id.toString();
+      }
+      if (typeof parent.vendorId === 'object' && parent.vendorId.toString) {
+        // It's an ObjectId, convert to string
+        return parent.vendorId.toString();
+      }
+      // It's already a string
+      return parent.vendorId;
+    },
     vendor: async (parent: any) => {
       if (parent.vendor || parent.vendorId) {
         const { Vendor } = await import('../models/index.js');
-        return await Vendor.findById(parent.vendorId || parent.vendor?._id || parent.vendor);
+        // Handle both populated document and ObjectId/string
+        const vendorId = typeof parent.vendorId === 'object' && parent.vendorId._id 
+          ? parent.vendorId._id 
+          : (parent.vendorId || parent.vendor?._id || parent.vendor);
+        return await Vendor.findById(vendorId);
       }
       return null;
     },
@@ -26,10 +47,31 @@ export const resolvers = {
     }
   },
   PurchaseItem: {
+    id: (parent: any) => {
+      return parent._id ? parent._id.toString() : parent.id;
+    },
+    categoryId: (parent: any) => {
+      // Handle populated categoryId (document object) or ObjectId/string
+      if (!parent.categoryId) return null;
+      if (typeof parent.categoryId === 'object' && parent.categoryId._id) {
+        // It's a populated document, return its _id as string
+        return parent.categoryId._id.toString();
+      }
+      if (typeof parent.categoryId === 'object' && parent.categoryId.toString) {
+        // It's an ObjectId, convert to string
+        return parent.categoryId.toString();
+      }
+      // It's already a string
+      return parent.categoryId;
+    },
     category: async (parent: any) => {
       if (parent.categoryId) {
         const { PurchaseCategory } = await import('../models/index.js');
-        return await PurchaseCategory.findById(parent.categoryId);
+        // Handle both populated document and ObjectId/string
+        const categoryId = typeof parent.categoryId === 'object' && parent.categoryId._id 
+          ? parent.categoryId._id 
+          : parent.categoryId;
+        return await PurchaseCategory.findById(categoryId);
       }
       return null;
     }
