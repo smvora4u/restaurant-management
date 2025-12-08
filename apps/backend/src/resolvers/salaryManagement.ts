@@ -737,8 +737,8 @@ export const salaryManagementResolvers = {
           if (advance.amount <= remainingToUnsettle) {
             // Fully unsettle this advance
             advance.isSettled = false;
-            advance.settledAt = undefined;
-            advance.settledByPaymentId = undefined;
+            delete (advance as any).settledAt;
+            delete (advance as any).settledByPaymentId;
             await advance.save();
             remainingToUnsettle -= advance.amount;
           } else {
