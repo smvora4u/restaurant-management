@@ -50,8 +50,9 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   const errorRef = useRef<HTMLDivElement>(null);
 
   // Queries
-  const { data: tablesData, loading: tablesLoading } = useQuery(GET_AVAILABLE_TABLES, {
-    skip: orderType !== 'dine-in'
+  const { data: tablesData, loading: tablesLoading, refetch: refetchTables } = useQuery(GET_AVAILABLE_TABLES, {
+    skip: orderType !== 'dine-in',
+    fetchPolicy: 'network-only' // Always fetch fresh data when query runs
   });
 
   // Mutations
@@ -59,11 +60,21 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
 
   const availableTables = tablesData?.availableTables || [];
 
+  // Refetch tables when dialog opens
+  useEffect(() => {
+    if (open && orderType === 'dine-in') {
+      refetchTables();
+    }
+  }, [open, orderType, refetchTables]);
+
   useEffect(() => {
     if (orderType !== 'dine-in') {
       setTableNumber(null);
+    } else {
+      // Refetch tables when switching to dine-in
+      refetchTables();
     }
-  }, [orderType]);
+  }, [orderType, refetchTables]);
 
   useEffect(() => {
     if (error) {

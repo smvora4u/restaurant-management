@@ -228,11 +228,31 @@ export const staffManagementResolvers = {
 
         // Update order with merged items
         order.items = Array.from(mergedItemsMap.values());
+        
+        // Calculate overall order status based on item statuses (same logic as restaurant mutations)
+        const itemStatuses = order.items.map(item => item.status);
+        if (itemStatuses.every(status => status === 'cancelled')) {
+          order.status = 'cancelled';
+        } else if (itemStatuses.every(status => status === 'served')) {
+          order.status = 'completed';
+        } else if (itemStatuses.some(status => status === 'served')) {
+          order.status = 'served';
+        } else if (itemStatuses.some(status => status === 'ready')) {
+          order.status = 'ready';
+        } else if (itemStatuses.some(status => status === 'preparing')) {
+          order.status = 'preparing';
+        } else if (itemStatuses.some(status => status === 'confirmed')) {
+          order.status = 'confirmed';
+        } else {
+          order.status = 'pending';
+        }
+        
         order.updatedAt = new Date();
         await order.save();
 
-        // Publish real-time update event
+        // Publish real-time update events for both item status and overall order status
         await publishOrderItemStatusUpdated(order);
+        await publishOrderUpdated(order);
 
         return {
           id: order._id,

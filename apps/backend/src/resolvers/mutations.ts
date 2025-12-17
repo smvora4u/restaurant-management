@@ -644,6 +644,12 @@ export const mutationResolvers = {
     const restaurant = await Restaurant.findById(context.restaurant.id);
     const currency = input.currency || restaurant?.settings?.currency || 'USD';
     
+    // Validate payment method is provided when payment status is 'paid'
+    const paymentStatus = input.paymentStatus || 'unpaid';
+    if (paymentStatus === 'paid' && !input.paymentMethod) {
+      throw new Error('Payment method is required when payment status is "paid"');
+    }
+    
     // Create purchase
     const purchase = new Purchase({
       restaurantId: context.restaurant.id,
@@ -651,8 +657,8 @@ export const mutationResolvers = {
       purchaseDate: new Date(input.purchaseDate),
       totalAmount: input.totalAmount,
       currency,
-      paymentStatus: input.paymentStatus || 'unpaid',
-      paymentMethod: input.paymentMethod,
+      paymentStatus,
+      paymentMethod: input.paymentMethod || undefined, // Only set if provided
       invoiceNumber: input.invoiceNumber,
       notes: input.notes,
       createdBy: context.restaurant.email || 'Restaurant',

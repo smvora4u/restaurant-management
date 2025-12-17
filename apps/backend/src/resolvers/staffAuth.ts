@@ -122,6 +122,12 @@ export const staffAuthResolvers = {
 
     createStaff: async (_: any, { input }: { input: StaffInput }) => {
       try {
+        // Basic email format validation to prevent creating staff with clearly invalid emails
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(input.email)) {
+          throw new Error('Invalid email address');
+        }
+
         // Validate and convert restaurantId to ObjectId
         let restaurantId;
         try {
@@ -158,7 +164,15 @@ export const staffAuthResolvers = {
           cashier: ['view_orders', 'update_order_status']
         };
 
-        const permissions = input.permissions || defaultPermissions[input.role || 'waiter'];
+        let permissions = input.permissions || defaultPermissions[input.role || 'waiter'];
+        
+        // Ensure view_orders and update_order_status are always together (no "view only" role)
+        if (permissions.includes('view_orders') && !permissions.includes('update_order_status')) {
+          permissions = [...permissions, 'update_order_status'];
+        }
+        if (permissions.includes('update_order_status') && !permissions.includes('view_orders')) {
+          permissions = [...permissions, 'view_orders'];
+        }
 
         // Hash password with new method (SHA256 + bcrypt)
         const hashedPassword = await hashPassword(input.password);
@@ -197,6 +211,14 @@ export const staffAuthResolvers = {
           throw new Error('Staff not found');
         }
 
+        // Validate email if it's being updated
+        if (input.email) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(input.email)) {
+            throw new Error('Invalid email address');
+          }
+        }
+
         // Prepare update data
         const updateData: any = {
           ...input,
@@ -210,6 +232,18 @@ export const staffAuthResolvers = {
         } else {
           // Don't update password if empty
           delete updateData.password;
+        }
+
+        // Validate permissions: ensure view_orders and update_order_status are always together
+        if (input.permissions && Array.isArray(input.permissions)) {
+          let permissions = input.permissions;
+          if (permissions.includes('view_orders') && !permissions.includes('update_order_status')) {
+            permissions = [...permissions, 'update_order_status'];
+          }
+          if (permissions.includes('update_order_status') && !permissions.includes('view_orders')) {
+            permissions = [...permissions, 'view_orders'];
+          }
+          updateData.permissions = permissions;
         }
 
         // Update the staff member

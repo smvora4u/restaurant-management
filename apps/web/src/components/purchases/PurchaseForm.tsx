@@ -148,6 +148,11 @@ export default function PurchaseForm({
       }
     });
 
+    // Validate payment method is required when payment status is 'paid'
+    if (formData.paymentStatus === 'paid' && !formData.paymentMethod) {
+      newErrors.paymentMethod = 'Payment method is required when payment status is "paid"';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -232,12 +237,13 @@ export default function PurchaseForm({
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Payment Method</InputLabel>
+              <FormControl fullWidth size="small" sx={{ minWidth: 200 }} error={!!errors.paymentMethod}>
+                <InputLabel>Payment Method{formData.paymentStatus === 'paid' ? ' *' : ''}</InputLabel>
                 <Select
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                  label="Payment Method"
+                  label={`Payment Method${formData.paymentStatus === 'paid' ? ' *' : ''}`}
+                  required={formData.paymentStatus === 'paid'}
                 >
                   <MenuItem value="">None</MenuItem>
                   <MenuItem value="cash">Cash</MenuItem>
@@ -245,6 +251,11 @@ export default function PurchaseForm({
                   <MenuItem value="online">Online</MenuItem>
                   <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
                 </Select>
+                {errors.paymentMethod && (
+                  <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
+                    {errors.paymentMethod}
+                  </Box>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>

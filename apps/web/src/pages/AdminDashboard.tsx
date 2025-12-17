@@ -62,6 +62,10 @@ import { RestaurantsTable, OrdersTable, StaffTable } from './admin/components/ta
 const hashPassword = (password: string): string => {
   return CryptoJS.SHA256(password).toString();
 };
+
+const isValidEmail = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -495,6 +499,17 @@ export default function AdminDashboard() {
       setStaffSnackbar({ open: true, message: 'Select a restaurant first', severity: 'warning' });
       return;
     }
+
+    if (!staffFormData.name || !staffFormData.email) {
+      setStaffSnackbar({ open: true, message: 'Name and email are required', severity: 'error' });
+      return;
+    }
+
+    if (!isValidEmail(staffFormData.email)) {
+      setStaffSnackbar({ open: true, message: 'Please enter a valid email address', severity: 'error' });
+      return;
+    }
+
     if (staffDialogMode === 'create') {
       // Hash password for new staff
       const hashedPassword = hashPassword(staffFormData.password);

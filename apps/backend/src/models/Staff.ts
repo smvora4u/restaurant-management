@@ -16,7 +16,11 @@ export interface IStaff {
 
 const StaffSchema = new Schema<IStaff>({
   name: { type: String, required: true },
-  email: { type: String, required: true },
+  email: { 
+    type: String, 
+    required: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address']
+  },
   password: { type: String, required: true },
   restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   role: { 

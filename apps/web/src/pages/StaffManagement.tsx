@@ -55,6 +55,10 @@ const hashPassword = (password: string): string => {
   return CryptoJS.SHA256(password).toString();
 };
 
+const isValidEmail = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
 export default function StaffManagement() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,7 +203,30 @@ export default function StaffManagement() {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.email || (!formData.password && dialogMode === 'create')) {
+      setSnackbar({
+        open: true,
+        message: 'Name, email and password (for new staff) are required',
+        severity: 'error'
+      });
       return;
+    }
+
+    if (!isValidEmail(formData.email)) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a valid email address',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Validate permissions: ensure view_orders and update_order_status are always together
+    let finalPermissions = formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role);
+    if (finalPermissions.includes('view_orders') && !finalPermissions.includes('update_order_status')) {
+      finalPermissions = [...finalPermissions, 'update_order_status'];
+    }
+    if (finalPermissions.includes('update_order_status') && !finalPermissions.includes('view_orders')) {
+      finalPermissions = [...finalPermissions, 'view_orders'];
     }
 
     if (dialogMode === 'create') {
@@ -209,7 +236,7 @@ export default function StaffManagement() {
         ...formData,
         password: hashedPassword,
         restaurantId: restaurant.id,
-        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
+        permissions: finalPermissions
       };
       createStaff({ variables: { input } });
     } else {
@@ -227,7 +254,7 @@ export default function StaffManagement() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        permissions: formData.permissions.length > 0 ? formData.permissions : getDefaultPermissions(formData.role)
+        permissions: finalPermissions
       };
       
       // Hash password if provided
@@ -255,9 +282,35 @@ export default function StaffManagement() {
   };
 
   const handlePermissionChange = (permission: string) => {
-    const newPermissions = formData.permissions.includes(permission)
-      ? formData.permissions.filter(p => p !== permission)
-      : [...formData.permissions, permission];
+    let newPermissions: string[];
+    
+    if (formData.permissions.includes(permission)) {
+      // Removing a permission
+      if (permission === 'view_orders') {
+        // Cannot remove view_orders if update_order_status is present (they should stay together)
+        // Actually, allow removal but ensure update_order_status is also removed
+        newPermissions = formData.permissions.filter(p => p !== permission && p !== 'update_order_status');
+      } else if (permission === 'update_order_status') {
+        // Cannot remove update_order_status if view_orders is present
+        newPermissions = formData.permissions.filter(p => p !== permission && p !== 'view_orders');
+      } else {
+        newPermissions = formData.permissions.filter(p => p !== permission);
+      }
+    } else {
+      // Adding a permission
+      if (permission === 'view_orders') {
+        // Adding view_orders requires also adding update_order_status
+        newPermissions = [...formData.permissions, permission, 'update_order_status'];
+      } else if (permission === 'update_order_status') {
+        // Adding update_order_status requires also adding view_orders
+        newPermissions = [...formData.permissions, permission, 'view_orders'];
+      } else {
+        newPermissions = [...formData.permissions, permission];
+      }
+    }
+    
+    // Remove duplicates
+    newPermissions = [...new Set(newPermissions)];
     setFormData({ ...formData, permissions: newPermissions });
   };
 
