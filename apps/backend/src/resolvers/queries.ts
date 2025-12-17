@@ -343,16 +343,35 @@ export const queryResolvers = {
     }
     
     // If categoryId filter is provided, filter by items BEFORE pagination
+    // Security: Must filter by restaurantId to prevent cross-restaurant data access
     if (categoryId) {
-      const purchaseIds = await PurchaseItem.distinct('purchaseId', { categoryId });
-      if (purchaseIds.length === 0) {
-        // No purchases have items with this category
+      // First, get all purchase IDs for this restaurant
+      const restaurantPurchaseIds = await Purchase.find({ restaurantId }).select('_id').lean();
+      const restaurantPurchaseIdArray = restaurantPurchaseIds.map(p => p._id);
+      
+      if (restaurantPurchaseIdArray.length === 0) {
+        // No purchases for this restaurant
         return {
           data: [],
           totalCount: 0
         };
       }
-      // Filter purchases to only those that have items with the specified category
+      
+      // Then, find PurchaseItems with the categoryId that belong to this restaurant's purchases
+      const purchaseIds = await PurchaseItem.distinct('purchaseId', {
+        categoryId: new mongoose.Types.ObjectId(categoryId),
+        purchaseId: { $in: restaurantPurchaseIdArray }
+      });
+      
+      if (purchaseIds.length === 0) {
+        // No purchases for this restaurant have items with this category
+        return {
+          data: [],
+          totalCount: 0
+        };
+      }
+      
+      // Filter purchases to only those that have items with the specified category AND belong to this restaurant
       query._id = { $in: purchaseIds };
     }
     
