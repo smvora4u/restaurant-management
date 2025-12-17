@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
 import {
   Dialog,
   DialogTitle,
@@ -84,7 +85,7 @@ export default function CategoryForm({
             value={formData.name}
             onChange={(e) => {
               setFormData({ ...formData, name: e.target.value });
-              if (errors.name) setErrors({ ...errors, name: '' });
+              if (errors.name) setErrors(clearFieldError(errors, 'name'));
             }}
             error={!!errors.name}
             helperText={errors.name}

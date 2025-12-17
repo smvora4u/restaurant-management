@@ -25,6 +25,7 @@ import {
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_AVAILABLE_TABLES } from '../../graphql/queries/orders';
 import { CREATE_ORDER } from '../../graphql/mutations/orders';
+import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
 
 interface CreateOrderDialogProps {
   open: boolean;
@@ -61,21 +62,21 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
 
   const availableTables = tablesData?.availableTables || [];
 
-  // Refetch tables when dialog opens
-  useEffect(() => {
-    if (open && orderType === 'dine-in') {
-      refetchTables();
-    }
-  }, [open, orderType, refetchTables]);
-
+  // Handle orderType changes and dialog opening: 
+  // - Clear table when switching away from dine-in
+  // - Refetch tables when switching to dine-in (only if dialog is open)
+  // - Refetch tables when dialog opens and orderType is already dine-in
   useEffect(() => {
     if (orderType !== 'dine-in') {
       setTableNumber(null);
-    } else {
-      // Refetch tables when switching to dine-in
+      return;
+    }
+    
+    // Only refetch if dialog is open
+    if (open) {
       refetchTables();
     }
-  }, [orderType, refetchTables]);
+  }, [orderType, open, refetchTables]);
 
   useEffect(() => {
     if (error) {
@@ -93,23 +94,28 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   };
 
   const isFormValid = () => {
-    const newErrors: Record<string, string> = {};
+    const formData = {
+      customerName,
+      customerPhone,
+      tableNumber: orderType === 'dine-in' ? tableNumber : null
+    };
     
-    // Check customer information
-    if (!customerName.trim()) {
-      newErrors.customerName = 'Customer name is required';
-    }
-    if (!customerPhone.trim()) {
-      newErrors.customerPhone = 'Customer phone is required';
+    const rules: any[] = [
+      validationRules.required('customerName', 'Customer name is required'),
+      validationRules.required('customerPhone', 'Customer phone is required')
+    ];
+    
+    if (orderType === 'dine-in') {
+      rules.push({
+        field: 'tableNumber',
+        validator: (value: any) => value !== null && value !== undefined,
+        message: 'Table selection is required for dine-in orders'
+      });
     }
     
-    // Check table selection for dine-in orders
-    if (orderType === 'dine-in' && !tableNumber) {
-      newErrors.tableNumber = 'Table selection is required for dine-in orders';
-    }
-    
-    setFieldErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const errors = validateForm(formData, rules);
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleCreateOrder = async () => {
@@ -197,7 +203,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
                   value={tableNumber || ''}
                   onChange={(e) => {
                     setTableNumber(Number(e.target.value));
-                    if (fieldErrors.tableNumber) setFieldErrors({ ...fieldErrors, tableNumber: '' });
+                    if (fieldErrors.tableNumber) setFieldErrors(clearFieldError(fieldErrors, 'tableNumber'));
                   }}
                   disabled={tablesLoading}
                   label="Table"
@@ -226,7 +232,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               value={customerName}
               onChange={(e) => {
                 setCustomerName(e.target.value);
-                if (fieldErrors.customerName) setFieldErrors({ ...fieldErrors, customerName: '' });
+                if (fieldErrors.customerName) setFieldErrors(clearFieldError(fieldErrors, 'customerName'));
               }}
               error={!!fieldErrors.customerName}
               helperText={fieldErrors.customerName}
@@ -241,7 +247,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               value={customerPhone}
               onChange={(e) => {
                 setCustomerPhone(e.target.value);
-                if (fieldErrors.customerPhone) setFieldErrors({ ...fieldErrors, customerPhone: '' });
+                if (fieldErrors.customerPhone) setFieldErrors(clearFieldError(fieldErrors, 'customerPhone'));
               }}
               error={!!fieldErrors.customerPhone}
               helperText={fieldErrors.customerPhone}

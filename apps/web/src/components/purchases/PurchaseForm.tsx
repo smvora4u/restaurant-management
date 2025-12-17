@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
 import {
   Dialog,
   DialogTitle,
@@ -230,7 +231,7 @@ export default function PurchaseForm({
                 value={formData.purchaseDate}
                 onChange={(e) => {
                   setFormData({ ...formData, purchaseDate: e.target.value });
-                  if (errors.purchaseDate) setErrors({ ...errors, purchaseDate: '' });
+                  if (errors.purchaseDate) setErrors(clearFieldError(errors, 'purchaseDate'));
                 }}
                 error={!!errors.purchaseDate}
                 helperText={errors.purchaseDate}
@@ -245,7 +246,7 @@ export default function PurchaseForm({
                   value={formData.paymentStatus}
                   onChange={(e) => {
                     setFormData({ ...formData, paymentStatus: e.target.value });
-                    if (errors.paymentMethod) setErrors({ ...errors, paymentMethod: '' });
+                    if (errors.paymentMethod) setErrors(clearFieldError(errors, 'paymentMethod'));
                   }}
                   label="Payment Status"
                 >
@@ -262,7 +263,7 @@ export default function PurchaseForm({
                   value={formData.paymentMethod}
                   onChange={(e) => {
                     setFormData({ ...formData, paymentMethod: e.target.value });
-                    if (errors.paymentMethod) setErrors({ ...errors, paymentMethod: '' });
+                    if (errors.paymentMethod) setErrors(clearFieldError(errors, 'paymentMethod'));
                   }}
                   label={`Payment Method${formData.paymentStatus === 'paid' ? ' *' : ''}`}
                   required={formData.paymentStatus === 'paid'}

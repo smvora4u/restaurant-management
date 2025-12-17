@@ -165,36 +165,32 @@ export default function TablesPage() {
   };
 
   const handleSubmit = async () => {
-    const newErrors: Record<string, string> = {};
+    const errors: Record<string, string> = {};
     
     // Validate table number
     if (!formData.number.trim()) {
-      newErrors.number = 'Table number is required';
+      errors.number = 'Table number is required';
     } else {
       const tableNumber = parseInt(formData.number);
       if (isNaN(tableNumber) || tableNumber < 1) {
-        newErrors.number = 'Table number must be a positive number';
+        errors.number = 'Table number must be a positive number';
       } else if (!editingTable) {
         const existingTable = tables.find((table: any) => table.number === tableNumber);
         if (existingTable) {
-          newErrors.number = `Table ${tableNumber} already exists`;
+          errors.number = `Table ${tableNumber} already exists`;
         }
       }
     }
     
     // Validate capacity
-    if (!formData.capacity.trim()) {
-      newErrors.capacity = 'Capacity is required';
-    } else {
-      const capacity = parseInt(formData.capacity);
-      if (isNaN(capacity) || capacity < 1) {
-        newErrors.capacity = 'Capacity must be a positive number';
-      }
-    }
+    const capacityErrors = validateForm(formData, [
+      validationRules.positiveInteger('capacity', true, 1, 'Capacity must be a positive number')
+    ]);
+    Object.assign(errors, capacityErrors);
     
-    setFormErrors(newErrors);
+    setFormErrors(errors);
     
-    if (Object.keys(newErrors).length > 0) {
+    if (Object.keys(errors).length > 0) {
       return;
     }
     
@@ -500,7 +496,7 @@ export default function TablesPage() {
                   // Allow empty string for editing, or valid numbers
                   if (value === '' || /^\d+$/.test(value)) {
                     handleInputChange('number')(e);
-                    if (formErrors.number) setFormErrors({ ...formErrors, number: '' });
+                    if (formErrors.number) setFormErrors(clearFieldError(formErrors, 'number'));
                   }
                 }}
                 onBlur={(e) => {
@@ -528,7 +524,7 @@ export default function TablesPage() {
                   // Allow empty string for editing, or valid numbers
                   if (value === '' || /^\d+$/.test(value)) {
                     handleInputChange('capacity')(e);
-                    if (formErrors.capacity) setFormErrors({ ...formErrors, capacity: '' });
+                    if (formErrors.capacity) setFormErrors(clearFieldError(formErrors, 'capacity'));
                   }
                 }}
                 onBlur={(e) => {

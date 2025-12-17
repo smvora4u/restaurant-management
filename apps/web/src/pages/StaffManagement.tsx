@@ -42,6 +42,7 @@ import {
 import { useQuery, useMutation } from '@apollo/client';
 import CryptoJS from 'crypto-js';
 import { formatDate } from '../utils/dateFormatting';
+import { validateForm, validationRules, clearFieldError } from '../utils/validation';
 import Layout from '../components/Layout';
 import { 
   GET_STAFF_BY_RESTAURANT, 
@@ -53,10 +54,6 @@ import {
 // Hash password client-side for additional security
 const hashPassword = (password: string): string => {
   return CryptoJS.SHA256(password).toString();
-};
-
-const isValidEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
 export default function StaffManagement() {
@@ -204,28 +201,15 @@ export default function StaffManagement() {
   };
 
   const handleSubmit = async () => {
-    const newErrors: Record<string, string> = {};
+    const errors = validateForm(formData, [
+      validationRules.required('name', 'Name is required'),
+      validationRules.email('email', true, 'Please enter a valid email address'),
+      validationRules.password('password', dialogMode === 'create', 'Password is required')
+    ]);
     
-    // Validate name
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
+    setFormErrors(errors);
     
-    // Validate email
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!isValidEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    
-    // Validate password
-    if (dialogMode === 'create' && !formData.password.trim()) {
-      newErrors.password = 'Password is required';
-    }
-    
-    setFormErrors(newErrors);
-    
-    if (Object.keys(newErrors).length > 0) {
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
@@ -501,7 +485,7 @@ export default function StaffManagement() {
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
-                  if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
+                  if (formErrors.name) setFormErrors(clearFieldError(formErrors, 'name'));
                 }}
                 error={!!formErrors.name}
                 helperText={formErrors.name}
@@ -514,7 +498,7 @@ export default function StaffManagement() {
                 value={formData.email}
                 onChange={(e) => {
                   setFormData({ ...formData, email: e.target.value });
-                  if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
+                  if (formErrors.email) setFormErrors(clearFieldError(formErrors, 'email'));
                 }}
                 error={!!formErrors.email}
                 helperText={formErrors.email}
@@ -527,7 +511,7 @@ export default function StaffManagement() {
                 value={formData.password}
                 onChange={(e) => {
                   setFormData({ ...formData, password: e.target.value });
-                  if (formErrors.password) setFormErrors({ ...formErrors, password: '' });
+                  if (formErrors.password) setFormErrors(clearFieldError(formErrors, 'password'));
                 }}
                 error={!!formErrors.password}
                 helperText={formErrors.password || (dialogMode === 'edit' ? 'Leave empty to keep current password' : '')}

@@ -148,56 +148,19 @@ export default function ReservationsPage() {
   };
 
   const handleSubmit = async () => {
-    const newErrors: Record<string, string> = {};
+    const errors = validateForm(formData, [
+      validationRules.required('customerName', 'Customer name is required'),
+      validationRules.required('customerPhone', 'Phone number is required'),
+      validationRules.email('customerEmail', false, 'Invalid email address'),
+      validationRules.positiveInteger('tableNumber', true, 1, 'Table number must be a positive number'),
+      validationRules.required('date', 'Date is required'),
+      validationRules.required('time', 'Time is required'),
+      validationRules.positiveInteger('partySize', true, 1, 'Party size must be a positive number')
+    ]);
     
-    // Validate customer name
-    if (!formData.customerName.trim()) {
-      newErrors.customerName = 'Customer name is required';
-    }
+    setFormErrors(errors);
     
-    // Validate phone
-    if (!formData.customerPhone.trim()) {
-      newErrors.customerPhone = 'Phone number is required';
-    }
-    
-    // Validate email format if provided
-    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
-      newErrors.customerEmail = 'Invalid email address';
-    }
-    
-    // Validate table number
-    if (!formData.tableNumber.trim()) {
-      newErrors.tableNumber = 'Table number is required';
-    } else {
-      const tableNumber = parseInt(formData.tableNumber);
-      if (isNaN(tableNumber) || tableNumber < 1) {
-        newErrors.tableNumber = 'Table number must be a positive number';
-      }
-    }
-    
-    // Validate date
-    if (!formData.date.trim()) {
-      newErrors.date = 'Date is required';
-    }
-    
-    // Validate time
-    if (!formData.time.trim()) {
-      newErrors.time = 'Time is required';
-    }
-    
-    // Validate party size
-    if (!formData.partySize.trim()) {
-      newErrors.partySize = 'Party size is required';
-    } else {
-      const partySize = parseInt(formData.partySize);
-      if (isNaN(partySize) || partySize < 1) {
-        newErrors.partySize = 'Party size must be a positive number';
-      }
-    }
-    
-    setFormErrors(newErrors);
-    
-    if (Object.keys(newErrors).length > 0) {
+    if (Object.keys(errors).length > 0) {
       return;
     }
     
@@ -490,7 +453,7 @@ export default function ReservationsPage() {
                   value={formData.customerName}
                   onChange={(e) => {
                     handleInputChange('customerName')(e);
-                    if (formErrors.customerName) setFormErrors({ ...formErrors, customerName: '' });
+                    if (formErrors.customerName) setFormErrors(clearFieldError(formErrors, 'customerName'));
                   }}
                   error={!!formErrors.customerName}
                   helperText={formErrors.customerName}
@@ -502,7 +465,7 @@ export default function ReservationsPage() {
                   value={formData.customerPhone}
                   onChange={(e) => {
                     handleInputChange('customerPhone')(e);
-                    if (formErrors.customerPhone) setFormErrors({ ...formErrors, customerPhone: '' });
+                    if (formErrors.customerPhone) setFormErrors(clearFieldError(formErrors, 'customerPhone'));
                   }}
                   error={!!formErrors.customerPhone}
                   helperText={formErrors.customerPhone}
@@ -516,7 +479,7 @@ export default function ReservationsPage() {
                 value={formData.customerEmail}
                 onChange={(e) => {
                   handleInputChange('customerEmail')(e);
-                  if (formErrors.customerEmail) setFormErrors({ ...formErrors, customerEmail: '' });
+                    if (formErrors.customerEmail) setFormErrors(clearFieldError(formErrors, 'customerEmail'));
                 }}
                 error={!!formErrors.customerEmail}
                 helperText={formErrors.customerEmail}
@@ -532,7 +495,7 @@ export default function ReservationsPage() {
                     // Allow empty string for editing, or valid numbers
                     if (value === '' || /^\d+$/.test(value)) {
                       handleInputChange('tableNumber')(e);
-                      if (formErrors.tableNumber) setFormErrors({ ...formErrors, tableNumber: '' });
+                      if (formErrors.tableNumber) setFormErrors(clearFieldError(formErrors, 'tableNumber'));
                     }
                   }}
                   onBlur={(e) => {
@@ -559,7 +522,7 @@ export default function ReservationsPage() {
                     // Allow empty string for editing, or valid numbers
                     if (value === '' || /^\d+$/.test(value)) {
                       handleInputChange('partySize')(e);
-                      if (formErrors.partySize) setFormErrors({ ...formErrors, partySize: '' });
+                      if (formErrors.partySize) setFormErrors(clearFieldError(formErrors, 'partySize'));
                     }
                   }}
                   onBlur={(e) => {
@@ -585,7 +548,7 @@ export default function ReservationsPage() {
                   value={formData.date}
                   onChange={(e) => {
                     handleInputChange('date')(e);
-                    if (formErrors.date) setFormErrors({ ...formErrors, date: '' });
+                    if (formErrors.date) setFormErrors(clearFieldError(formErrors, 'date'));
                   }}
                   error={!!formErrors.date}
                   helperText={formErrors.date}
@@ -598,7 +561,7 @@ export default function ReservationsPage() {
                   value={formData.time}
                   onChange={(e) => {
                     handleInputChange('time')(e);
-                    if (formErrors.time) setFormErrors({ ...formErrors, time: '' });
+                    if (formErrors.time) setFormErrors(clearFieldError(formErrors, 'time'));
                   }}
                   error={!!formErrors.time}
                   helperText={formErrors.time}

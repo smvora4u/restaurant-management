@@ -57,14 +57,11 @@ import { RESTAURANT_UPDATED_SUBSCRIPTION, STAFF_UPDATED_SUBSCRIPTION, PLATFORM_A
 import { AuditLogsPanel, FeesPanel, PaymentManagementPanel, SettlementsPanel } from './admin/components/panels';
 import { RestaurantDialog, StaffDialog } from './admin/components/dialogs';
 import { RestaurantsTable, OrdersTable, StaffTable } from './admin/components/tables';
+import { isValidEmail, validateForm, validationRules, clearFieldError } from '../utils/validation';
 
 // Hash password client-side for additional security
 const hashPassword = (password: string): string => {
   return CryptoJS.SHA256(password).toString();
-};
-
-const isValidEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -504,28 +501,15 @@ export default function AdminDashboard() {
       return;
     }
     
-    const newErrors: Record<string, string> = {};
+    const errors = validateForm(staffFormData, [
+      validationRules.required('name', 'Name is required'),
+      validationRules.email('email', true, 'Please enter a valid email address'),
+      validationRules.password('password', staffDialogMode === 'create', 'Password is required')
+    ]);
     
-    // Validate name
-    if (!staffFormData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
+    setStaffFormErrors(errors);
     
-    // Validate email
-    if (!staffFormData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!isValidEmail(staffFormData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    
-    // Validate password
-    if (staffDialogMode === 'create' && !staffFormData.password.trim()) {
-      newErrors.password = 'Password is required';
-    }
-    
-    setStaffFormErrors(newErrors);
-    
-    if (Object.keys(newErrors).length > 0) {
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
@@ -650,12 +634,24 @@ export default function AdminDashboard() {
       }));
       // Clear error for this field when user starts typing
       if (restaurantFormErrors[field]) {
-        setRestaurantFormErrors({ ...restaurantFormErrors, [field]: '' });
+        setRestaurantFormErrors(clearFieldError(restaurantFormErrors, field));
       }
     }
   };
 
   const handleRestaurantSubmit = () => {
+    const errors = validateForm(restaurantFormData, [
+      validationRules.required('name', 'Restaurant name is required'),
+      validationRules.email('email', true, 'Please enter a valid email address'),
+      validationRules.password('password', restaurantDialogMode === 'create', 'Password is required')
+    ]);
+    
+    setRestaurantFormErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+    
     if (restaurantDialogMode === 'create') {
       // Hash password for new restaurant
       const hashedPassword = hashPassword(restaurantFormData.password);
@@ -1263,7 +1259,7 @@ export default function AdminDashboard() {
         onFormChange={(field: string, value: any) => {
           handleStaffFormChange(field, value);
           if (staffFormErrors[field]) {
-            setStaffFormErrors({ ...staffFormErrors, [field]: '' });
+            setStaffFormErrors(clearFieldError(staffFormErrors, field));
           }
         }}
       />

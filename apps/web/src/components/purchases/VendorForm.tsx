@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
 import {
   Dialog,
   DialogTitle,
@@ -103,7 +104,7 @@ export default function VendorForm({
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
-                  if (errors.name) setErrors({ ...errors, name: '' });
+                  if (errors.name) setErrors(clearFieldError(errors, 'name'));
                 }}
                 error={!!errors.name}
                 helperText={errors.name}
@@ -134,7 +135,7 @@ export default function VendorForm({
                 value={formData.email}
                 onChange={(e) => {
                   setFormData({ ...formData, email: e.target.value });
-                  if (errors.email) setErrors({ ...errors, email: '' });
+                  if (errors.email) setErrors(clearFieldError(errors, 'email'));
                 }}
                 error={!!errors.email}
                 helperText={errors.email}
