@@ -342,6 +342,20 @@ export const queryResolvers = {
       if (endDate) query.purchaseDate.$lte = new Date(endDate);
     }
     
+    // If categoryId filter is provided, filter by items BEFORE pagination
+    if (categoryId) {
+      const purchaseIds = await PurchaseItem.distinct('purchaseId', { categoryId });
+      if (purchaseIds.length === 0) {
+        // No purchases have items with this category
+        return {
+          data: [],
+          totalCount: 0
+        };
+      }
+      // Filter purchases to only those that have items with the specified category
+      query._id = { $in: purchaseIds };
+    }
+    
     const [data, totalCount] = await Promise.all([
       Purchase.find(query)
         .populate('vendorId')
@@ -351,22 +365,15 @@ export const queryResolvers = {
       Purchase.countDocuments(query)
     ]);
     
-    // If categoryId filter is provided, filter by items
-    let filteredData = data;
-    if (categoryId) {
-      const purchaseIds = await PurchaseItem.distinct('purchaseId', { categoryId });
-      filteredData = data.filter((p: any) => purchaseIds.includes(p._id));
-    }
-    
     // Populate items for each purchase
-    for (const purchase of filteredData) {
+    for (const purchase of data) {
       const items = await PurchaseItem.find({ purchaseId: purchase._id }).populate('categoryId');
       (purchase as any).items = items;
     }
     
     return {
-      data: filteredData,
-      totalCount: categoryId ? filteredData.length : totalCount
+      data,
+      totalCount
     };
   },
   purchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {

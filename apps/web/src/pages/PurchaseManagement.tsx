@@ -524,7 +524,10 @@ export default function PurchaseManagement() {
                     <InputLabel>Vendor</InputLabel>
                     <Select
                       value={purchaseFilters.vendorId}
-                      onChange={(e) => setPurchaseFilters({ ...purchaseFilters, vendorId: e.target.value })}
+                      onChange={(e) => {
+                        setPurchaseFilters({ ...purchaseFilters, vendorId: e.target.value });
+                        setPurchasePage(0);
+                      }}
                       label="Vendor"
                     >
                       <MenuItem value="">All</MenuItem>
@@ -539,7 +542,10 @@ export default function PurchaseManagement() {
                     <InputLabel>Category</InputLabel>
                     <Select
                       value={purchaseFilters.categoryId}
-                      onChange={(e) => setPurchaseFilters({ ...purchaseFilters, categoryId: e.target.value })}
+                      onChange={(e) => {
+                        setPurchaseFilters({ ...purchaseFilters, categoryId: e.target.value });
+                        setPurchasePage(0);
+                      }}
                       label="Category"
                     >
                       <MenuItem value="">All</MenuItem>
@@ -554,7 +560,10 @@ export default function PurchaseManagement() {
                     <InputLabel>Payment Status</InputLabel>
                     <Select
                       value={purchaseFilters.paymentStatus}
-                      onChange={(e) => setPurchaseFilters({ ...purchaseFilters, paymentStatus: e.target.value })}
+                      onChange={(e) => {
+                        setPurchaseFilters({ ...purchaseFilters, paymentStatus: e.target.value });
+                        setPurchasePage(0);
+                      }}
                       label="Payment Status"
                     >
                       <MenuItem value="">All</MenuItem>
@@ -571,7 +580,10 @@ export default function PurchaseManagement() {
                     label="Start Date"
                     type="date"
                     value={purchaseFilters.startDate}
-                    onChange={(e) => setPurchaseFilters({ ...purchaseFilters, startDate: e.target.value })}
+                    onChange={(e) => {
+                      setPurchaseFilters({ ...purchaseFilters, startDate: e.target.value });
+                      setPurchasePage(0);
+                    }}
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
@@ -582,7 +594,10 @@ export default function PurchaseManagement() {
                     label="End Date"
                     type="date"
                     value={purchaseFilters.endDate}
-                    onChange={(e) => setPurchaseFilters({ ...purchaseFilters, endDate: e.target.value })}
+                    onChange={(e) => {
+                      setPurchaseFilters({ ...purchaseFilters, endDate: e.target.value });
+                      setPurchasePage(0);
+                    }}
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
