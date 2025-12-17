@@ -82,7 +82,10 @@ export default function CategoryForm({
             fullWidth
             label="Category Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value });
+              if (errors.name) setErrors({ ...errors, name: '' });
+            }}
             error={!!errors.name}
             helperText={errors.name}
             margin="normal"

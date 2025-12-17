@@ -75,6 +75,7 @@ export default function StaffManagement() {
     role: 'waiter',
     permissions: [] as string[]
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [restaurant, setRestaurant] = useState<any>(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -199,24 +200,32 @@ export default function StaffManagement() {
       role: 'waiter',
       permissions: []
     });
+    setFormErrors({});
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.email || (!formData.password && dialogMode === 'create')) {
-      setSnackbar({
-        open: true,
-        message: 'Name, email and password (for new staff) are required',
-        severity: 'error'
-      });
-      return;
+    const newErrors: Record<string, string> = {};
+    
+    // Validate name
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
     }
-
-    if (!isValidEmail(formData.email)) {
-      setSnackbar({
-        open: true,
-        message: 'Please enter a valid email address',
-        severity: 'error'
-      });
+    
+    // Validate email
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!isValidEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    
+    // Validate password
+    if (dialogMode === 'create' && !formData.password.trim()) {
+      newErrors.password = 'Password is required';
+    }
+    
+    setFormErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
@@ -490,7 +499,12 @@ export default function StaffManagement() {
                 fullWidth
                 label="Name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (formErrors.name) setFormErrors({ ...formErrors, name: '' });
+                }}
+                error={!!formErrors.name}
+                helperText={formErrors.name}
                 required
               />
               <TextField
@@ -498,7 +512,12 @@ export default function StaffManagement() {
                 label="Email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  if (formErrors.email) setFormErrors({ ...formErrors, email: '' });
+                }}
+                error={!!formErrors.email}
+                helperText={formErrors.email}
                 required
               />
               <TextField
@@ -506,9 +525,13 @@ export default function StaffManagement() {
                 label="Password"
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  if (formErrors.password) setFormErrors({ ...formErrors, password: '' });
+                }}
+                error={!!formErrors.password}
+                helperText={formErrors.password || (dialogMode === 'edit' ? 'Leave empty to keep current password' : '')}
                 required={dialogMode === 'create'}
-                helperText={dialogMode === 'edit' ? 'Leave empty to keep current password' : ''}
               />
               <FormControl fullWidth>
                 <InputLabel>Role</InputLabel>

@@ -101,7 +101,10 @@ export default function VendorForm({
                 fullWidth
                 label="Vendor Name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (errors.name) setErrors({ ...errors, name: '' });
+                }}
                 error={!!errors.name}
                 helperText={errors.name}
                 required
@@ -129,7 +132,10 @@ export default function VendorForm({
                 label="Email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  if (errors.email) setErrors({ ...errors, email: '' });
+                }}
                 error={!!errors.email}
                 helperText={errors.email}
               />

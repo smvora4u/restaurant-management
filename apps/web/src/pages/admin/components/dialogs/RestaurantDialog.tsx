@@ -30,6 +30,7 @@ interface RestaurantDialogProps {
       theme: string;
     };
   };
+  formErrors?: Record<string, string>;
   loading: boolean;
   onClose: () => void;
   onSubmit: () => void;
@@ -40,6 +41,7 @@ export default function RestaurantDialog({
   open,
   mode,
   formData,
+  formErrors = {},
   loading,
   onClose,
   onSubmit,
@@ -56,6 +58,8 @@ export default function RestaurantDialog({
             label="Restaurant Name"
             value={formData.name}
             onChange={(e) => onFormChange('name', e.target.value)}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
             fullWidth
             required
           />
@@ -64,6 +68,8 @@ export default function RestaurantDialog({
             type="email"
             value={formData.email}
             onChange={(e) => onFormChange('email', e.target.value)}
+            error={!!formErrors.email}
+            helperText={formErrors.email}
             fullWidth
             required
           />
@@ -72,9 +78,10 @@ export default function RestaurantDialog({
             type="password"
             value={formData.password}
             onChange={(e) => onFormChange('password', e.target.value)}
+            error={!!formErrors.password}
+            helperText={formErrors.password || (mode === 'edit' ? 'Leave blank to keep current password' : 'Required for new restaurants')}
             fullWidth
             required={mode === 'create'}
-            helperText={mode === 'edit' ? 'Leave blank to keep current password' : 'Required for new restaurants'}
           />
           <FormControl fullWidth>
             <InputLabel>Status</InputLabel>

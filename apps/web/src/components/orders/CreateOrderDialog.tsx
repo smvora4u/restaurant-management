@@ -46,6 +46,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isCreating, setIsCreating] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -92,14 +93,23 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   };
 
   const isFormValid = () => {
+    const newErrors: Record<string, string> = {};
+    
     // Check customer information
-    if (!customerName.trim()) return false;
-    if (!customerPhone.trim()) return false;
+    if (!customerName.trim()) {
+      newErrors.customerName = 'Customer name is required';
+    }
+    if (!customerPhone.trim()) {
+      newErrors.customerPhone = 'Customer phone is required';
+    }
     
     // Check table selection for dine-in orders
-    if (orderType === 'dine-in' && !tableNumber) return false;
+    if (orderType === 'dine-in' && !tableNumber) {
+      newErrors.tableNumber = 'Table selection is required for dine-in orders';
+    }
     
-    return true;
+    setFieldErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleCreateOrder = async () => {
@@ -144,6 +154,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     setCustomerPhone('');
     setNotes('');
     setError('');
+    setFieldErrors({});
     onClose();
   };
 
@@ -180,11 +191,14 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
           {/* Table Selection (for dine-in) */}
           {orderType === 'dine-in' && (
             <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth margin="normal">
+              <FormControl fullWidth margin="normal" error={!!fieldErrors.tableNumber}>
                 <InputLabel>Table</InputLabel>
                 <Select
                   value={tableNumber || ''}
-                  onChange={(e) => setTableNumber(Number(e.target.value))}
+                  onChange={(e) => {
+                    setTableNumber(Number(e.target.value));
+                    if (fieldErrors.tableNumber) setFieldErrors({ ...fieldErrors, tableNumber: '' });
+                  }}
                   disabled={tablesLoading}
                   label="Table"
                 >
@@ -194,6 +208,11 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
                     </MenuItem>
                   ))}
                 </Select>
+                {fieldErrors.tableNumber && (
+                  <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
+                    {fieldErrors.tableNumber}
+                  </Box>
+                )}
               </FormControl>
               {tablesLoading && <CircularProgress size={20} />}
             </Grid>
@@ -205,7 +224,12 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               fullWidth
               label="Customer Name"
               value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
+              onChange={(e) => {
+                setCustomerName(e.target.value);
+                if (fieldErrors.customerName) setFieldErrors({ ...fieldErrors, customerName: '' });
+              }}
+              error={!!fieldErrors.customerName}
+              helperText={fieldErrors.customerName}
               required
               margin="normal"
             />
@@ -215,7 +239,12 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               fullWidth
               label="Customer Phone"
               value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
+              onChange={(e) => {
+                setCustomerPhone(e.target.value);
+                if (fieldErrors.customerPhone) setFieldErrors({ ...fieldErrors, customerPhone: '' });
+              }}
+              error={!!fieldErrors.customerPhone}
+              helperText={fieldErrors.customerPhone}
               required
               margin="normal"
             />

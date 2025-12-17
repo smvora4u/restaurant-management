@@ -76,6 +76,7 @@ export default function ReservationsPage() {
     status: 'confirmed',
     specialRequests: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Queries and mutations
   const { data, loading, error, refetch } = useQuery(GET_RESERVATIONS);
@@ -139,6 +140,7 @@ export default function ReservationsPage() {
       status: 'confirmed',
       specialRequests: '',
     });
+    setFormErrors({});
   };
 
   const handleInputChange = (field: string) => (event: any) => {
@@ -146,6 +148,59 @@ export default function ReservationsPage() {
   };
 
   const handleSubmit = async () => {
+    const newErrors: Record<string, string> = {};
+    
+    // Validate customer name
+    if (!formData.customerName.trim()) {
+      newErrors.customerName = 'Customer name is required';
+    }
+    
+    // Validate phone
+    if (!formData.customerPhone.trim()) {
+      newErrors.customerPhone = 'Phone number is required';
+    }
+    
+    // Validate email format if provided
+    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
+      newErrors.customerEmail = 'Invalid email address';
+    }
+    
+    // Validate table number
+    if (!formData.tableNumber.trim()) {
+      newErrors.tableNumber = 'Table number is required';
+    } else {
+      const tableNumber = parseInt(formData.tableNumber);
+      if (isNaN(tableNumber) || tableNumber < 1) {
+        newErrors.tableNumber = 'Table number must be a positive number';
+      }
+    }
+    
+    // Validate date
+    if (!formData.date.trim()) {
+      newErrors.date = 'Date is required';
+    }
+    
+    // Validate time
+    if (!formData.time.trim()) {
+      newErrors.time = 'Time is required';
+    }
+    
+    // Validate party size
+    if (!formData.partySize.trim()) {
+      newErrors.partySize = 'Party size is required';
+    } else {
+      const partySize = parseInt(formData.partySize);
+      if (isNaN(partySize) || partySize < 1) {
+        newErrors.partySize = 'Party size must be a positive number';
+      }
+    }
+    
+    setFormErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+    
     try {
       const input = {
         customerName: formData.customerName,
@@ -433,14 +488,24 @@ export default function ReservationsPage() {
                 <TextField
                   label="Customer Name"
                   value={formData.customerName}
-                  onChange={handleInputChange('customerName')}
+                  onChange={(e) => {
+                    handleInputChange('customerName')(e);
+                    if (formErrors.customerName) setFormErrors({ ...formErrors, customerName: '' });
+                  }}
+                  error={!!formErrors.customerName}
+                  helperText={formErrors.customerName}
                   fullWidth
                   required
                 />
                 <TextField
                   label="Phone Number"
                   value={formData.customerPhone}
-                  onChange={handleInputChange('customerPhone')}
+                  onChange={(e) => {
+                    handleInputChange('customerPhone')(e);
+                    if (formErrors.customerPhone) setFormErrors({ ...formErrors, customerPhone: '' });
+                  }}
+                  error={!!formErrors.customerPhone}
+                  helperText={formErrors.customerPhone}
                   fullWidth
                   required
                 />
@@ -449,7 +514,12 @@ export default function ReservationsPage() {
                 label="Email (Optional)"
                 type="email"
                 value={formData.customerEmail}
-                onChange={handleInputChange('customerEmail')}
+                onChange={(e) => {
+                  handleInputChange('customerEmail')(e);
+                  if (formErrors.customerEmail) setFormErrors({ ...formErrors, customerEmail: '' });
+                }}
+                error={!!formErrors.customerEmail}
+                helperText={formErrors.customerEmail}
                 fullWidth
               />
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -462,6 +532,7 @@ export default function ReservationsPage() {
                     // Allow empty string for editing, or valid numbers
                     if (value === '' || /^\d+$/.test(value)) {
                       handleInputChange('tableNumber')(e);
+                      if (formErrors.tableNumber) setFormErrors({ ...formErrors, tableNumber: '' });
                     }
                   }}
                   onBlur={(e) => {
@@ -469,6 +540,8 @@ export default function ReservationsPage() {
                     const numValue = parseInt(e.target.value) || 1;
                     setFormData(prev => ({ ...prev, tableNumber: Math.max(1, numValue).toString() }));
                   }}
+                  error={!!formErrors.tableNumber}
+                  helperText={formErrors.tableNumber}
                   required
                   inputProps={{ 
                     min: 1,
@@ -486,6 +559,7 @@ export default function ReservationsPage() {
                     // Allow empty string for editing, or valid numbers
                     if (value === '' || /^\d+$/.test(value)) {
                       handleInputChange('partySize')(e);
+                      if (formErrors.partySize) setFormErrors({ ...formErrors, partySize: '' });
                     }
                   }}
                   onBlur={(e) => {
@@ -493,6 +567,8 @@ export default function ReservationsPage() {
                     const numValue = parseInt(e.target.value) || 1;
                     setFormData(prev => ({ ...prev, partySize: Math.max(1, numValue).toString() }));
                   }}
+                  error={!!formErrors.partySize}
+                  helperText={formErrors.partySize}
                   required
                   inputProps={{ 
                     min: 1,
@@ -507,7 +583,12 @@ export default function ReservationsPage() {
                   label="Date"
                   type="date"
                   value={formData.date}
-                  onChange={handleInputChange('date')}
+                  onChange={(e) => {
+                    handleInputChange('date')(e);
+                    if (formErrors.date) setFormErrors({ ...formErrors, date: '' });
+                  }}
+                  error={!!formErrors.date}
+                  helperText={formErrors.date}
                   required
                   InputLabelProps={{ shrink: true }}
                 />
@@ -515,7 +596,12 @@ export default function ReservationsPage() {
                   label="Time"
                   type="time"
                   value={formData.time}
-                  onChange={handleInputChange('time')}
+                  onChange={(e) => {
+                    handleInputChange('time')(e);
+                    if (formErrors.time) setFormErrors({ ...formErrors, time: '' });
+                  }}
+                  error={!!formErrors.time}
+                  helperText={formErrors.time}
                   required
                   InputLabelProps={{ shrink: true }}
                 />

@@ -23,6 +23,7 @@ interface StaffDialogProps {
     password: string;
     role: string;
   };
+  formErrors?: Record<string, string>;
   loading: boolean;
   onClose: () => void;
   onSubmit: () => void;
@@ -33,6 +34,7 @@ export default function StaffDialog({
   open,
   mode,
   formData,
+  formErrors = {},
   loading,
   onClose,
   onSubmit,
@@ -47,6 +49,8 @@ export default function StaffDialog({
             label="Name"
             value={formData.name}
             onChange={(e) => onFormChange('name', e.target.value)}
+            error={!!formErrors.name}
+            helperText={formErrors.name}
             fullWidth
             required
           />
@@ -55,6 +59,8 @@ export default function StaffDialog({
             type="email"
             value={formData.email}
             onChange={(e) => onFormChange('email', e.target.value)}
+            error={!!formErrors.email}
+            helperText={formErrors.email}
             fullWidth
             required
           />
@@ -63,9 +69,10 @@ export default function StaffDialog({
             type="password"
             value={formData.password}
             onChange={(e) => onFormChange('password', e.target.value)}
+            error={!!formErrors.password}
+            helperText={formErrors.password || (mode === 'edit' ? 'Leave blank to keep current password' : 'Required for new staff')}
             fullWidth
             required={mode === 'create'}
-            helperText={mode === 'edit' ? 'Leave blank to keep current password' : 'Required for new staff'}
           />
           <FormControl fullWidth>
             <InputLabel>Role</InputLabel>

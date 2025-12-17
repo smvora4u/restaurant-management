@@ -96,6 +96,7 @@ export default function AdminDashboard() {
     permissions: [] as string[],
     isActive: true
   });
+  const [staffFormErrors, setStaffFormErrors] = useState<Record<string, string>>({});
   const [staffToConfirm, setStaffToConfirm] = useState<any>(null);
   const [staffConfirmOpen, setStaffConfirmOpen] = useState(false);
   const [staffConfirmReason, setStaffConfirmReason] = useState('');
@@ -122,6 +123,7 @@ export default function AdminDashboard() {
       theme: 'light'
     }
   });
+  const [restaurantFormErrors, setRestaurantFormErrors] = useState<Record<string, string>>({});
   const [restaurantSnackbar, setRestaurantSnackbar] = useState({
     open: false,
     message: '',
@@ -468,6 +470,7 @@ export default function AdminDashboard() {
 
   const handleOpenStaffDialog = (mode: 'create' | 'edit', staff?: any) => {
     setStaffDialogMode(mode);
+    setStaffFormErrors({});
     if (mode === 'edit' && staff) {
       setEditingStaffId(staff.id);
       setStaffFormData({
@@ -488,6 +491,7 @@ export default function AdminDashboard() {
   const handleCloseStaffDialog = () => {
     setStaffDialogOpen(false);
     setEditingStaffId(null);
+    setStaffFormErrors({});
   };
 
   const handleStaffFormChange = (field: string, value: any) => {
@@ -499,14 +503,29 @@ export default function AdminDashboard() {
       setStaffSnackbar({ open: true, message: 'Select a restaurant first', severity: 'warning' });
       return;
     }
-
-    if (!staffFormData.name || !staffFormData.email) {
-      setStaffSnackbar({ open: true, message: 'Name and email are required', severity: 'error' });
-      return;
+    
+    const newErrors: Record<string, string> = {};
+    
+    // Validate name
+    if (!staffFormData.name.trim()) {
+      newErrors.name = 'Name is required';
     }
-
-    if (!isValidEmail(staffFormData.email)) {
-      setStaffSnackbar({ open: true, message: 'Please enter a valid email address', severity: 'error' });
+    
+    // Validate email
+    if (!staffFormData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!isValidEmail(staffFormData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    
+    // Validate password
+    if (staffDialogMode === 'create' && !staffFormData.password.trim()) {
+      newErrors.password = 'Password is required';
+    }
+    
+    setStaffFormErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
@@ -560,6 +579,7 @@ export default function AdminDashboard() {
   // Restaurant dialog handlers
   const handleOpenRestaurantDialog = (mode: 'create' | 'edit', restaurant?: any) => {
     setRestaurantDialogMode(mode);
+    setRestaurantFormErrors({});
     if (mode === 'edit' && restaurant) {
       setEditingRestaurantId(restaurant.id);
       setRestaurantFormData({
@@ -597,6 +617,7 @@ export default function AdminDashboard() {
   const handleCloseRestaurantDialog = () => {
     setRestaurantDialogOpen(false);
     setEditingRestaurantId(null);
+    setRestaurantFormErrors({});
     setRestaurantFormData({
       name: '',
       email: '',
@@ -627,6 +648,10 @@ export default function AdminDashboard() {
         ...prev,
         [field]: value
       }));
+      // Clear error for this field when user starts typing
+      if (restaurantFormErrors[field]) {
+        setRestaurantFormErrors({ ...restaurantFormErrors, [field]: '' });
+      }
     }
   };
 
@@ -1219,6 +1244,7 @@ export default function AdminDashboard() {
         open={restaurantDialogOpen}
         mode={restaurantDialogMode}
         formData={restaurantFormData}
+        formErrors={restaurantFormErrors}
         loading={createRestaurantLoading || updateRestaurantLoading}
         onClose={handleCloseRestaurantDialog}
         onSubmit={handleRestaurantSubmit}
@@ -1230,10 +1256,16 @@ export default function AdminDashboard() {
         open={staffDialogOpen}
         mode={staffDialogMode}
         formData={staffFormData}
+        formErrors={staffFormErrors}
         loading={createStaffLoading || updateStaffLoading}
         onClose={handleCloseStaffDialog}
         onSubmit={handleStaffSubmit}
-        onFormChange={handleStaffFormChange}
+        onFormChange={(field: string, value: any) => {
+          handleStaffFormChange(field, value);
+          if (staffFormErrors[field]) {
+            setStaffFormErrors({ ...staffFormErrors, [field]: '' });
+          }
+        }}
       />
 
       {/* Staff Activate/Deactivate Confirmation */}

@@ -119,6 +119,11 @@ export default function PurchaseForm({
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
+    // Clear error for this field when user starts typing
+    const errorKey = `item_${index}_${field}`;
+    if (errors[errorKey]) {
+      setErrors({ ...errors, [errorKey]: '' });
+    }
   };
 
   const validate = (): boolean => {
@@ -198,7 +203,10 @@ export default function PurchaseForm({
                 <InputLabel>Vendor *</InputLabel>
                 <Select
                   value={formData.vendorId}
-                  onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, vendorId: e.target.value });
+                    if (errors.vendorId) setErrors({ ...errors, vendorId: '' });
+                  }}
                   label="Vendor *"
                 >
                   {vendors.map((vendor) => (
@@ -207,6 +215,11 @@ export default function PurchaseForm({
                     </MenuItem>
                   ))}
                 </Select>
+                {errors.vendorId && (
+                  <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
+                    {errors.vendorId}
+                  </Box>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -215,7 +228,10 @@ export default function PurchaseForm({
                 label="Purchase Date *"
                 type="date"
                 value={formData.purchaseDate}
-                onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, purchaseDate: e.target.value });
+                  if (errors.purchaseDate) setErrors({ ...errors, purchaseDate: '' });
+                }}
                 error={!!errors.purchaseDate}
                 helperText={errors.purchaseDate}
                 InputLabelProps={{ shrink: true }}
@@ -227,7 +243,10 @@ export default function PurchaseForm({
                 <InputLabel>Payment Status</InputLabel>
                 <Select
                   value={formData.paymentStatus}
-                  onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, paymentStatus: e.target.value });
+                    if (errors.paymentMethod) setErrors({ ...errors, paymentMethod: '' });
+                  }}
                   label="Payment Status"
                 >
                   <MenuItem value="unpaid">Unpaid</MenuItem>
@@ -241,7 +260,10 @@ export default function PurchaseForm({
                 <InputLabel>Payment Method{formData.paymentStatus === 'paid' ? ' *' : ''}</InputLabel>
                 <Select
                   value={formData.paymentMethod}
-                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, paymentMethod: e.target.value });
+                    if (errors.paymentMethod) setErrors({ ...errors, paymentMethod: '' });
+                  }}
                   label={`Payment Method${formData.paymentStatus === 'paid' ? ' *' : ''}`}
                   required={formData.paymentStatus === 'paid'}
                 >

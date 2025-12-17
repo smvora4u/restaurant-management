@@ -74,6 +74,7 @@ export default function TablesPage() {
     status: 'available',
     location: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Queries and mutations
   const { data, loading, error, refetch } = useQuery(GET_TABLES);
@@ -148,6 +149,7 @@ export default function TablesPage() {
       status: 'available',
       location: '',
     });
+    setFormErrors({});
   };
 
   const handleShowQRCode = (tableNumber: number) => {
@@ -163,6 +165,39 @@ export default function TablesPage() {
   };
 
   const handleSubmit = async () => {
+    const newErrors: Record<string, string> = {};
+    
+    // Validate table number
+    if (!formData.number.trim()) {
+      newErrors.number = 'Table number is required';
+    } else {
+      const tableNumber = parseInt(formData.number);
+      if (isNaN(tableNumber) || tableNumber < 1) {
+        newErrors.number = 'Table number must be a positive number';
+      } else if (!editingTable) {
+        const existingTable = tables.find((table: any) => table.number === tableNumber);
+        if (existingTable) {
+          newErrors.number = `Table ${tableNumber} already exists`;
+        }
+      }
+    }
+    
+    // Validate capacity
+    if (!formData.capacity.trim()) {
+      newErrors.capacity = 'Capacity is required';
+    } else {
+      const capacity = parseInt(formData.capacity);
+      if (isNaN(capacity) || capacity < 1) {
+        newErrors.capacity = 'Capacity must be a positive number';
+      }
+    }
+    
+    setFormErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+    
     try {
       // Get restaurant ID from localStorage
       const currentRestaurant = localStorage.getItem('restaurant');
@@ -183,15 +218,6 @@ export default function TablesPage() {
       }
 
       const tableNumber = parseInt(formData.number);
-
-      // Check for duplicate table number (only for new tables)
-      if (!editingTable) {
-        const existingTable = tables.find((table: any) => table.number === tableNumber);
-        if (existingTable) {
-          setSnackbar({ open: true, message: `Table ${tableNumber} already exists. Please choose a different table number.`, severity: 'error' });
-          return;
-        }
-      }
 
       const input = {
         restaurantId,
@@ -474,6 +500,7 @@ export default function TablesPage() {
                   // Allow empty string for editing, or valid numbers
                   if (value === '' || /^\d+$/.test(value)) {
                     handleInputChange('number')(e);
+                    if (formErrors.number) setFormErrors({ ...formErrors, number: '' });
                   }
                 }}
                 onBlur={(e) => {
@@ -481,6 +508,8 @@ export default function TablesPage() {
                   const numValue = parseInt(e.target.value) || 1;
                   setFormData(prev => ({ ...prev, number: Math.max(1, numValue).toString() }));
                 }}
+                error={!!formErrors.number}
+                helperText={formErrors.number}
                 fullWidth
                 required
                 inputProps={{ 
@@ -499,6 +528,7 @@ export default function TablesPage() {
                   // Allow empty string for editing, or valid numbers
                   if (value === '' || /^\d+$/.test(value)) {
                     handleInputChange('capacity')(e);
+                    if (formErrors.capacity) setFormErrors({ ...formErrors, capacity: '' });
                   }
                 }}
                 onBlur={(e) => {
@@ -506,6 +536,8 @@ export default function TablesPage() {
                   const numValue = parseInt(e.target.value) || 1;
                   setFormData(prev => ({ ...prev, capacity: Math.max(1, numValue).toString() }));
                 }}
+                error={!!formErrors.capacity}
+                helperText={formErrors.capacity}
                 fullWidth
                 required
                 inputProps={{ 
