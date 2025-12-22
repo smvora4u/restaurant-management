@@ -15,7 +15,9 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Grid
+  Grid,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   Restaurant,
@@ -41,6 +43,9 @@ const ORDER_TYPES = [
 ];
 
 export default function CreateOrderDialog({ open, onClose, onOrderCreated, restaurant }: CreateOrderDialogProps) {
+  const theme = useTheme();
+  const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [orderType, setOrderType] = useState('dine-in');
   const [tableNumber, setTableNumber] = useState<number | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -191,16 +196,22 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isSmallDevice}
+    >
       <DialogTitle>Create New Order</DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
         {error && (
           <Alert ref={errorRef} severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {/* Order Type Selection */}
           <Grid size={12}>
             <Typography variant="h6" gutterBottom>
