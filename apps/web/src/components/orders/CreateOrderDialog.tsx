@@ -93,6 +93,32 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     }
   };
 
+  // Pure validation function that doesn't update state (for use in render)
+  const checkFormValid = () => {
+    const formData = {
+      customerName,
+      customerPhone,
+      tableNumber: orderType === 'dine-in' ? tableNumber : null
+    };
+    
+    const rules: any[] = [
+      validationRules.required('customerName', 'Customer name is required'),
+      validationRules.required('customerPhone', 'Customer phone is required')
+    ];
+    
+    if (orderType === 'dine-in') {
+      rules.push({
+        field: 'tableNumber',
+        validator: (value: any) => value !== null && value !== undefined,
+        message: 'Table selection is required for dine-in orders'
+      });
+    }
+    
+    const errors = validateForm(formData, rules);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validation function that updates state (for use in handlers)
   const isFormValid = () => {
     const formData = {
       customerName,
@@ -274,7 +300,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
         <Button
           onClick={handleCreateOrder}
           variant="contained"
-          disabled={isCreating || !isFormValid()}
+          disabled={isCreating || !checkFormValid()}
         >
           {isCreating ? <CircularProgress size={20} /> : 'Create Order'}
         </Button>
