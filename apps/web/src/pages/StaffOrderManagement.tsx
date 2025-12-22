@@ -367,6 +367,7 @@ export default function StaffOrderManagement() {
               onAddItem={handleAddItemWrapper}
               isEditing={true}
               restrictCancelToPending={true}
+              orderStatus={order.status}
             />
           </CardContent>
         </Card>

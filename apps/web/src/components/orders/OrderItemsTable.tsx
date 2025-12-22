@@ -55,6 +55,7 @@ interface OrderItemsTableProps {
   hasUnsavedChanges?: boolean;
   isSaving?: boolean;
   restrictCancelToPending?: boolean;
+  orderStatus?: string;
 }
 
 
@@ -80,7 +81,8 @@ export default function OrderItemsTable({
   onToggleEdit,
   hasUnsavedChanges = false,
   isSaving = false,
-  restrictCancelToPending = false
+  restrictCancelToPending = false,
+  orderStatus
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -97,6 +99,9 @@ export default function OrderItemsTable({
   const theme = useTheme();
   // Full screen on mobile, tablets, and small laptops (up to md breakpoint)
   const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Check if order can be edited (not cancelled or completed)
+  const isOrderEditable = orderStatus !== 'cancelled' && orderStatus !== 'completed';
 
   const getMenuItemDetails = (menuItemId: string) => {
     return menuItems.find((item: any) => item.id === menuItemId);
@@ -209,21 +214,31 @@ export default function OrderItemsTable({
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {onToggleEdit && (
-            <Button
-              variant={isEditing ? 'contained' : 'outlined'}
-              onClick={onToggleEdit}
-              startIcon={<Edit />}
-            >
-              {isEditing ? 'Done Editing' : 'Edit Items'}
-            </Button>
+            <Tooltip title={!isOrderEditable ? 'Cannot edit cancelled or completed orders' : ''}>
+              <span>
+                <Button
+                  variant={isEditing ? 'contained' : 'outlined'}
+                  onClick={onToggleEdit}
+                  startIcon={<Edit />}
+                  disabled={!isOrderEditable}
+                >
+                  {isEditing ? 'Done Editing' : 'Edit Items'}
+                </Button>
+              </span>
+            </Tooltip>
           )}
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={() => setAddItemDialogOpen(true)}
-          >
-            Add Item
-          </Button>
+          <Tooltip title={!isOrderEditable ? 'Cannot add items to cancelled or completed orders' : ''}>
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={() => setAddItemDialogOpen(true)}
+                disabled={!isOrderEditable}
+              >
+                Add Item
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -269,7 +284,7 @@ export default function OrderItemsTable({
                         <IconButton
                           size="small"
                           onClick={() => handleQuantityChange(index, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
+                          disabled={item.quantity <= 1 || !isOrderEditable}
                         >
                           <Remove />
                         </IconButton>
@@ -279,6 +294,7 @@ export default function OrderItemsTable({
                         <IconButton
                           size="small"
                           onClick={() => handleQuantityChange(index, item.quantity + 1)}
+                          disabled={!isOrderEditable}
                         >
                           <Add />
                         </IconButton>
@@ -296,14 +312,22 @@ export default function OrderItemsTable({
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      icon={<span>{getStatusIcon(item.status)}</span>}
-                      label={item.status}
-                      color={getStatusColor(item.status)}
-                      size="small"
-                      clickable
-                      onClick={() => handleItemStatusClick(index)}
-                    />
+                    <Tooltip title={!isOrderEditable ? 'Cannot update item status for cancelled or completed orders' : ''}>
+                      <span>
+                        <Chip
+                          icon={<span>{getStatusIcon(item.status)}</span>}
+                          label={item.status}
+                          color={getStatusColor(item.status)}
+                          size="small"
+                          clickable={isOrderEditable}
+                          onClick={() => isOrderEditable && handleItemStatusClick(index)}
+                          sx={{ 
+                            cursor: isOrderEditable ? 'pointer' : 'default',
+                            opacity: isOrderEditable ? 1 : 0.7
+                          }}
+                        />
+                      </span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     {item.specialInstructions ? (
@@ -324,10 +348,15 @@ export default function OrderItemsTable({
                   {isEditing && (
                     <TableCell>
                       {(() => {
-                        const isDeleteDisabled = restrictCancelToPending && item.status !== 'pending';
+                        const isDeleteDisabled = !isOrderEditable || (restrictCancelToPending && item.status !== 'pending');
+                        const deleteTooltip = !isOrderEditable 
+                          ? 'Cannot delete items from cancelled or completed orders'
+                          : (restrictCancelToPending && item.status !== 'pending')
+                          ? 'Cannot delete item once status changes from pending'
+                          : 'Delete item';
                         return (
                           <Tooltip 
-                            title={isDeleteDisabled ? 'Cannot delete item once status changes from pending' : 'Delete item'}
+                            title={deleteTooltip}
                             arrow
                           >
                             <span>
@@ -336,7 +365,7 @@ export default function OrderItemsTable({
                                 color="error"
                                 onClick={() => {
                                   if (isDeleteDisabled) {
-                                    return; // Don't show dialog for non-pending items when restriction is enabled
+                                    return; // Don't show dialog for disabled items
                                   }
                                   setItemToDeleteIndex(index);
                                   setDeleteConfirmationOpen(true);

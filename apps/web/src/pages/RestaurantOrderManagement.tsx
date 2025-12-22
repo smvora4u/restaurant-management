@@ -839,6 +839,7 @@ export default function RestaurantOrderManagement() {
                   hasUnsavedChanges={hasUnsavedChanges}
                   isSaving={isSaving}
                   restrictCancelToPending={true}
+                  orderStatus={order.status}
                 />
 
                 <Divider sx={{ my: 2 }} />

@@ -200,7 +200,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
       open={open} 
       onClose={handleClose} 
       maxWidth="md" 
-      fullWidth
+      fullWidth={!isSmallDevice}
       fullScreen={isSmallDevice}
     >
       <DialogTitle>Create New Order</DialogTitle>
