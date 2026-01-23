@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, Add, Delete, CalendarToday, Payment, Note } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
+import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
 
 interface PurchaseItem {
   itemName: string;
@@ -52,8 +53,8 @@ export default function PurchaseForm({
   open,
   mode,
   initialData,
-  vendors,
-  categories,
+  vendors = [],
+  categories = [],
   restaurant,
   loading = false,
   onClose,
@@ -61,7 +62,7 @@ export default function PurchaseForm({
 }: PurchaseFormProps) {
   const [formData, setFormData] = useState({
     vendorId: '',
-    purchaseDate: new Date().toISOString().split('T')[0],
+    purchaseDate: getLocalDateString(),
     paymentStatus: 'unpaid',
     paymentMethod: '',
     invoiceNumber: '',
@@ -74,7 +75,7 @@ export default function PurchaseForm({
     if (initialData && mode === 'edit') {
       setFormData({
         vendorId: initialData.vendorId || '',
-        purchaseDate: initialData.purchaseDate ? new Date(initialData.purchaseDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        purchaseDate: initialData.purchaseDate ? isoToLocalDateString(initialData.purchaseDate) : getLocalDateString(),
         paymentStatus: initialData.paymentStatus || 'unpaid',
         paymentMethod: initialData.paymentMethod || '',
         invoiceNumber: initialData.invoiceNumber || '',
@@ -91,7 +92,7 @@ export default function PurchaseForm({
     } else {
       setFormData({
         vendorId: '',
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: getLocalDateString(),
         paymentStatus: 'unpaid',
         paymentMethod: '',
         invoiceNumber: '',
@@ -199,7 +200,7 @@ export default function PurchaseForm({
       <DialogContent>
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth error={!!errors.vendorId} size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Vendor *</InputLabel>
                 <Select
@@ -223,7 +224,7 @@ export default function PurchaseForm({
                 )}
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Purchase Date *"
@@ -239,7 +240,7 @@ export default function PurchaseForm({
                 size="small"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Payment Status</InputLabel>
                 <Select
@@ -256,7 +257,7 @@ export default function PurchaseForm({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small" sx={{ minWidth: 200 }} error={!!errors.paymentMethod}>
                 <InputLabel>Payment Method{formData.paymentStatus === 'paid' ? ' *' : ''}</InputLabel>
                 <Select
@@ -281,7 +282,7 @@ export default function PurchaseForm({
                 )}
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Invoice Number"

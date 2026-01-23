@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, CalendarToday, AttachMoney, Calculate, Payment, Note } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
+import { isoToLocalDateString } from '../../utils/dateFormatting';
 
 interface SalaryPaymentFormProps {
   open: boolean;
@@ -66,8 +67,8 @@ export default function SalaryPaymentForm({
   useEffect(() => {
     if (initialData && mode === 'edit') {
       setFormData({
-        paymentPeriodStart: initialData.paymentPeriodStart ? new Date(initialData.paymentPeriodStart).toISOString().split('T')[0] : '',
-        paymentPeriodEnd: initialData.paymentPeriodEnd ? new Date(initialData.paymentPeriodEnd).toISOString().split('T')[0] : '',
+        paymentPeriodStart: initialData.paymentPeriodStart ? isoToLocalDateString(initialData.paymentPeriodStart) : '',
+        paymentPeriodEnd: initialData.paymentPeriodEnd ? isoToLocalDateString(initialData.paymentPeriodEnd) : '',
         baseAmount: initialData.baseAmount?.toString() || '',
         hoursWorked: initialData.hoursWorked?.toString() || '',
         hourlyRate: initialData.hourlyRate?.toString() || '',

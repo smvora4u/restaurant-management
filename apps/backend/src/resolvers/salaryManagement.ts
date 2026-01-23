@@ -4,6 +4,9 @@ import { GraphQLContext } from '../types/index.js';
 import { publishAuditLogCreated } from './subscriptions.js';
 import { parseLocalDateString, formatDateAsString } from '../utils/dateUtils.js';
 
+const toObjectIdString = (id: mongoose.Types.ObjectId | string): string =>
+  typeof id === 'string' ? id : id.toString();
+
 // Helper function to check if user can access staff data
 const canAccessStaff = async (staffId: string, context: GraphQLContext): Promise<{ staff: any; canAccess: boolean }> => {
   const staff = await Staff.findById(staffId);
@@ -88,7 +91,7 @@ const createAuditLog = async (
     });
     await auditLog.save();
     await publishAuditLogCreated({
-      id: auditLog._id.toString(),
+      id: toObjectIdString(auditLog._id as mongoose.Types.ObjectId),
       actorRole,
       actorId,
       action,
@@ -117,7 +120,7 @@ export const salaryManagementResolvers = {
       }
 
       return {
-        id: config._id.toString(),
+        id: toObjectIdString(config._id as mongoose.Types.ObjectId),
         staffId: config.staffId.toString(),
         restaurantId: config.restaurantId.toString(),
         salaryType: config.salaryType,
@@ -148,7 +151,7 @@ export const salaryManagementResolvers = {
       }
 
       return {
-        id: config._id.toString(),
+        id: toObjectIdString(config._id as mongoose.Types.ObjectId),
         staffId: config.staffId.toString(),
         restaurantId: config.restaurantId.toString(),
         salaryType: config.salaryType,
@@ -183,7 +186,7 @@ export const salaryManagementResolvers = {
 
       return {
         data: payments.map(payment => ({
-          id: payment._id.toString(),
+          id: toObjectIdString(payment._id as mongoose.Types.ObjectId),
           staffId: payment.staffId.toString(),
           restaurantId: payment.restaurantId.toString(),
           paymentPeriodStart: payment.paymentPeriodStart.toISOString(),
@@ -293,7 +296,7 @@ export const salaryManagementResolvers = {
 
       return {
         data: payments.map(payment => ({
-          id: payment._id.toString(),
+          id: toObjectIdString(payment._id as mongoose.Types.ObjectId),
           staffId: payment.staffId.toString(),
           restaurantId: payment.restaurantId.toString(),
           paymentPeriodStart: payment.paymentPeriodStart.toISOString(),
@@ -343,7 +346,7 @@ export const salaryManagementResolvers = {
 
       return {
         data: advances.map(advance => ({
-          id: advance._id.toString(),
+          id: toObjectIdString(advance._id as mongoose.Types.ObjectId),
           staffId: advance.staffId.toString(),
           restaurantId: advance.restaurantId.toString(),
           amount: advance.amount,
@@ -443,14 +446,14 @@ export const salaryManagementResolvers = {
         actorId,
         'SET_STAFF_SALARY_CONFIG',
         'SalaryConfig',
-        config._id.toString(),
+        toObjectIdString(config._id as mongoose.Types.ObjectId),
         input.restaurantId,
         `Set salary configuration for staff ${staff.name}`,
         { salaryType: input.salaryType, effectiveDate: input.effectiveDate }
       );
 
       return {
-        id: config._id.toString(),
+        id: toObjectIdString(config._id as mongoose.Types.ObjectId),
         staffId: config.staffId.toString(),
         restaurantId: config.restaurantId.toString(),
         salaryType: config.salaryType,
@@ -509,7 +512,7 @@ export const salaryManagementResolvers = {
       );
 
       return {
-        id: updatedConfig._id.toString(),
+        id: toObjectIdString(updatedConfig._id as mongoose.Types.ObjectId),
         staffId: updatedConfig.staffId.toString(),
         restaurantId: updatedConfig.restaurantId.toString(),
         salaryType: updatedConfig.salaryType,
@@ -582,6 +585,7 @@ export const salaryManagementResolvers = {
         paymentStatus: input.paymentStatus || 'pending',
         paymentMethod: input.paymentMethod,
         paymentTransactionId: input.paymentTransactionId,
+        paidAt: input.paymentStatus === 'paid' ? new Date() : undefined,
         notes: input.notes,
         createdBy: context.admin ? 'admin' : 'restaurant',
         createdById: context.admin?.id || context.restaurant?.id || ''
@@ -600,7 +604,9 @@ export const salaryManagementResolvers = {
             // Fully settle this advance
             advance.isSettled = true;
             advance.settledAt = new Date();
-            advance.settledByPaymentId = payment._id;
+            advance.settledByPaymentId = new mongoose.Types.ObjectId(
+              toObjectIdString(payment._id as mongoose.Types.ObjectId)
+            );
             await advance.save();
             remainingToSettle -= advance.amount;
           } else {
@@ -617,7 +623,9 @@ export const salaryManagementResolvers = {
             
             advance.isSettled = true;
             advance.settledAt = new Date();
-            advance.settledByPaymentId = payment._id;
+            advance.settledByPaymentId = new mongoose.Types.ObjectId(
+              toObjectIdString(payment._id as mongoose.Types.ObjectId)
+            );
             advance.amount = settleAmount;
             await advance.save();
             remainingToSettle -= settleAmount;
@@ -633,14 +641,14 @@ export const salaryManagementResolvers = {
         actorId,
         'CREATE_SALARY_PAYMENT',
         'SalaryPayment',
-        payment._id.toString(),
+        toObjectIdString(payment._id as mongoose.Types.ObjectId),
         input.restaurantId,
         `Created salary payment for staff ${staff.name}`,
         { totalAmount: input.totalAmount, paymentStatus: payment.paymentStatus }
       );
 
       return {
-        id: payment._id.toString(),
+        id: toObjectIdString(payment._id as mongoose.Types.ObjectId),
         staffId: payment.staffId.toString(),
         restaurantId: payment.restaurantId.toString(),
         paymentPeriodStart: payment.paymentPeriodStart.toISOString(),
@@ -693,6 +701,15 @@ export const salaryManagementResolvers = {
         // If marking as paid, set paidAt
         if (input.paymentStatus === 'paid' && !input.paidAt) {
           input.paidAt = new Date();
+        }
+      }
+
+      // Handle old payments: if status is 'paid' but paidAt is missing, set it
+      // This covers cases where payments were created before paidAt was automatically set
+      if (payment.paymentStatus === 'paid' && !payment.paidAt && (!input.paymentStatus || input.paymentStatus === 'paid')) {
+        if (!input.paidAt) {
+          // Use createdAt as fallback for old payments, or current date if updating
+          input.paidAt = payment.createdAt || new Date();
         }
       }
 
@@ -921,7 +938,7 @@ export const salaryManagementResolvers = {
       );
 
       return {
-        id: updatedPayment._id.toString(),
+        id: toObjectIdString(updatedPayment._id as mongoose.Types.ObjectId),
         staffId: updatedPayment.staffId.toString(),
         restaurantId: updatedPayment.restaurantId.toString(),
         paymentPeriodStart: updatedPayment.paymentPeriodStart.toISOString(),
@@ -1021,14 +1038,14 @@ export const salaryManagementResolvers = {
         actorId,
         'CREATE_ADVANCE_PAYMENT',
         'AdvancePayment',
-        advance._id.toString(),
+        toObjectIdString(advance._id as mongoose.Types.ObjectId),
         input.restaurantId,
         `Created advance payment for staff ${staff.name}`,
         { amount: input.amount }
       );
 
       return {
-        id: advance._id.toString(),
+        id: toObjectIdString(advance._id as mongoose.Types.ObjectId),
         staffId: advance.staffId.toString(),
         restaurantId: advance.restaurantId.toString(),
         amount: advance.amount,
@@ -1099,7 +1116,7 @@ export const salaryManagementResolvers = {
       );
 
       return {
-        id: updatedAdvance._id.toString(),
+        id: toObjectIdString(updatedAdvance._id as mongoose.Types.ObjectId),
         staffId: updatedAdvance.staffId.toString(),
         restaurantId: updatedAdvance.restaurantId.toString(),
         amount: updatedAdvance.amount,

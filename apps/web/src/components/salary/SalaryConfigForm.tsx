@@ -16,6 +16,7 @@ import {
   InputAdornment
 } from '@mui/material';
 import { getCurrencySymbolFromCode } from '../../utils/currency';
+import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
 
 interface SalaryConfigFormProps {
   open: boolean;
@@ -40,7 +41,7 @@ export default function SalaryConfigForm({
     hourlyRate: '',
     currency: 'USD',
     paymentFrequency: 'monthly',
-    effectiveDate: new Date().toISOString().split('T')[0],
+    effectiveDate: getLocalDateString(),
     notes: ''
   });
 
@@ -54,7 +55,7 @@ export default function SalaryConfigForm({
         hourlyRate: initialData.hourlyRate?.toString() || '',
         currency: initialData.currency || 'USD',
         paymentFrequency: initialData.paymentFrequency || 'monthly',
-        effectiveDate: initialData.effectiveDate ? new Date(initialData.effectiveDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        effectiveDate: initialData.effectiveDate ? isoToLocalDateString(initialData.effectiveDate) : getLocalDateString(),
         notes: initialData.notes || ''
       });
     } else {
@@ -64,7 +65,7 @@ export default function SalaryConfigForm({
         hourlyRate: '',
         currency: 'USD',
         paymentFrequency: 'monthly',
-        effectiveDate: new Date().toISOString().split('T')[0],
+        effectiveDate: getLocalDateString(),
         notes: ''
       });
     }

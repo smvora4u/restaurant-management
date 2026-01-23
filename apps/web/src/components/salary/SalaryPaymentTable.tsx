@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Table,
   TableBody,
@@ -145,14 +144,14 @@ export default function SalaryPaymentTable({
                       <Box>
                         <div>{payment.paymentMethod}</div>
                         {payment.paymentTransactionId && (
-                          <div style={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          <Box sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
                             {payment.paymentTransactionId.slice(-8)}
-                          </div>
+                          </Box>
                         )}
                         {payment.paidAt && (
-                          <div style={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          <Box sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
                             {formatDate(payment.paidAt)}
-                          </div>
+                          </Box>
                         )}
                       </Box>
                     ) : (

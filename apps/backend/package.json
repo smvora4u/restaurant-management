@@ -8,7 +8,8 @@
     "dev": "nodemon --exec \"tsx\" src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "echo 'no linter configured'"
+    "lint": "echo 'no linter configured'",
+    "migration:backfill-paidat": "tsx src/scripts/runMigration.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.11.1",

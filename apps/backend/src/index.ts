@@ -18,6 +18,7 @@ import { resolvers } from './resolvers/index.js';
 import { connectMongo } from './config/database.js';
 import { seedInitialData } from './utils/seedData.js';
 import { fixTableIndexes } from './utils/fixTableIndexes.js';
+import { backfillPaidAt } from './utils/backfillPaidAt.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
@@ -30,6 +31,9 @@ async function start() {
     
     // Fix table indexes to prevent duplicate key errors
     await fixTableIndexes();
+    
+    // Backfill paidAt for old payments
+    await backfillPaidAt();
     
     // Seed initial data
     await seedInitialData();
