@@ -334,8 +334,9 @@ export const queryResolvers = {
       throw new Error('Unauthorized');
     }
     
-    const query: any = { restaurantId };
-    if (vendorId) query.vendorId = vendorId;
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const query: any = { restaurantId: restaurantObjectId };
+    if (vendorId) query.vendorId = new mongoose.Types.ObjectId(vendorId);
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (startDate || endDate) {
       query.purchaseDate = {};
@@ -347,14 +348,16 @@ export const queryResolvers = {
     // Security: Must filter by restaurantId to prevent cross-restaurant data access
     if (categoryId) {
       // First, get all purchase IDs for this restaurant
-      const restaurantPurchaseIds = await Purchase.find({ restaurantId }).select('_id').lean();
+      const restaurantPurchaseIds = await Purchase.find({ restaurantId: restaurantObjectId }).select('_id').lean();
       const restaurantPurchaseIdArray = restaurantPurchaseIds.map(p => p._id);
       
       if (restaurantPurchaseIdArray.length === 0) {
         // No purchases for this restaurant
         return {
           data: [],
-          totalCount: 0
+          totalCount: 0,
+          totalAmountSum: 0,
+          unpaidAmountSum: 0
         };
       }
       
@@ -368,7 +371,9 @@ export const queryResolvers = {
         // No purchases for this restaurant have items with this category
         return {
           data: [],
-          totalCount: 0
+          totalCount: 0,
+          totalAmountSum: 0,
+          unpaidAmountSum: 0
         };
       }
       
@@ -376,13 +381,31 @@ export const queryResolvers = {
       query._id = { $in: purchaseIds };
     }
     
-    const [data, totalCount] = await Promise.all([
+    const [data, totalCount, totals] = await Promise.all([
       Purchase.find(query)
         .populate('vendorId')
         .sort({ purchaseDate: -1 })
         .skip(offset)
         .limit(limit),
-      Purchase.countDocuments(query)
+      Purchase.countDocuments(query),
+      Purchase.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: null,
+            totalAmountSum: { $sum: '$totalAmount' },
+            unpaidAmountSum: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$paymentStatus', 'unpaid'] },
+                  '$totalAmount',
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ])
     ]);
     
     // Populate items for each purchase
@@ -391,9 +414,12 @@ export const queryResolvers = {
       (purchase as any).items = items;
     }
     
+    const totalsDoc = totals[0] || { totalAmountSum: 0, unpaidAmountSum: 0 };
     return {
       data,
-      totalCount
+      totalCount,
+      totalAmountSum: totalsDoc.totalAmountSum ?? 0,
+      unpaidAmountSum: totalsDoc.unpaidAmountSum ?? 0
     };
   },
   purchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {

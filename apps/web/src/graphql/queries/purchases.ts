@@ -123,6 +123,8 @@ export const GET_PURCHASES = gql`
         updatedAt
       }
       totalCount
+      totalAmountSum
+      unpaidAmountSum
     }
   }
 `;

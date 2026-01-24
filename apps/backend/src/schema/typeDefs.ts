@@ -505,6 +505,8 @@ export const typeDefs = `#graphql
   type PurchaseConnection {
     data: [Purchase!]!
     totalCount: Int!
+    totalAmountSum: Float!
+    unpaidAmountSum: Float!
   }
 
   input AdminInput {

@@ -470,11 +470,9 @@ export default function PurchaseManagement() {
   const totalCount = purchasesData?.purchases?.totalCount || 0;
   const currency = restaurant ? getRestaurantCurrency(restaurant).symbol : getCurrencySymbolFromCode('USD');
 
-  // Calculate summary
-  const totalPurchases = purchases.reduce((sum: number, p: any) => sum + p.totalAmount, 0);
-  const unpaidAmount = purchases
-    .filter((p: any) => p.paymentStatus === 'unpaid')
-    .reduce((sum: number, p: any) => sum + p.totalAmount, 0);
+  // Calculate summary (server-side aggregates across filtered records)
+  const totalPurchases = purchasesData?.purchases?.totalAmountSum ?? 0;
+  const unpaidAmount = purchasesData?.purchases?.unpaidAmountSum ?? 0;
 
   return (
     <Layout>
