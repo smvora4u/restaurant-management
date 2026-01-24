@@ -1,5 +1,6 @@
 import { MenuItem, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
+import { parseDateInput } from '../utils/dateUtils.js';
 import mongoose from 'mongoose';
 
 export const queryResolvers = {
@@ -338,8 +339,8 @@ export const queryResolvers = {
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (startDate || endDate) {
       query.purchaseDate = {};
-      if (startDate) query.purchaseDate.$gte = new Date(startDate);
-      if (endDate) query.purchaseDate.$lte = new Date(endDate);
+      if (startDate) query.purchaseDate.$gte = parseDateInput(startDate);
+      if (endDate) query.purchaseDate.$lte = parseDateInput(endDate);
     }
     
     // If categoryId filter is provided, filter by items BEFORE pagination

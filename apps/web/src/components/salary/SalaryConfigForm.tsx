@@ -16,7 +16,7 @@ import {
   InputAdornment
 } from '@mui/material';
 import { getCurrencySymbolFromCode } from '../../utils/currency';
-import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
+import { timestampToInputDate, toTimestamp } from '../../utils/dateFormatting';
 
 interface SalaryConfigFormProps {
   open: boolean;
@@ -41,7 +41,7 @@ export default function SalaryConfigForm({
     hourlyRate: '',
     currency: 'USD',
     paymentFrequency: 'monthly',
-    effectiveDate: getLocalDateString(),
+    effectiveDate: timestampToInputDate(Date.now()),
     notes: ''
   });
 
@@ -55,7 +55,7 @@ export default function SalaryConfigForm({
         hourlyRate: initialData.hourlyRate?.toString() || '',
         currency: initialData.currency || 'USD',
         paymentFrequency: initialData.paymentFrequency || 'monthly',
-        effectiveDate: initialData.effectiveDate ? isoToLocalDateString(initialData.effectiveDate) : getLocalDateString(),
+        effectiveDate: timestampToInputDate(initialData.effectiveDate),
         notes: initialData.notes || ''
       });
     } else {
@@ -65,7 +65,7 @@ export default function SalaryConfigForm({
         hourlyRate: '',
         currency: 'USD',
         paymentFrequency: 'monthly',
-        effectiveDate: getLocalDateString(),
+        effectiveDate: timestampToInputDate(Date.now()),
         notes: ''
       });
     }
@@ -112,11 +112,16 @@ export default function SalaryConfigForm({
       return;
     }
 
+    const effectiveDateTimestamp = toTimestamp(formData.effectiveDate);
+    if (effectiveDateTimestamp === null) {
+      setErrors(prev => ({ ...prev, effectiveDate: 'Effective date is invalid' }));
+      return;
+    }
     const submitData: any = {
       salaryType: formData.salaryType,
       currency: formData.currency,
       paymentFrequency: formData.paymentFrequency,
-      effectiveDate: formData.effectiveDate,
+      effectiveDate: String(effectiveDateTimestamp),
       notes: formData.notes || undefined
     };
 

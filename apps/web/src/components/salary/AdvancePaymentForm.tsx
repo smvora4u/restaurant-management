@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, AttachMoney, Payment, Note } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
-import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
+import { timestampToInputDate, toTimestamp } from '../../utils/dateFormatting';
 
 interface AdvancePaymentFormProps {
   open: boolean;
@@ -43,7 +43,7 @@ export default function AdvancePaymentForm({
 }: AdvancePaymentFormProps) {
   const [formData, setFormData] = useState({
     amount: '',
-    advanceDate: getLocalDateString(),
+    advanceDate: timestampToInputDate(Date.now()),
     paymentStatus: 'paid',
     paymentMethod: '',
     paymentTransactionId: '',
@@ -56,7 +56,7 @@ export default function AdvancePaymentForm({
     if (initialData && mode === 'edit') {
       setFormData({
         amount: initialData.amount?.toString() || '',
-        advanceDate: initialData.advanceDate ? isoToLocalDateString(initialData.advanceDate) : getLocalDateString(),
+        advanceDate: timestampToInputDate(initialData.advanceDate),
         paymentStatus: initialData.paymentStatus || 'paid',
         paymentMethod: initialData.paymentMethod || '',
         paymentTransactionId: initialData.paymentTransactionId || '',
@@ -65,7 +65,7 @@ export default function AdvancePaymentForm({
     } else {
       setFormData({
         amount: '',
-        advanceDate: getLocalDateString(),
+        advanceDate: timestampToInputDate(Date.now()),
         paymentStatus: 'paid',
         paymentMethod: '',
         paymentTransactionId: '',
@@ -99,9 +99,14 @@ export default function AdvancePaymentForm({
       return;
     }
 
+    const advanceDateTimestamp = toTimestamp(formData.advanceDate);
+    if (advanceDateTimestamp === null) {
+      setErrors(prev => ({ ...prev, advanceDate: 'Advance date is invalid' }));
+      return;
+    }
     const submitData: any = {
       amount: parseFloat(formData.amount),
-      advanceDate: formData.advanceDate,
+      advanceDate: String(advanceDateTimestamp),
       paymentStatus: formData.paymentStatus,
       notes: formData.notes || undefined
     };

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
+import { parseDateInput } from '../utils/dateUtils.js';
 
 export const mutationResolvers = {
   // Menu Item mutations
@@ -367,16 +368,24 @@ export const mutationResolvers = {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
-    const reservation = new Reservation({ ...input, restaurantId: context.restaurant.id });
+    const reservation = new Reservation({
+      ...input,
+      restaurantId: context.restaurant.id,
+      date: parseDateInput(input.date)
+    });
     return await reservation.save();
   },
   updateReservation: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
     if (!context.restaurant) {
       throw new Error('Authentication required');
     }
+    const updateData: any = { ...input };
+    if (input.date) {
+      updateData.date = parseDateInput(input.date);
+    }
     return await Reservation.findOneAndUpdate(
-      { _id: id, restaurantId: context.restaurant.id }, 
-      input, 
+      { _id: id, restaurantId: context.restaurant.id },
+      updateData,
       { new: true }
     );
   },
@@ -654,7 +663,7 @@ export const mutationResolvers = {
     const purchase = new Purchase({
       restaurantId: context.restaurant.id,
       vendorId: input.vendorId,
-      purchaseDate: new Date(input.purchaseDate),
+      purchaseDate: parseDateInput(input.purchaseDate),
       totalAmount: input.totalAmount,
       currency,
       paymentStatus,
@@ -708,7 +717,7 @@ export const mutationResolvers = {
       }
       purchase.vendorId = input.vendorId;
     }
-    if (input.purchaseDate) purchase.purchaseDate = new Date(input.purchaseDate);
+    if (input.purchaseDate) purchase.purchaseDate = parseDateInput(input.purchaseDate);
     if (input.totalAmount !== undefined) purchase.totalAmount = input.totalAmount;
     if (input.currency) purchase.currency = input.currency;
     if (input.paymentStatus) purchase.paymentStatus = input.paymentStatus;

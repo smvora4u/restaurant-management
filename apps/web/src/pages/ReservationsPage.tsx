@@ -34,7 +34,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { ConfirmationDialog } from '../components/common';
-import { formatDate } from '../utils/dateFormatting';
+import { formatDate, timestampToInputDate, toTimestamp } from '../utils/dateFormatting';
 import { GET_RESERVATIONS, CREATE_RESERVATION, UPDATE_RESERVATION, DELETE_RESERVATION } from '../graphql';
 
 const reservationStatuses = [
@@ -103,7 +103,7 @@ export default function ReservationsPage() {
         customerPhone: reservation.customerPhone || '',
         customerEmail: reservation.customerEmail || '',
         tableNumber: reservation.tableNumber?.toString() || '',
-        date: reservation.date || '',
+        date: timestampToInputDate(reservation.date),
         time: reservation.time || '',
         partySize: reservation.partySize?.toString() || '',
         status: reservation.status || 'confirmed',
@@ -165,12 +165,17 @@ export default function ReservationsPage() {
     }
     
     try {
+      const dateTimestamp = toTimestamp(formData.date);
+      if (dateTimestamp === null) {
+        setFormErrors({ ...errors, date: 'Date is invalid' });
+        return;
+      }
       const input = {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         customerEmail: formData.customerEmail || null,
         tableNumber: parseInt(formData.tableNumber),
-        date: formData.date,
+        date: String(dateTimestamp),
         time: formData.time,
         partySize: parseInt(formData.partySize),
         status: formData.status,

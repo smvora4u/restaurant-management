@@ -43,6 +43,46 @@ export const parseLocalDateString = (dateString: string): Date => {
 };
 
 /**
+ * Parses a date input that may be a timestamp, ISO string, or YYYY-MM-DD string.
+ * Returns a Date object or throws if invalid.
+ */
+export const parseDateInput = (dateInput: string | number | Date): Date => {
+  if (dateInput instanceof Date) {
+    if (isNaN(dateInput.getTime())) {
+      throw new Error('Invalid date input');
+    }
+    return dateInput;
+  }
+  if (typeof dateInput === 'number') {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date input');
+    }
+    return date;
+  }
+  const trimmed = dateInput.trim();
+  if (!trimmed) {
+    throw new Error('Invalid date input');
+  }
+  if (/^\d+$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+    const date = new Date(numericValue);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date input');
+    }
+    return date;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return parseLocalDateString(trimmed);
+  }
+  const date = new Date(trimmed);
+  if (isNaN(date.getTime())) {
+    throw new Error('Invalid date input');
+  }
+  return date;
+};
+
+/**
  * Formats a Date object as a YYYY-MM-DD string in UTC
  * This extracts the date part from a Date object, ensuring consistency
  * regardless of timezone. Useful for serializing date-only fields.

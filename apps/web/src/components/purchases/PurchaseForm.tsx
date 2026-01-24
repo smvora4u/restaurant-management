@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
+import { useState, useEffect } from 'react';
+import { clearFieldError } from '../../utils/validation';
 import {
   Dialog,
   DialogTitle,
@@ -24,9 +24,9 @@ import {
   TableRow,
   InputAdornment
 } from '@mui/material';
-import { Close as CloseIcon, Add, Delete, CalendarToday, Payment, Note } from '@mui/icons-material';
+import { Close as CloseIcon, Add, Delete } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
-import { getLocalDateString, isoToLocalDateString } from '../../utils/dateFormatting';
+import { getLocalDateString, toTimestamp, timestampToInputDate } from '../../utils/dateFormatting';
 
 interface PurchaseItem {
   itemName: string;
@@ -75,7 +75,7 @@ export default function PurchaseForm({
     if (initialData && mode === 'edit') {
       setFormData({
         vendorId: initialData.vendorId || '',
-        purchaseDate: initialData.purchaseDate ? isoToLocalDateString(initialData.purchaseDate) : getLocalDateString(),
+        purchaseDate: timestampToInputDate(initialData.purchaseDate),
         paymentStatus: initialData.paymentStatus || 'unpaid',
         paymentMethod: initialData.paymentMethod || '',
         invoiceNumber: initialData.invoiceNumber || '',
@@ -135,8 +135,11 @@ export default function PurchaseForm({
       newErrors.vendorId = 'Vendor is required';
     }
 
+    const purchaseDateTimestamp = toTimestamp(formData.purchaseDate);
     if (!formData.purchaseDate) {
       newErrors.purchaseDate = 'Purchase date is required';
+    } else if (purchaseDateTimestamp === null) {
+      newErrors.purchaseDate = 'Purchase date is invalid';
     }
 
     if (items.length === 0) {
@@ -169,8 +172,14 @@ export default function PurchaseForm({
       const totalAmount = calculateTotal();
       const currency = restaurant?.settings?.currency || 'USD';
       
+      const purchaseDateTimestamp = toTimestamp(formData.purchaseDate);
+      if (purchaseDateTimestamp === null) {
+        setErrors({ ...errors, purchaseDate: 'Purchase date is invalid' });
+        return;
+      }
       onSubmit({
         ...formData,
+        purchaseDate: String(purchaseDateTimestamp),
         items: items.map(item => ({
           itemName: item.itemName,
           quantity: item.quantity,

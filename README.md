@@ -47,6 +47,12 @@ Env overrides:
    ```
 3. GraphQL endpoint: `http://localhost:4000/graphql`
 
+### Date Handling
+
+For consistency across the app, date inputs should be sent to the API as Unix timestamps in milliseconds
+(e.g., `"1764547200000"`). The UI converts between `YYYY-MM-DD` input values and timestamps.
+Backend resolvers accept timestamps and also tolerate ISO/`YYYY-MM-DD` strings for backward compatibility.
+
 ### Web (React + Vite)
 
 1. Start the dev server:

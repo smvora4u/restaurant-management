@@ -54,6 +54,35 @@ docker exec -it <container-name> npm run migration:backfill-paidat
 docker run --rm --env-file .env <image-name> npm run migration:backfill-paidat
 ```
 
+### Backfill purchaseDate Values
+
+This migration backfills the `purchaseDate` field for purchases where it is missing or invalid by using `createdAt`.
+
+**Local Development:**
+```bash
+npm run migration:backfill-purchase-date
+```
+
+**Production (via SSH/CLI):**
+```bash
+# If using npm scripts
+npm run migration:backfill-purchase-date
+
+# Or directly with tsx/node
+tsx src/scripts/runPurchaseDateMigration.ts
+# or
+node dist/scripts/runPurchaseDateMigration.js
+```
+
+**Production (via Docker):**
+```bash
+# Execute migration in running container
+docker exec -it <container-name> npm run migration:backfill-purchase-date
+
+# Or run as one-off container
+docker run --rm --env-file .env <image-name> npm run migration:backfill-purchase-date
+```
+
 ## Production Deployment Strategy
 
 ### Option 1: Automatic (Recommended for First Deployment)

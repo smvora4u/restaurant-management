@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, CalendarToday, AttachMoney, Calculate, Payment, Note } from '@mui/icons-material';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../../utils/currency';
-import { isoToLocalDateString } from '../../utils/dateFormatting';
+import { timestampToInputDate, toTimestamp } from '../../utils/dateFormatting';
 
 interface SalaryPaymentFormProps {
   open: boolean;
@@ -67,8 +67,8 @@ export default function SalaryPaymentForm({
   useEffect(() => {
     if (initialData && mode === 'edit') {
       setFormData({
-        paymentPeriodStart: initialData.paymentPeriodStart ? isoToLocalDateString(initialData.paymentPeriodStart) : '',
-        paymentPeriodEnd: initialData.paymentPeriodEnd ? isoToLocalDateString(initialData.paymentPeriodEnd) : '',
+        paymentPeriodStart: timestampToInputDate(initialData.paymentPeriodStart),
+        paymentPeriodEnd: timestampToInputDate(initialData.paymentPeriodEnd),
         baseAmount: initialData.baseAmount?.toString() || '',
         hoursWorked: initialData.hoursWorked?.toString() || '',
         hourlyRate: initialData.hourlyRate?.toString() || '',
@@ -90,8 +90,8 @@ export default function SalaryPaymentForm({
       const baseAmount = salaryConfig?.baseSalary ? salaryConfig.baseSalary.toString() : '';
       
       setFormData({
-        paymentPeriodStart: firstDay.toISOString().split('T')[0],
-        paymentPeriodEnd: lastDay.toISOString().split('T')[0],
+        paymentPeriodStart: timestampToInputDate(firstDay),
+        paymentPeriodEnd: timestampToInputDate(lastDay),
         baseAmount: baseAmount,
         hoursWorked: '',
         hourlyRate: salaryConfig?.hourlyRate?.toString() || '',
@@ -193,9 +193,19 @@ export default function SalaryPaymentForm({
       return;
     }
 
+    const paymentPeriodStartTimestamp = toTimestamp(formData.paymentPeriodStart);
+    const paymentPeriodEndTimestamp = toTimestamp(formData.paymentPeriodEnd);
+    if (paymentPeriodStartTimestamp === null || paymentPeriodEndTimestamp === null) {
+      setErrors(prev => ({
+        ...prev,
+        paymentPeriodStart: paymentPeriodStartTimestamp === null ? 'Start date is invalid' : prev.paymentPeriodStart,
+        paymentPeriodEnd: paymentPeriodEndTimestamp === null ? 'End date is invalid' : prev.paymentPeriodEnd
+      }));
+      return;
+    }
     const submitData: any = {
-      paymentPeriodStart: formData.paymentPeriodStart,
-      paymentPeriodEnd: formData.paymentPeriodEnd,
+      paymentPeriodStart: String(paymentPeriodStartTimestamp),
+      paymentPeriodEnd: String(paymentPeriodEndTimestamp),
       baseAmount: parseFloat(formData.baseAmount) || 0,
       totalAmount: parseFloat(formData.totalAmount),
       paymentStatus: formData.paymentStatus,

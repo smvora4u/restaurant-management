@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { SalaryConfig, SalaryPayment, AdvancePayment, Staff, Restaurant, AuditLog } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishAuditLogCreated } from './subscriptions.js';
-import { parseLocalDateString, formatDateAsString } from '../utils/dateUtils.js';
+import { formatDateAsString, parseDateInput } from '../utils/dateUtils.js';
 
 const toObjectIdString = (id: mongoose.Types.ObjectId | string): string =>
   typeof id === 'string' ? id : id.toString();
@@ -431,7 +431,7 @@ export const salaryManagementResolvers = {
         hourlyRate: input.hourlyRate,
         currency: input.currency,
         paymentFrequency: input.paymentFrequency,
-        effectiveDate: new Date(input.effectiveDate),
+        effectiveDate: parseDateInput(input.effectiveDate),
         notes: input.notes,
         isActive: true
       });
@@ -484,7 +484,7 @@ export const salaryManagementResolvers = {
 
       const updateData: any = { ...input };
       if (input.effectiveDate) {
-        updateData.effectiveDate = new Date(input.effectiveDate);
+        updateData.effectiveDate = parseDateInput(input.effectiveDate);
       }
 
       const updatedConfig = await SalaryConfig.findByIdAndUpdate(
@@ -573,8 +573,8 @@ export const salaryManagementResolvers = {
       const payment = new SalaryPayment({
         staffId: new mongoose.Types.ObjectId(input.staffId),
         restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
-        paymentPeriodStart: new Date(input.paymentPeriodStart),
-        paymentPeriodEnd: new Date(input.paymentPeriodEnd),
+        paymentPeriodStart: parseDateInput(input.paymentPeriodStart),
+        paymentPeriodEnd: parseDateInput(input.paymentPeriodEnd),
         baseAmount: input.baseAmount,
         hoursWorked: input.hoursWorked,
         hourlyRate: input.hourlyRate,
@@ -799,10 +799,10 @@ export const salaryManagementResolvers = {
       updateData.totalAmount = finalTotalAmount;
       
       if (input.paymentPeriodStart) {
-        updateData.paymentPeriodStart = new Date(input.paymentPeriodStart);
+        updateData.paymentPeriodStart = parseDateInput(input.paymentPeriodStart);
       }
       if (input.paymentPeriodEnd) {
-        updateData.paymentPeriodEnd = new Date(input.paymentPeriodEnd);
+        updateData.paymentPeriodEnd = parseDateInput(input.paymentPeriodEnd);
       }
       if (input.paidAt) {
         updateData.paidAt = new Date(input.paidAt);
@@ -1017,7 +1017,7 @@ export const salaryManagementResolvers = {
         staffId: new mongoose.Types.ObjectId(input.staffId),
         restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
         amount: input.amount,
-        advanceDate: parseLocalDateString(input.advanceDate),
+        advanceDate: parseDateInput(input.advanceDate),
         paymentStatus: input.paymentStatus || 'paid',
         paymentMethod: input.paymentMethod,
         paymentTransactionId: input.paymentTransactionId,
@@ -1085,7 +1085,7 @@ export const salaryManagementResolvers = {
 
       const updateData: any = { ...input };
       if (input.advanceDate) {
-        updateData.advanceDate = parseLocalDateString(input.advanceDate);
+        updateData.advanceDate = parseDateInput(input.advanceDate);
       }
       if (input.paidAt) {
         updateData.paidAt = new Date(input.paidAt);

@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { getCurrencySymbolFromCode, getRestaurantCurrency } from '../utils/currency';
+import { toTimestamp } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import PurchaseForm from '../components/purchases/PurchaseForm';
 import PurchaseTable from '../components/purchases/PurchaseTable';
@@ -141,8 +142,14 @@ export default function PurchaseManagement() {
       vendorId: purchaseFilters.vendorId || undefined,
       categoryId: purchaseFilters.categoryId || undefined,
       paymentStatus: purchaseFilters.paymentStatus || undefined,
-      startDate: purchaseFilters.startDate || undefined,
-      endDate: purchaseFilters.endDate || undefined
+      startDate: (() => {
+        const value = toTimestamp(purchaseFilters.startDate);
+        return value === null ? undefined : String(value);
+      })(),
+      endDate: (() => {
+        const value = toTimestamp(purchaseFilters.endDate);
+        return value === null ? undefined : String(value);
+      })()
     },
     skip: !restaurantId
   });

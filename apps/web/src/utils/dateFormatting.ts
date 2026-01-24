@@ -194,6 +194,45 @@ export const getLocalDateString = (): string => {
 };
 
 /**
+ * Converts various date inputs to a timestamp (ms).
+ * Returns null for invalid inputs.
+ */
+export const toTimestamp = (dateInput: string | Date | number | undefined | null): number | null => {
+  if (dateInput === undefined || dateInput === null || dateInput === '') return null;
+  if (dateInput instanceof Date) {
+    return isNaN(dateInput.getTime()) ? null : dateInput.getTime();
+  }
+  if (typeof dateInput === 'number') {
+    return Number.isFinite(dateInput) ? dateInput : null;
+  }
+  const trimmed = dateInput.trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const utcDate = new Date(trimmed + 'T00:00:00.000Z');
+    return isNaN(utcDate.getTime()) ? null : utcDate.getTime();
+  }
+  const parsed = new Date(trimmed);
+  return isNaN(parsed.getTime()) ? null : parsed.getTime();
+};
+
+/**
+ * Converts a timestamp input to YYYY-MM-DD for date input fields.
+ */
+export const timestampToInputDate = (dateInput: string | Date | number | undefined | null): string => {
+  const timestamp = toTimestamp(dateInput);
+  if (timestamp === null) return '';
+  const date = new Date(timestamp);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Converts an ISO date string or date-only string to local date string (YYYY-MM-DD) for date input fields
  * This ensures the date input shows the correct date regardless of timezone.
  * Handles both ISO strings (e.g., "2024-01-15T10:30:00.000Z") and date-only strings (e.g., "2024-01-15").
