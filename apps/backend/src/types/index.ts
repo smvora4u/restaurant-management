@@ -263,6 +263,8 @@ export interface IPurchase extends Document {
   currency: string;
   paymentStatus: 'paid' | 'unpaid' | 'partial';
   paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
+  paymentTransactionId?: string;
+  paidAt?: Date;
   invoiceNumber?: string;
   notes?: string;
   createdBy: string;

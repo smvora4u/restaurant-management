@@ -8,6 +8,10 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Tabs,
   Tab,
   Grid,
@@ -46,7 +50,8 @@ import {
   DELETE_VENDOR,
   CREATE_PURCHASE,
   UPDATE_PURCHASE,
-  DELETE_PURCHASE
+  DELETE_PURCHASE,
+  SETTLE_PURCHASES
 } from '../graphql';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
 
@@ -82,6 +87,7 @@ export default function PurchaseManagement() {
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null);
   const [purchasePage, setPurchasePage] = useState(0);
   const [purchaseRowsPerPage, setPurchaseRowsPerPage] = useState(10);
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState<string[]>([]);
   const [purchaseFilters, setPurchaseFilters] = useState({
     vendorId: '',
     categoryId: '',
@@ -89,6 +95,13 @@ export default function PurchaseManagement() {
     startDate: '',
     endDate: ''
   });
+  const [settleDialogOpen, setSettleDialogOpen] = useState(false);
+  const [settleForm, setSettleForm] = useState({
+    paymentMethod: '',
+    paymentTransactionId: '',
+    paidAt: ''
+  });
+  const [settleErrors, setSettleErrors] = useState<Record<string, string>>({});
   
   // Vendor state
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
@@ -120,6 +133,16 @@ export default function PurchaseManagement() {
     }
     setRestaurant(JSON.parse(restaurantData));
   }, [navigate]);
+
+  useEffect(() => {
+    setSelectedPurchaseIds([]);
+  }, [
+    purchaseFilters.vendorId,
+    purchaseFilters.categoryId,
+    purchaseFilters.paymentStatus,
+    purchaseFilters.startDate,
+    purchaseFilters.endDate
+  ]);
 
   const restaurantId = restaurant?.id;
 
@@ -330,11 +353,107 @@ export default function PurchaseManagement() {
     }
   });
 
+  const [settlePurchases, { loading: settlePurchasesLoading }] = useMutation(SETTLE_PURCHASES, {
+    onCompleted: (data) => {
+      const result = data?.settlePurchases;
+      setSettleDialogOpen(false);
+      setSelectedPurchaseIds([]);
+      setSettleForm({
+        paymentMethod: '',
+        paymentTransactionId: '',
+        paidAt: ''
+      });
+      setSettleErrors({});
+      refetchPurchases();
+      setSnackbar({
+        open: true,
+        message: `Settled ${result?.modifiedCount ?? 0} purchase(s)`,
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: `Error: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  });
+
   // Handlers
   const handleOpenPurchaseDialog = (mode: 'create' | 'edit', purchase?: any) => {
     setPurchaseMode(mode);
     setSelectedPurchase(purchase);
     setPurchaseDialogOpen(true);
+  };
+
+  const handleOpenSettleDialog = () => {
+    const unpaidCount = purchasesData?.purchases?.unpaidCount ?? 0;
+    if (selectedPurchaseIds.length === 0 && unpaidCount === 0) {
+      setSnackbar({
+        open: true,
+        message: 'No unpaid purchases to settle',
+        severity: 'info'
+      });
+      return;
+    }
+    setSettleForm({
+      paymentMethod: '',
+      paymentTransactionId: '',
+      paidAt: ''
+    });
+    setSettleErrors({});
+    setSettleDialogOpen(true);
+  };
+
+  const handleSettleSubmit = () => {
+    const errors: Record<string, string> = {};
+    if (!settleForm.paymentMethod) {
+      errors.paymentMethod = 'Payment method is required';
+    }
+
+    let paidAtValue: number | null = null;
+    if (settleForm.paidAt) {
+      paidAtValue = toTimestamp(settleForm.paidAt);
+      if (paidAtValue === null) {
+        errors.paidAt = 'Paid date is invalid';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setSettleErrors(errors);
+      return;
+    }
+
+    const input: any = {
+      restaurantId,
+      paymentMethod: settleForm.paymentMethod
+    };
+
+    if (settleForm.paymentTransactionId) {
+      input.paymentTransactionId = settleForm.paymentTransactionId;
+    }
+
+    if (paidAtValue !== null) {
+      input.paidAt = String(paidAtValue);
+    }
+
+    if (selectedPurchaseIds.length > 0) {
+      input.purchaseIds = selectedPurchaseIds;
+    } else {
+      if (purchaseFilters.vendorId) input.vendorId = purchaseFilters.vendorId;
+      if (purchaseFilters.categoryId) input.categoryId = purchaseFilters.categoryId;
+      if (purchaseFilters.startDate) {
+        const value = toTimestamp(purchaseFilters.startDate);
+        if (value !== null) input.startDate = String(value);
+      }
+      if (purchaseFilters.endDate) {
+        const value = toTimestamp(purchaseFilters.endDate);
+        if (value !== null) input.endDate = String(value);
+      }
+    }
+
+    settlePurchases({ variables: { input } });
   };
 
   const handlePurchaseSubmit = (data: any) => {
@@ -468,11 +587,16 @@ export default function PurchaseManagement() {
   const vendors = vendorsData?.vendors || [];
   const purchases = purchasesData?.purchases?.data || [];
   const totalCount = purchasesData?.purchases?.totalCount || 0;
+  const unpaidCount = purchasesData?.purchases?.unpaidCount ?? 0;
   const currency = restaurant ? getRestaurantCurrency(restaurant).symbol : getCurrencySymbolFromCode('USD');
 
   // Calculate summary (server-side aggregates across filtered records)
   const totalPurchases = purchasesData?.purchases?.totalAmountSum ?? 0;
   const unpaidAmount = purchasesData?.purchases?.unpaidAmountSum ?? 0;
+  const settleTargetCount = selectedPurchaseIds.length > 0 ? selectedPurchaseIds.length : unpaidCount;
+  const settleTargetLabel = selectedPurchaseIds.length > 0
+    ? `${selectedPurchaseIds.length} selected unpaid purchase(s)`
+    : `${unpaidCount} unpaid purchase(s) matching current filters`;
 
   return (
     <Layout>
@@ -614,15 +738,26 @@ export default function PurchaseManagement() {
               <Box sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>Purchases</Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Add />}
-                    onClick={() => handleOpenPurchaseDialog('create')}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    Create Purchase
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      color="success"
+                      onClick={handleOpenSettleDialog}
+                      disabled={settleTargetCount === 0}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Settle Unpaid
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<Add />}
+                      onClick={() => handleOpenPurchaseDialog('create')}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Create Purchase
+                    </Button>
+                  </Box>
                 </Box>
 
                 {purchasesLoading ? (
@@ -636,6 +771,8 @@ export default function PurchaseManagement() {
                     onEdit={(purchase) => handleOpenPurchaseDialog('edit', purchase)}
                     onDelete={handleDeletePurchase}
                     canManage={true}
+                    selectedIds={selectedPurchaseIds}
+                    onSelectionChange={setSelectedPurchaseIds}
                     page={purchasePage}
                     rowsPerPage={purchaseRowsPerPage}
                     totalCount={totalCount}
@@ -728,6 +865,82 @@ export default function PurchaseManagement() {
           }}
           onSubmit={handlePurchaseSubmit}
         />
+
+        <Dialog
+          open={settleDialogOpen}
+          onClose={() => setSettleDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Settle Unpaid Purchases</DialogTitle>
+          <DialogContent sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              This will mark {settleTargetLabel} as paid. Only unpaid purchases will be updated.
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControl fullWidth size="small" error={!!settleErrors.paymentMethod}>
+                <InputLabel>Payment Method</InputLabel>
+                <Select
+                  value={settleForm.paymentMethod}
+                  onChange={(event) => {
+                    setSettleForm((prev) => ({ ...prev, paymentMethod: event.target.value }));
+                    if (settleErrors.paymentMethod) {
+                      setSettleErrors((prev) => ({ ...prev, paymentMethod: '' }));
+                    }
+                  }}
+                  label="Payment Method"
+                >
+                  <MenuItem value="cash">Cash</MenuItem>
+                  <MenuItem value="card">Card</MenuItem>
+                  <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                  <MenuItem value="online">Online</MenuItem>
+                </Select>
+                {settleErrors.paymentMethod && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                    {settleErrors.paymentMethod}
+                  </Typography>
+                )}
+              </FormControl>
+              <TextField
+                fullWidth
+                size="small"
+                label="Transaction ID (Optional)"
+                value={settleForm.paymentTransactionId}
+                onChange={(event) => setSettleForm((prev) => ({ ...prev, paymentTransactionId: event.target.value }))}
+                helperText="Leave blank if not applicable"
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Paid Date (Optional)"
+                type="date"
+                value={settleForm.paidAt}
+                onChange={(event) => {
+                  setSettleForm((prev) => ({ ...prev, paidAt: event.target.value }));
+                  if (settleErrors.paidAt) {
+                    setSettleErrors((prev) => ({ ...prev, paidAt: '' }));
+                  }
+                }}
+                error={!!settleErrors.paidAt}
+                helperText={settleErrors.paidAt || 'Defaults to today if left blank'}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setSettleDialogOpen(false)} disabled={settlePurchasesLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleSettleSubmit}
+              disabled={settlePurchasesLoading || settleTargetCount === 0}
+            >
+              {settlePurchasesLoading ? 'Settling...' : 'Settle Purchases'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <VendorForm
           open={vendorDialogOpen}

@@ -357,7 +357,8 @@ export const queryResolvers = {
           data: [],
           totalCount: 0,
           totalAmountSum: 0,
-          unpaidAmountSum: 0
+          unpaidAmountSum: 0,
+          unpaidCount: 0
         };
       }
       
@@ -373,7 +374,8 @@ export const queryResolvers = {
           data: [],
           totalCount: 0,
           totalAmountSum: 0,
-          unpaidAmountSum: 0
+          unpaidAmountSum: 0,
+          unpaidCount: 0
         };
       }
       
@@ -402,6 +404,15 @@ export const queryResolvers = {
                   0
                 ]
               }
+            },
+            unpaidCount: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$paymentStatus', 'unpaid'] },
+                  1,
+                  0
+                ]
+              }
             }
           }
         }
@@ -414,12 +425,13 @@ export const queryResolvers = {
       (purchase as any).items = items;
     }
     
-    const totalsDoc = totals[0] || { totalAmountSum: 0, unpaidAmountSum: 0 };
+    const totalsDoc = totals[0] || { totalAmountSum: 0, unpaidAmountSum: 0, unpaidCount: 0 };
     return {
       data,
       totalCount,
       totalAmountSum: totalsDoc.totalAmountSum ?? 0,
-      unpaidAmountSum: totalsDoc.unpaidAmountSum ?? 0
+      unpaidAmountSum: totalsDoc.unpaidAmountSum ?? 0,
+      unpaidCount: totalsDoc.unpaidCount ?? 0
     };
   },
   purchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {

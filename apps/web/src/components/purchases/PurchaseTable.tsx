@@ -11,7 +11,8 @@ import {
   IconButton,
   TablePagination,
   Box,
-  Collapse
+  Collapse,
+  Checkbox
 } from '@mui/material';
 import { Edit, Delete, KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateFormatting';
@@ -40,6 +41,7 @@ interface Purchase {
   currency: string;
   paymentStatus: string;
   paymentMethod?: string;
+  paidAt?: string;
   invoiceNumber?: string;
 }
 
@@ -54,6 +56,8 @@ interface PurchaseTableProps {
   totalCount?: number;
   onPageChange?: (page: number) => void;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
 }
 
 export default function PurchaseTable({
@@ -66,9 +70,17 @@ export default function PurchaseTable({
   rowsPerPage = 10,
   totalCount = 0,
   onPageChange,
-  onRowsPerPageChange
+  onRowsPerPageChange,
+  selectedIds = [],
+  onSelectionChange
 }: PurchaseTableProps) {
   const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set());
+  const selectable = Boolean(onSelectionChange);
+  const selectedIdsSet = new Set(selectedIds);
+  const unpaidIdsOnPage = purchases.filter((purchase) => purchase.paymentStatus === 'unpaid').map((purchase) => purchase.id);
+  const allSelectedOnPage = selectable && unpaidIdsOnPage.length > 0 && unpaidIdsOnPage.every((id) => selectedIdsSet.has(id));
+  const someSelectedOnPage = selectable && unpaidIdsOnPage.some((id) => selectedIdsSet.has(id));
+  const columnCount = (canManage ? 8 : 7) + (selectable ? 1 : 0);
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -93,12 +105,40 @@ export default function PurchaseTable({
     }
   };
 
+  const toggleAllOnPage = (checked: boolean) => {
+    if (!onSelectionChange) return;
+    if (checked) {
+      onSelectionChange(Array.from(new Set([...selectedIds, ...unpaidIdsOnPage])));
+      return;
+    }
+    onSelectionChange(selectedIds.filter((id) => !unpaidIdsOnPage.includes(id)));
+  };
+
+  const toggleOne = (id: string) => {
+    if (!onSelectionChange) return;
+    if (selectedIdsSet.has(id)) {
+      onSelectionChange(selectedIds.filter((selectedId) => selectedId !== id));
+      return;
+    }
+    onSelectionChange([...selectedIds, id]);
+  };
+
   return (
     <Box>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
+              {selectable && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={!allSelectedOnPage && someSelectedOnPage}
+                    checked={allSelectedOnPage}
+                    onChange={(event) => toggleAllOnPage(event.target.checked)}
+                    inputProps={{ 'aria-label': 'select unpaid purchases on page' }}
+                  />
+                </TableCell>
+              )}
               <TableCell />
               <TableCell>Date</TableCell>
               <TableCell>Vendor</TableCell>
@@ -112,7 +152,7 @@ export default function PurchaseTable({
           <TableBody>
             {purchases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canManage ? 8 : 7} align="center">
+                <TableCell colSpan={columnCount} align="center">
                   No purchases found
                 </TableCell>
               </TableRow>
@@ -120,6 +160,16 @@ export default function PurchaseTable({
               purchases.map((purchase) => (
                 <React.Fragment key={purchase.id}>
                   <TableRow>
+                    {selectable && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedIdsSet.has(purchase.id)}
+                          onChange={() => toggleOne(purchase.id)}
+                          disabled={purchase.paymentStatus !== 'unpaid'}
+                          inputProps={{ 'aria-label': `select purchase ${purchase.id}` }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <IconButton
                         size="small"
@@ -134,11 +184,18 @@ export default function PurchaseTable({
                       {currency} {purchase.totalAmount.toFixed(2)}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={purchase.paymentStatus}
-                        color={getStatusColor(purchase.paymentStatus) as any}
-                        size="small"
-                      />
+                      <Box>
+                        <Chip
+                          label={purchase.paymentStatus}
+                          color={getStatusColor(purchase.paymentStatus) as any}
+                          size="small"
+                        />
+                        {purchase.paidAt && (
+                          <Box sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>
+                            {formatDate(purchase.paidAt)}
+                          </Box>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>{purchase.paymentMethod || '-'}</TableCell>
                     <TableCell>{purchase.invoiceNumber || '-'}</TableCell>
@@ -160,7 +217,7 @@ export default function PurchaseTable({
                     )}
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={canManage ? 8 : 7}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={columnCount}>
                       <Collapse in={expandedRows.has(purchase.id)} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 2 }}>
                           <Table size="small">

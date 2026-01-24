@@ -163,4 +163,13 @@ export const DELETE_PURCHASE = gql`
   }
 `;
 
+export const SETTLE_PURCHASES = gql`
+  mutation SettlePurchases($input: PurchaseSettlementInput!) {
+    settlePurchases(input: $input) {
+      matchedCount
+      modifiedCount
+    }
+  }
+`;
+
 

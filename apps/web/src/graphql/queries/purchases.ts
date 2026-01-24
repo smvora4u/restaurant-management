@@ -115,6 +115,7 @@ export const GET_PURCHASES = gql`
         currency
         paymentStatus
         paymentMethod
+        paidAt
         invoiceNumber
         notes
         createdBy
@@ -125,6 +126,7 @@ export const GET_PURCHASES = gql`
       totalCount
       totalAmountSum
       unpaidAmountSum
+      unpaidCount
     }
   }
 `;

@@ -285,6 +285,7 @@ export const typeDefs = `#graphql
     deleteVendor(id: ID!): Boolean!
     createPurchase(input: PurchaseInput!): Purchase!
     updatePurchase(id: ID!, input: UpdatePurchaseInput!): Purchase!
+    settlePurchases(input: PurchaseSettlementInput!): BulkPurchaseSettlementResult!
     deletePurchase(id: ID!): Boolean!
   }
   type RestaurantFeeConfig {
@@ -494,6 +495,8 @@ export const typeDefs = `#graphql
     currency: String!
     paymentStatus: String!
     paymentMethod: String
+    paymentTransactionId: String
+    paidAt: String
     invoiceNumber: String
     notes: String
     createdBy: String!
@@ -507,6 +510,7 @@ export const typeDefs = `#graphql
     totalCount: Int!
     totalAmountSum: Float!
     unpaidAmountSum: Float!
+    unpaidCount: Int!
   }
 
   input AdminInput {
@@ -774,9 +778,26 @@ export const typeDefs = `#graphql
     notes: String
   }
 
+  input PurchaseSettlementInput {
+    restaurantId: ID!
+    purchaseIds: [ID!]
+    vendorId: ID
+    categoryId: ID
+    startDate: String
+    endDate: String
+    paymentMethod: String!
+    paymentTransactionId: String
+    paidAt: String
+  }
+
   type SampleDataResponse {
     success: Boolean!
     message: String!
+  }
+
+  type BulkPurchaseSettlementResult {
+    matchedCount: Int!
+    modifiedCount: Int!
   }
 
   type Subscription {

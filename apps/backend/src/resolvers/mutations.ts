@@ -762,6 +762,70 @@ export const mutationResolvers = {
     
     return purchase;
   },
+  settlePurchases: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant) {
+      throw new Error('Authentication required');
+    }
+    if (input.restaurantId !== context.restaurant.id) {
+      throw new Error('Unauthorized');
+    }
+    if (!input.paymentMethod) {
+      throw new Error('Payment method is required to settle purchases');
+    }
+
+    const restaurantObjectId = new mongoose.Types.ObjectId(input.restaurantId);
+    const query: any = {
+      restaurantId: restaurantObjectId,
+      paymentStatus: 'unpaid'
+    };
+
+    if (Array.isArray(input.purchaseIds) && input.purchaseIds.length > 0) {
+      query._id = { $in: input.purchaseIds.map((id: string) => new mongoose.Types.ObjectId(id)) };
+    } else {
+      if (input.vendorId) query.vendorId = new mongoose.Types.ObjectId(input.vendorId);
+      if (input.startDate || input.endDate) {
+        query.purchaseDate = {};
+        if (input.startDate) query.purchaseDate.$gte = parseDateInput(input.startDate);
+        if (input.endDate) query.purchaseDate.$lte = parseDateInput(input.endDate);
+      }
+
+      if (input.categoryId) {
+        const restaurantPurchaseIds = await Purchase.find({ restaurantId: restaurantObjectId }).select('_id').lean();
+        const restaurantPurchaseIdArray = restaurantPurchaseIds.map(p => p._id);
+
+        if (restaurantPurchaseIdArray.length === 0) {
+          return { matchedCount: 0, modifiedCount: 0 };
+        }
+
+        const purchaseIds = await PurchaseItem.distinct('purchaseId', {
+          categoryId: new mongoose.Types.ObjectId(input.categoryId),
+          purchaseId: { $in: restaurantPurchaseIdArray }
+        });
+
+        if (purchaseIds.length === 0) {
+          return { matchedCount: 0, modifiedCount: 0 };
+        }
+
+        query._id = { $in: purchaseIds };
+      }
+    }
+
+    const updateData: any = {
+      paymentStatus: 'paid',
+      paymentMethod: input.paymentMethod,
+      paidAt: input.paidAt ? parseDateInput(input.paidAt) : new Date()
+    };
+
+    if (input.paymentTransactionId !== undefined) {
+      updateData.paymentTransactionId = input.paymentTransactionId;
+    }
+
+    const result = await Purchase.updateMany(query, { $set: updateData });
+    return {
+      matchedCount: result.matchedCount ?? 0,
+      modifiedCount: result.modifiedCount ?? 0
+    };
+  },
   deletePurchase: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant) {
       throw new Error('Authentication required');
