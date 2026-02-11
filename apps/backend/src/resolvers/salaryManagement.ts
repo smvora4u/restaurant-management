@@ -980,6 +980,14 @@ export const salaryManagementResolvers = {
         throw new Error('Cannot delete payment that is not pending. Only pending payments can be deleted.');
       }
 
+      // Unsettle advances that were settled by this payment
+      if (payment.advanceDeduction && payment.advanceDeduction > 0) {
+        await AdvancePayment.updateMany(
+          { settledByPaymentId: new mongoose.Types.ObjectId(id) },
+          { $set: { isSettled: false }, $unset: { settledAt: '', settledByPaymentId: '' } }
+        );
+      }
+
       await SalaryPayment.findByIdAndDelete(id);
 
       // Create audit log

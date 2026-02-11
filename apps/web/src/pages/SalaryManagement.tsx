@@ -180,6 +180,8 @@ export default function SalaryManagement() {
       setPaymentDialogOpen(false);
       refetchPayments();
       refetchSummary();
+      refetchAdvances();
+      refetchAdvanceSummary();
       setSnackbar({
         open: true,
         message: 'Salary payment created successfully!',
@@ -224,6 +226,8 @@ export default function SalaryManagement() {
       setPaymentToDelete(null);
       refetchPayments();
       refetchSummary();
+      refetchAdvances();
+      refetchAdvanceSummary();
       setSnackbar({
         open: true,
         message: 'Salary payment deleted successfully!',
