@@ -9,6 +9,7 @@ export * from './staff';
 
 // Menu mutations
 export * from './menu';
+export * from './menuCategories';
 
 // Tables mutations
 export * from './tables';

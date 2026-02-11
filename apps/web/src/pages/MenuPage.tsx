@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
   Card,
@@ -18,33 +18,46 @@ import {
   CircularProgress,
   TextField,
   InputLabel,
+  Collapse,
+  MenuItem as MuiMenuItem,
+  Select,
+  FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Add,
   Edit,
   Delete,
   CloudUpload,
+  ExpandMore,
+  ExpandLess,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
 import { useRestaurant, useCrudOperations } from '../hooks';
-import { GET_MENU_ITEMS, CREATE_MENU_ITEM, UPDATE_MENU_ITEM, DELETE_MENU_ITEM } from '../graphql';
+import {
+  GET_MENU_ITEMS,
+  GET_MENU_CATEGORIES,
+  CREATE_MENU_ITEM,
+  UPDATE_MENU_ITEM,
+  DELETE_MENU_ITEM,
+  CREATE_MENU_CATEGORY,
+  UPDATE_MENU_CATEGORY,
+  DELETE_MENU_CATEGORY,
+} from '../graphql';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 
-const categories = [
-  'Appetizers',
-  'Main Course',
-  'Desserts',
-  'Beverages',
-  'Salads',
-  'Soups',
-  'Pizza',
-  'Pasta',
-  'Seafood',
-  'Vegetarian',
-  'Vegan',
-  'Kids Menu'
-];
+interface MenuCategory {
+  id: string;
+  name: string;
+  parentCategoryId: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
 
 export default function MenuPage() {
   const [page, setPage] = useState(0);
@@ -70,12 +83,21 @@ export default function MenuPage() {
     description: '',
     price: '',
     category: '',
+    categoryId: '',
     available: true,
     imageUrl: '',
     ingredients: '',
     allergens: '',
     preparationTime: '',
   });
+
+  // Category management
+  const [categorySectionOpen, setCategorySectionOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [quickAddCategoryOpen, setQuickAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryParentId, setNewCategoryParentId] = useState<string>('');
 
   // Custom hooks
   const { restaurant, getRestaurantId } = useRestaurant();
@@ -100,7 +122,36 @@ export default function MenuPage() {
 
   // Queries
   const { data, loading: queryLoading, error, refetch } = useQuery(GET_MENU_ITEMS);
+  const { data: categoriesData, refetch: refetchCategories } = useQuery(GET_MENU_CATEGORIES);
   const menuItems = data?.menuItems || [];
+  const menuCategories: MenuCategory[] = categoriesData?.menuCategories || [];
+
+  const [createCategory] = useMutation(CREATE_MENU_CATEGORY, {
+    onCompleted: () => refetchCategories(),
+  });
+  const [updateCategory] = useMutation(UPDATE_MENU_CATEGORY, {
+    onCompleted: () => refetchCategories(),
+  });
+  const [deleteCategory] = useMutation(DELETE_MENU_CATEGORY, {
+    onCompleted: () => refetchCategories(),
+  });
+
+  const parentCategories = menuCategories.filter((c) => !c.parentCategoryId);
+  const subcategoriesByParent = menuCategories.reduce<Record<string, MenuCategory[]>>((acc, c) => {
+    if (c.parentCategoryId) {
+      acc[c.parentCategoryId] = acc[c.parentCategoryId] || [];
+      acc[c.parentCategoryId].push(c);
+    }
+    return acc;
+  }, {});
+
+  const categoryOptionsForSelect = parentCategories.flatMap((parent) => {
+    const subs = subcategoriesByParent[parent.id] || [];
+    return [
+      { value: parent.id, label: parent.name, isParent: true },
+      ...subs.map((s) => ({ value: s.id, label: `  ${s.name}`, isParent: false })),
+    ];
+  });
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -119,6 +170,7 @@ export default function MenuPage() {
         description: item.description || '',
         price: item.price?.toString() || '',
         category: item.category || '',
+        categoryId: item.categoryId || '',
         available: item.available ?? true,
         imageUrl: item.imageUrl || '',
         ingredients: item.ingredients?.join(', ') || '',
@@ -134,6 +186,7 @@ export default function MenuPage() {
         description: '',
         price: '',
         category: '',
+        categoryId: '',
         available: true,
         imageUrl: '',
         ingredients: '',
@@ -154,6 +207,7 @@ export default function MenuPage() {
       description: '',
       price: '',
       category: '',
+      categoryId: '',
       available: true,
       imageUrl: '',
       ingredients: '',
@@ -242,6 +296,14 @@ export default function MenuPage() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.categoryId && categoryOptionsForSelect.length > 0) {
+      alert('Please select a category');
+      return;
+    }
+    if (!formData.categoryId && categoryOptionsForSelect.length === 0) {
+      alert('Please add at least one category first using the "Add" button next to Category.');
+      return;
+    }
     // If a file is selected but not uploaded yet, upload it first
     let finalImageUrl = formData.imageUrl;
     
@@ -273,17 +335,21 @@ export default function MenuPage() {
       }
     }
 
-    const input = {
+    const input: Record<string, unknown> = {
       name: formData.name,
       description: formData.description || null,
       price: parseFloat(formData.price),
-      category: formData.category,
       available: formData.available,
       imageUrl: finalImageUrl || null,
       ingredients: formData.ingredients ? formData.ingredients.split(',').map(i => i.trim()).filter(i => i) : [],
       allergens: formData.allergens ? formData.allergens.split(',').map(a => a.trim()).filter(a => a) : [],
       preparationTime: formData.preparationTime ? parseInt(formData.preparationTime) : null,
     };
+    if (formData.categoryId) {
+      input.categoryId = formData.categoryId;
+    } else if (formData.category) {
+      input.category = formData.category;
+    }
 
     if (editingItem) {
       await handleUpdate(editingItem.id, input);
@@ -334,6 +400,127 @@ export default function MenuPage() {
             Add Menu Item
           </Button>
         </Box>
+
+        {/* Category Management Section */}
+        <Card sx={{ mb: 3 }}>
+          <Button
+            fullWidth
+            onClick={() => setCategorySectionOpen(!categorySectionOpen)}
+            sx={{ justifyContent: 'flex-start', textTransform: 'none', p: 2 }}
+          >
+            <CategoryIcon sx={{ mr: 1 }} />
+            <Typography variant="h6">Category Management</Typography>
+            {categorySectionOpen ? <ExpandLess /> : <ExpandMore />}
+          </Button>
+          <Collapse in={categorySectionOpen}>
+            <Box sx={{ p: 2, pt: 0 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Add />}
+                onClick={() => {
+                  setEditingCategory(null);
+                  setNewCategoryName('');
+                  setNewCategoryParentId('');
+                  setCategoryDialogOpen(true);
+                }}
+                sx={{ mb: 2 }}
+              >
+                Add Category
+              </Button>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {parentCategories.map((parent) => (
+                      <React.Fragment key={parent.id}>
+                        <TableRow>
+                          <TableCell>
+                            <Typography fontWeight="medium">{parent.name}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip label="Parent" size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setEditingCategory(parent);
+                                setNewCategoryName(parent.name);
+                                setNewCategoryParentId('');
+                                setCategoryDialogOpen(true);
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${parent.name}"? Subcategories will need to be removed first.`)) {
+                                  deleteCategory({ variables: { id: parent.id } }).catch((e) => alert(e.message));
+                                }
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                        {(subcategoriesByParent[parent.id] || []).map((sub) => (
+                          <TableRow key={sub.id}>
+                            <TableCell sx={{ pl: 4 }}>
+                              <Typography variant="body2">{sub.name}</Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip label="Subcategory" size="small" variant="outlined" color="secondary" />
+                            </TableCell>
+                            <TableCell>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEditingCategory(sub);
+                                  setNewCategoryName(sub.name);
+                                  setNewCategoryParentId(sub.parentCategoryId || '');
+                                  setCategoryDialogOpen(true);
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  if (window.confirm(`Delete "${sub.name}"?`)) {
+                                    deleteCategory({ variables: { id: sub.id } }).catch((e) => alert(e.message));
+                                  }
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    {parentCategories.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3}>
+                          <Typography variant="body2" color="text.secondary">
+                            No categories yet. Add one above or when creating a menu item.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Collapse>
+        </Card>
 
         {/* Menu Items Table */}
         <Card>
@@ -449,16 +636,38 @@ export default function MenuPage() {
                   required
                 />
               </Box>
-              <Box sx={{ flex: 1 }}>
-                <FormField
-                  type="select"
-                  name="category"
-                  label="Category"
-                  value={formData.category}
-                  onChange={(field, value) => handleInputChange(field, value)}
-                  options={categories.map(cat => ({ value: cat, label: cat }))}
-                  required
-                />
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <FormControl fullWidth required size="small">
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={formData.categoryId}
+                    label="Category"
+                    onChange={(e) => handleInputChange('categoryId', e.target.value)}
+                    displayEmpty
+                  >
+                    <MuiMenuItem value="">
+                      <em>{categoryOptionsForSelect.length === 0 ? 'Add a category first' : 'Select category'}</em>
+                    </MuiMenuItem>
+                    {categoryOptionsForSelect.map((opt) => (
+                      <MuiMenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </MuiMenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setNewCategoryParentId(formData.categoryId || '');
+                    setNewCategoryName('');
+                    setQuickAddCategoryOpen(true);
+                  }}
+                  sx={{ mt: 0.5 }}
+                >
+                  Add
+                </Button>
               </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -585,6 +794,138 @@ export default function MenuPage() {
             />
           </Box>
         </FormDialog>
+
+        {/* Category Create/Edit Dialog */}
+        <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Parent Category (optional)</InputLabel>
+                <Select
+                  value={newCategoryParentId}
+                  label="Parent Category (optional)"
+                  onChange={(e) => setNewCategoryParentId(e.target.value)}
+                >
+                  <MuiMenuItem value=""> None (top-level) </MuiMenuItem>
+                  {parentCategories.map((p) => (
+                    <MuiMenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MuiMenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                label="Category Name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                required
+                fullWidth
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                if (!newCategoryName.trim()) return;
+                const restaurantId = getRestaurantId();
+                if (!restaurantId) return;
+                try {
+                  if (editingCategory) {
+                    await updateCategory({
+                      variables: {
+                        id: editingCategory.id,
+                        input: {
+                          name: newCategoryName.trim(),
+                          parentCategoryId: newCategoryParentId || null,
+                        },
+                      },
+                    });
+                  } else {
+                    await createCategory({
+                      variables: {
+                        input: {
+                          name: newCategoryName.trim(),
+                          parentCategoryId: newCategoryParentId || null,
+                          restaurantId,
+                        },
+                      },
+                    });
+                  }
+                  setCategoryDialogOpen(false);
+                } catch (e: any) {
+                  alert(e.message || 'Failed to save category');
+                }
+              }}
+            >
+              {editingCategory ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Quick Add Category from Menu Form */}
+        <Dialog open={quickAddCategoryOpen} onClose={() => setQuickAddCategoryOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Add Category</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Under parent (optional)</InputLabel>
+                <Select
+                  value={newCategoryParentId}
+                  label="Under parent (optional)"
+                  onChange={(e) => setNewCategoryParentId(e.target.value)}
+                >
+                  <MuiMenuItem value=""> None </MuiMenuItem>
+                  {parentCategories.map((p) => (
+                    <MuiMenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MuiMenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                label="Category name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                required
+                fullWidth
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setQuickAddCategoryOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                if (!newCategoryName.trim()) return;
+                const restaurantId = getRestaurantId();
+                if (!restaurantId) return;
+                try {
+                  const result = await createCategory({
+                    variables: {
+                      input: {
+                        name: newCategoryName.trim(),
+                        parentCategoryId: newCategoryParentId || null,
+                        restaurantId,
+                      },
+                    },
+                  });
+                  const newId = result.data?.createMenuCategory?.id;
+                  if (newId) {
+                    handleInputChange('categoryId', newId);
+                  }
+                  setQuickAddCategoryOpen(false);
+                } catch (e: any) {
+                  alert(e.message || 'Failed to create category');
+                }
+              }}
+            >
+              Add & Use
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Snackbar */}
         <AppSnackbar

@@ -36,7 +36,8 @@ export interface IMenuItem extends Document {
   name: string;
   description?: string;
   price: number;
-  category: string;
+  category?: string;
+  categoryId?: Types.ObjectId;
   available: boolean;
   imageUrl?: string;
   ingredients: string[];
@@ -148,7 +149,8 @@ export interface MenuItemInput {
   name: string;
   description?: string;
   price: number;
-  category: string;
+  category?: string;
+  categoryId?: string;
   available?: boolean;
   imageUrl?: string;
   ingredients?: string[];

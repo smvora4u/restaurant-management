@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { MenuItem, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
+import { MenuItem, MenuCategory, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
 import { parseDateInput } from '../utils/dateUtils.js';
@@ -7,27 +7,80 @@ import { parseDateInput } from '../utils/dateUtils.js';
 export const mutationResolvers = {
   // Menu Item mutations
   createMenuItem: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
-    if (!context.restaurant) {
+    if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
-    const menuItem = new MenuItem({ ...input, restaurantId: context.restaurant.id });
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (input.categoryId) {
+      const cat = await MenuCategory.findOne({ _id: input.categoryId, restaurantId });
+      if (!cat) throw new Error('Category not found');
+      input.category = cat.name; // keep category string for legacy compatibility
+    } else if (!input.category && !input.categoryId) {
+      throw new Error('Either category or categoryId is required');
+    }
+    const menuItem = new MenuItem({ ...input, restaurantId });
     return await menuItem.save();
   },
   updateMenuItem: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
-    if (!context.restaurant) {
+    if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (input.categoryId) {
+      const cat = await MenuCategory.findOne({ _id: input.categoryId, restaurantId });
+      if (!cat) throw new Error('Category not found');
+      input.category = cat.name;
+    }
     return await MenuItem.findOneAndUpdate(
-      { _id: id, restaurantId: context.restaurant.id }, 
-      { ...input, restaurantId: context.restaurant.id, updatedAt: new Date() }, 
+      { _id: id, restaurantId },
+      { ...input, restaurantId, updatedAt: new Date() },
       { new: true }
     );
   },
   deleteMenuItem: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
-    if (!context.restaurant) {
+    if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
-    const result = await MenuItem.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    const result = await MenuItem.findOneAndDelete({ _id: id, restaurantId });
+    return !!result;
+  },
+  createMenuCategory: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (input.restaurantId && input.restaurantId !== restaurantId) {
+      throw new Error('Unauthorized');
+    }
+    const category = new MenuCategory({ ...input, restaurantId });
+    return await category.save();
+  },
+  updateMenuCategory: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    return await MenuCategory.findOneAndUpdate(
+      { _id: id, restaurantId },
+      { ...input, updatedAt: new Date() },
+      { new: true }
+    );
+  },
+  deleteMenuCategory: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    const itemsUsingCategory = await MenuItem.countDocuments({ categoryId: id });
+    if (itemsUsingCategory > 0) {
+      throw new Error(`Cannot delete: ${itemsUsingCategory} menu item(s) use this category`);
+    }
+    const subcategories = await MenuCategory.countDocuments({ parentCategoryId: id });
+    if (subcategories > 0) {
+      throw new Error('Cannot delete: remove or reassign subcategories first');
+    }
+    const result = await MenuCategory.findOneAndDelete({ _id: id, restaurantId });
     return !!result;
   },
   

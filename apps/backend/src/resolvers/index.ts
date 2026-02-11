@@ -12,6 +12,28 @@ export const resolvers = {
   Staff: {
     ...salaryManagementResolvers.Staff
   },
+  MenuCategory: {
+    parentCategory: async (parent: any) => {
+      if (!parent.parentCategoryId) return null;
+      const { MenuCategory } = await import('../models/index.js');
+      return await MenuCategory.findById(parent.parentCategoryId);
+    }
+  },
+  MenuItem: {
+    category: async (parent: any) => {
+      if (parent.categoryId) {
+        const { MenuCategory } = await import('../models/index.js');
+        const cat = await MenuCategory.findById(parent.categoryId);
+        return cat?.name ?? parent.category ?? 'Uncategorized';
+      }
+      return parent.category ?? 'Uncategorized';
+    },
+    categoryObj: async (parent: any) => {
+      if (!parent.categoryId) return null;
+      const { MenuCategory } = await import('../models/index.js');
+      return await MenuCategory.findById(parent.categoryId);
+    }
+  },
   Purchase: {
     id: (parent: any) => {
       return parent._id ? parent._id.toString() : parent.id;

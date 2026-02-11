@@ -6,6 +6,7 @@ export * from './staff';
 
 // Menu queries
 export * from './menu';
+export * from './menuCategories';
 
 // Tables queries
 export * from './tables';

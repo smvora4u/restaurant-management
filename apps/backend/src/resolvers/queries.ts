@@ -1,4 +1,4 @@
-import { MenuItem, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
+import { MenuItem, MenuCategory, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { parseDateInput } from '../utils/dateUtils.js';
 import mongoose from 'mongoose';
@@ -29,6 +29,21 @@ export const queryResolvers = {
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
     return await MenuItem.findOne({ _id: id, restaurantId });
+  },
+  menuCategories: async (_: any, __: any, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    return await MenuCategory.find({ restaurantId, isActive: true })
+      .sort({ sortOrder: 1, name: 1 });
+  },
+  menuCategory: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    return await MenuCategory.findOne({ _id: id, restaurantId });
   },
   
   // Tables

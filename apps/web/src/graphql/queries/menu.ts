@@ -8,6 +8,12 @@ export const GET_MENU_ITEMS = gql`
       description
       price
       category
+      categoryId
+      categoryObj {
+        id
+        name
+        parentCategoryId
+      }
       available
       imageUrl
       ingredients
@@ -27,6 +33,12 @@ export const GET_MENU_ITEM_BY_ID = gql`
       description
       price
       category
+      categoryId
+      categoryObj {
+        id
+        name
+        parentCategoryId
+      }
       available
       imageUrl
       ingredients

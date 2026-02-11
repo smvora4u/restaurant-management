@@ -76,12 +76,26 @@ export const typeDefs = `#graphql
     totalRevenue: Float!
   }
 
+  type MenuCategory {
+    id: ID!
+    restaurantId: ID!
+    name: String!
+    parentCategoryId: ID
+    parentCategory: MenuCategory
+    sortOrder: Int!
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type MenuItem {
     id: ID!
     name: String!
     description: String
     price: Float!
     category: String!
+    categoryId: ID
+    categoryObj: MenuCategory
     available: Boolean!
     imageUrl: String
     ingredients: [String]
@@ -158,6 +172,8 @@ export const typeDefs = `#graphql
     restaurantBySlug(slug: String!): Restaurant
     menuItems: [MenuItem!]!
     menuItem(id: ID!): MenuItem
+    menuCategories: [MenuCategory!]!
+    menuCategory(id: ID!): MenuCategory
     tables: [Table!]!
     table(id: ID!): Table
     availableTables: [Table!]!
@@ -243,6 +259,9 @@ export const typeDefs = `#graphql
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
     deleteMenuItem(id: ID!): Boolean!
+    createMenuCategory(input: MenuCategoryInput!): MenuCategory!
+    updateMenuCategory(id: ID!, input: UpdateMenuCategoryInput!): MenuCategory!
+    deleteMenuCategory(id: ID!): Boolean!
     
     createTable(input: TableInput!): Table!
     updateTable(id: ID!, input: TableInput!): Table!
@@ -567,12 +586,28 @@ export const typeDefs = `#graphql
     theme: String
   }
 
+  input MenuCategoryInput {
+    restaurantId: ID
+    name: String!
+    parentCategoryId: ID
+    sortOrder: Int
+    isActive: Boolean
+  }
+
+  input UpdateMenuCategoryInput {
+    name: String
+    parentCategoryId: ID
+    sortOrder: Int
+    isActive: Boolean
+  }
+
   input MenuItemInput {
     restaurantId: ID!
     name: String!
     description: String
     price: Float!
-    category: String!
+    category: String
+    categoryId: ID
     available: Boolean
     imageUrl: String
     ingredients: [String]

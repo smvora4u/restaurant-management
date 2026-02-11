@@ -20,6 +20,7 @@ import { seedInitialData } from './utils/seedData.js';
 import { fixTableIndexes } from './utils/fixTableIndexes.js';
 import { backfillPaidAt } from './utils/backfillPaidAt.js';
 import { backfillPurchaseDate } from './utils/backfillPurchaseDate.js';
+import { backfillMenuCategories } from './utils/backfillMenuCategories.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
@@ -38,6 +39,9 @@ async function start() {
 
     // Backfill purchaseDate for old purchases
     await backfillPurchaseDate();
+
+    // Backfill menu categoryId from legacy category strings
+    await backfillMenuCategories();
     
     // Seed initial data
     await seedInitialData();

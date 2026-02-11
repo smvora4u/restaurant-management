@@ -6,7 +6,8 @@ const MenuItemSchema = new Schema<IMenuItem>({
   name: { type: String, required: true },
   description: String,
   price: { type: Number, required: true },
-  category: { type: String, required: true },
+  category: { type: String, required: false }, // legacy; kept for migration compat
+  categoryId: { type: Schema.Types.ObjectId, ref: 'MenuCategory', required: false },
   available: { type: Boolean, default: true },
   imageUrl: String,
   ingredients: [String],
