@@ -428,6 +428,7 @@ export const typeDefs = `#graphql
     isSettled: Boolean!
     settledAt: String
     settledByPaymentId: String
+    originalAdvanceId: ID
     createdBy: String!
     createdById: String!
     createdAt: String!

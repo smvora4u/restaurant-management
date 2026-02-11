@@ -613,7 +613,7 @@ export default function SalaryManagement() {
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, gap: 2 }}>
                       <Box>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Advance</Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Given</Typography>
                         <Typography variant="h6">
                           {restaurant 
                             ? getRestaurantCurrency(restaurant).symbol 
@@ -622,7 +622,7 @@ export default function SalaryManagement() {
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Settled</Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Recovered</Typography>
                         <Typography variant="h6">
                           {restaurant 
                             ? getRestaurantCurrency(restaurant).symbol 
@@ -640,7 +640,7 @@ export default function SalaryManagement() {
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Unsettled Count</Typography>
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>Advances Pending Recovery</Typography>
                         <Typography variant="h6">{advanceSummary.unsettledCount}</Typography>
                       </Box>
                     </Box>

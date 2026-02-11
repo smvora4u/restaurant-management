@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -10,7 +10,8 @@ import {
   Chip,
   IconButton,
   TablePagination,
-  Box
+  Box,
+  Typography
 } from '@mui/material';
 import { Edit, Delete } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateFormatting';
@@ -27,6 +28,7 @@ interface AdvancePayment {
   isSettled: boolean;
   settledAt?: string;
   settledByPaymentId?: string;
+  originalAdvanceId?: string | null;
   createdAt: string;
 }
 
@@ -43,6 +45,27 @@ interface AdvancePaymentTableProps {
   onRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
+function groupAdvances(advances: AdvancePayment[]): { groupKey: string; advances: AdvancePayment[] }[] {
+  const groupMap = new Map<string, AdvancePayment[]>();
+  for (const advance of advances) {
+    const key = advance.originalAdvanceId || advance.id;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, []);
+    }
+    groupMap.get(key)!.push(advance);
+  }
+  return Array.from(groupMap.entries())
+    .map(([groupKey, groupItems]) => ({
+      groupKey,
+      advances: groupItems.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    }))
+    .sort((a, b) => {
+      const dateA = a.advances[0]?.advanceDate || a.advances[0]?.createdAt || '';
+      const dateB = b.advances[0]?.advanceDate || b.advances[0]?.createdAt || '';
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+}
+
 export default function AdvancePaymentTable({
   advances,
   currency = 'USD',
@@ -55,6 +78,8 @@ export default function AdvancePaymentTable({
   onPageChange,
   onRowsPerPageChange
 }: AdvancePaymentTableProps) {
+  const groups = useMemo(() => groupAdvances(advances), [advances]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
@@ -90,74 +115,101 @@ export default function AdvancePaymentTable({
                 </TableCell>
               </TableRow>
             ) : (
-              advances.map((advance) => (
-                <TableRow key={advance.id}>
-                  <TableCell>
-                    {formatDate(advance.advanceDate)}
-                  </TableCell>
-                  <TableCell align="right">
-                    <strong>{currency} {advance.amount.toFixed(2)}</strong>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={advance.paymentStatus}
-                      color={getStatusColor(advance.paymentStatus) as any}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {advance.isSettled ? (
-                      <Box>
-                        <Chip label="Settled" color="success" size="small" />
-                        {advance.settledAt && (
-                          <div style={{ fontSize: '0.75rem', color: 'text.secondary', marginTop: 4 }}>
-                            {formatDate(advance.settledAt)}
-                          </div>
-                        )}
-                      </Box>
-                    ) : (
-                      <Chip label="Pending" color="warning" size="small" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {advance.paymentMethod ? (
-                      <Box>
-                        <div>{advance.paymentMethod}</div>
-                        {advance.paymentTransactionId && (
-                          <div style={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                            {advance.paymentTransactionId.slice(-8)}
-                          </div>
-                        )}
-                      </Box>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        {onEdit && !advance.isSettled && (
-                          <IconButton
+              groups.map(({ groupKey, advances: groupAdvances }) => {
+                const totalAmount = groupAdvances.reduce((sum, a) => sum + a.amount, 0);
+                const rootAdvance = groupAdvances.find((a) => a.id === groupKey) || groupAdvances[0];
+                const isSingleItem = groupAdvances.length === 1;
+
+                return (
+                  <React.Fragment key={groupKey}>
+                    <TableRow
+                      sx={{
+                        bgcolor: 'grey.200',
+                        borderTop: '2px solid',
+                        borderTopColor: 'divider',
+                        '& td': { borderBottom: 'none' }
+                      }}
+                    >
+                      <TableCell colSpan={canManage ? 6 : 5} sx={{ py: 1.5, pl: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                          Original advance: {formatDate(rootAdvance.advanceDate)} — {currency} {totalAmount.toFixed(2)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                    {groupAdvances.map((advance, idx) => (
+                      <TableRow
+                        key={advance.id}
+                        sx={{
+                          bgcolor: isSingleItem ? undefined : 'grey.50',
+                          borderBottom: idx === groupAdvances.length - 1 ? '2px solid' : '1px solid',
+                          borderBottomColor: 'divider',
+                          '&:hover': { bgcolor: isSingleItem ? undefined : 'grey.100' }
+                        }}
+                      >
+                        <TableCell sx={{ pl: isSingleItem ? 2 : 4 }}>
+                          {advance.isSettled && advance.settledAt
+                            ? `Settled ${formatDate(advance.settledAt)}`
+                            : formatDate(advance.advanceDate)}
+                        </TableCell>
+                        <TableCell align="right">
+                          <strong>{currency} {advance.amount.toFixed(2)}</strong>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={advance.paymentStatus}
+                            color={getStatusColor(advance.paymentStatus) as any}
                             size="small"
-                            onClick={() => onEdit(advance)}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {advance.isSettled ? (
+                            <Box>
+                              <Chip label="Settled" color="success" size="small" />
+                              {advance.settledAt && (
+                                <div style={{ fontSize: '0.75rem', color: 'text.secondary', marginTop: 4 }}>
+                                  {formatDate(advance.settledAt)}
+                                </div>
+                              )}
+                            </Box>
+                          ) : (
+                            <Chip label="Pending" color="warning" size="small" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {advance.paymentMethod ? (
+                            <Box>
+                              <div>{advance.paymentMethod}</div>
+                              {advance.paymentTransactionId && (
+                                <div style={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                                  {advance.paymentTransactionId.slice(-8)}
+                                </div>
+                              )}
+                            </Box>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              {onEdit && !advance.isSettled && (
+                                <IconButton size="small" onClick={() => onEdit(advance)}>
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              )}
+                              {onDelete && !advance.isSettled && (
+                                <IconButton size="small" onClick={() => onDelete(advance)} color="error">
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </TableCell>
                         )}
-                        {onDelete && !advance.isSettled && (
-                          <IconButton
-                            size="small"
-                            onClick={() => onDelete(advance)}
-                            color="error"
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -176,4 +228,3 @@ export default function AdvancePaymentTable({
     </Box>
   );
 }
-

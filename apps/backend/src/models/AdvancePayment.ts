@@ -13,6 +13,7 @@ export interface IAdvancePayment extends Document {
   isSettled: boolean; // Whether this advance has been deducted from salary
   settledAt?: Date; // When it was settled
   settledByPaymentId?: mongoose.Types.ObjectId; // Which salary payment settled this
+  originalAdvanceId?: mongoose.Types.ObjectId; // Root advance when this is a split remainder
   createdBy: 'admin' | 'restaurant';
   createdById: string;
   createdAt: Date;
@@ -36,6 +37,7 @@ const AdvancePaymentSchema = new Schema<IAdvancePayment>({
   isSettled: { type: Boolean, default: false },
   settledAt: { type: Date },
   settledByPaymentId: { type: Schema.Types.ObjectId, ref: 'SalaryPayment' },
+  originalAdvanceId: { type: Schema.Types.ObjectId, ref: 'AdvancePayment' },
   createdBy: { type: String, enum: ['admin', 'restaurant'], required: true },
   createdById: { type: String, required: true },
 }, { timestamps: true });

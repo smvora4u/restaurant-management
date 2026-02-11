@@ -359,6 +359,7 @@ export const salaryManagementResolvers = {
           isSettled: advance.isSettled,
           settledAt: advance.settledAt?.toISOString(),
           settledByPaymentId: advance.settledByPaymentId?.toString(),
+          originalAdvanceId: advance.originalAdvanceId?.toString(),
           createdBy: advance.createdBy,
           createdById: advance.createdById,
           createdAt: advance.createdAt.toISOString(),
@@ -617,7 +618,8 @@ export const salaryManagementResolvers = {
               amount: advance.amount - settleAmount,
               isSettled: false,
               settledAt: undefined,
-              settledByPaymentId: undefined
+              settledByPaymentId: undefined,
+              originalAdvanceId: advance.originalAdvanceId || advance._id
             });
             await remainingAdvance.save();
             
@@ -861,7 +863,8 @@ export const salaryManagementResolvers = {
               notes: advance.notes,
               isSettled: false,
               createdBy: advance.createdBy,
-              createdById: advance.createdById
+              createdById: advance.createdById,
+              originalAdvanceId: advance.originalAdvanceId || advance._id
             });
             await remainingAdvance.save();
 
@@ -908,7 +911,8 @@ export const salaryManagementResolvers = {
               notes: advance.notes,
               isSettled: false,
               createdBy: advance.createdBy,
-              createdById: advance.createdById
+              createdById: advance.createdById,
+              originalAdvanceId: advance.originalAdvanceId || advance._id
             });
             await remainingAdvance.save();
 

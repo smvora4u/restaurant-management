@@ -114,6 +114,7 @@ export const GET_STAFF_ADVANCE_PAYMENTS = gql`
         isSettled
         settledAt
         settledByPaymentId
+        originalAdvanceId
         createdBy
         createdById
         createdAt
