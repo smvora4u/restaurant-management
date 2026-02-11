@@ -62,7 +62,7 @@ function groupAdvances(advances: AdvancePayment[]): { groupKey: string; advances
     .sort((a, b) => {
       const dateA = a.advances[0]?.advanceDate || a.advances[0]?.createdAt || '';
       const dateB = b.advances[0]?.advanceDate || b.advances[0]?.createdAt || '';
-      return new Date(dateA).getTime() - new Date(dateB).getTime();
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 }
 

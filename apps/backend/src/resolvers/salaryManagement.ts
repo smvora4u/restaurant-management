@@ -340,7 +340,7 @@ export const salaryManagementResolvers = {
 
       const totalCount = await AdvancePayment.countDocuments(query);
       const advances = await AdvancePayment.find(query)
-        .sort({ createdAt: -1 })
+        .sort({ advanceDate: -1, createdAt: -1 })
         .skip(offset)
         .limit(limit);
 
