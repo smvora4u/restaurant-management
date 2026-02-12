@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Checkbox,
 } from '@mui/material';
 import {
   Add,
@@ -38,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import { FormDialog, AppSnackbar, FormField, ConfirmationDialog } from '../components/common';
-import { useRestaurant, useCrudOperations } from '../hooks';
+import { useRestaurant, useCrudOperations, useSnackbar } from '../hooks';
 import {
   GET_MENU_ITEMS,
   GET_MENU_CATEGORIES,
@@ -62,6 +63,8 @@ interface MenuCategory {
 export default function MenuPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
@@ -99,8 +102,27 @@ export default function MenuPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryParentId, setNewCategoryParentId] = useState<string>('');
 
+  // Bulk edit state
+  const [bulkEditData, setBulkEditData] = useState({
+    categoryId: '' as string,
+    applyCategory: false,
+    available: true,
+    applyAvailable: false,
+    preparationTime: '' as string,
+    applyPreparationTime: false,
+    priceAdjustmentType: 'percentage' as 'percentage' | 'fixed',
+    priceAdjustmentValue: '' as string,
+    applyPriceAdjustment: false,
+  });
+  const [bulkEditLoading, setBulkEditLoading] = useState(false);
+
   // Custom hooks
   const { restaurant, getRestaurantId } = useRestaurant();
+  const {
+    snackbar: bulkSnackbar,
+    showSuccess: showBulkSuccess,
+    hideSnackbar: hideBulkSnackbar,
+  } = useSnackbar();
   const { 
     handleCreate, 
     handleUpdate, 
@@ -135,6 +157,7 @@ export default function MenuPage() {
   const [deleteCategory] = useMutation(DELETE_MENU_CATEGORY, {
     onCompleted: () => refetchCategories(),
   });
+  const [updateMenuItemMutation] = useMutation(UPDATE_MENU_ITEM);
 
   const parentCategories = menuCategories.filter((c) => !c.parentCategoryId);
   const subcategoriesByParent = menuCategories.reduce<Record<string, MenuCategory[]>>((acc, c) => {
@@ -364,6 +387,138 @@ export default function MenuPage() {
     await handleDelete(id);
   };
 
+  // Paginated visible items
+  const paginatedItems = menuItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const visibleIds = paginatedItems.map((item: any) => item.id);
+  const selectedIdsSet = new Set(selectedIds);
+  const allSelectedOnPage = visibleIds.length > 0 && visibleIds.every((id: string) => selectedIdsSet.has(id));
+  const someSelectedOnPage = visibleIds.some((id: string) => selectedIdsSet.has(id));
+
+  const toggleAllOnPage = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    } else {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    if (selectedIdsSet.has(id)) {
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
+    } else {
+      setSelectedIds((prev) => [...prev, id]);
+    }
+  };
+
+  const handleOpenBulkEdit = () => {
+    setBulkEditData({
+      categoryId: '',
+      applyCategory: false,
+      available: true,
+      applyAvailable: false,
+      preparationTime: '',
+      applyPreparationTime: false,
+      priceAdjustmentType: 'percentage',
+      priceAdjustmentValue: '',
+      applyPriceAdjustment: false,
+    });
+    setBulkEditOpen(true);
+  };
+
+  const handleCloseBulkEdit = () => {
+    setBulkEditOpen(false);
+  };
+
+  const handleBulkEditSubmit = async () => {
+    const hasChanges =
+      bulkEditData.applyCategory ||
+      bulkEditData.applyAvailable ||
+      bulkEditData.applyPreparationTime ||
+      bulkEditData.applyPriceAdjustment;
+
+    if (!hasChanges) {
+      alert('Please select at least one field to update.');
+      return;
+    }
+
+    const restaurantId = getRestaurantId();
+    if (!restaurantId) {
+      alert('Restaurant information not available. Please refresh and try again.');
+      return;
+    }
+
+    if (bulkEditData.applyCategory && !bulkEditData.categoryId) {
+      alert('Please select a category.');
+      return;
+    }
+
+    if (bulkEditData.applyPriceAdjustment) {
+      const val = parseFloat(bulkEditData.priceAdjustmentValue);
+      if (isNaN(val)) {
+        alert('Please enter a valid price adjustment value.');
+        return;
+      }
+      if (bulkEditData.priceAdjustmentType === 'percentage' && (val < -100 || val > 1000)) {
+        alert('Percentage should be between -100 and 1000.');
+        return;
+      }
+    }
+
+    setBulkEditLoading(true);
+    try {
+      const itemsToUpdate = menuItems.filter((item: any) => selectedIds.includes(item.id));
+
+      const updates = itemsToUpdate.map(async (item: any) => {
+        const input: Record<string, unknown> = {
+          restaurantId,
+          name: item.name,
+          description: item.description ?? null,
+          price: item.price,
+          available: item.available,
+          imageUrl: item.imageUrl ?? null,
+          ingredients: item.ingredients ?? [],
+          allergens: item.allergens ?? [],
+          preparationTime: item.preparationTime ?? null,
+        };
+        if (item.categoryId) input.categoryId = item.categoryId;
+        else if (item.category) input.category = item.category;
+
+        if (bulkEditData.applyCategory && bulkEditData.categoryId) {
+          input.categoryId = bulkEditData.categoryId;
+        }
+        if (bulkEditData.applyAvailable) {
+          input.available = bulkEditData.available;
+        }
+        if (bulkEditData.applyPreparationTime && bulkEditData.preparationTime !== '') {
+          const pt = parseInt(bulkEditData.preparationTime, 10);
+          if (!isNaN(pt)) input.preparationTime = pt;
+        }
+        if (bulkEditData.applyPriceAdjustment && bulkEditData.priceAdjustmentValue !== '') {
+          const val = parseFloat(bulkEditData.priceAdjustmentValue);
+          if (bulkEditData.priceAdjustmentType === 'percentage') {
+            input.price = Math.round((item.price * (1 + val / 100)) * 100) / 100;
+          } else {
+            input.price = Math.round((item.price + val) * 100) / 100;
+          }
+        }
+
+        return updateMenuItemMutation({
+          variables: { id: item.id, input },
+        });
+      });
+
+      await Promise.all(updates);
+      refetch();
+      setSelectedIds([]);
+      handleCloseBulkEdit();
+      showBulkSuccess(`${itemsToUpdate.length} menu item(s) updated successfully.`);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to update menu items.');
+    } finally {
+      setBulkEditLoading(false);
+    }
+  };
+
   if (queryLoading) {
     return (
       <Layout>
@@ -524,10 +679,50 @@ export default function MenuPage() {
 
         {/* Menu Items Table */}
         <Card>
+          {selectedIds.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                borderBottom: 1,
+                borderColor: 'divider',
+                bgcolor: 'action.selected',
+              }}
+            >
+              <Typography variant="body2">
+                {selectedIds.length} selected
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<Edit />}
+                onClick={handleOpenBulkEdit}
+              >
+                Bulk Edit
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setSelectedIds([])}
+              >
+                Clear selection
+              </Button>
+            </Box>
+          )}
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={!allSelectedOnPage && someSelectedOnPage}
+                      checked={allSelectedOnPage}
+                      onChange={(e) => toggleAllOnPage(e.target.checked)}
+                      inputProps={{ 'aria-label': 'select all on page' }}
+                    />
+                  </TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell>Price</TableCell>
@@ -539,18 +734,23 @@ export default function MenuPage() {
               <TableBody>
                 {menuItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Typography variant="body2" color="text.secondary">
                         No menu items found. Click "Add Menu Item" to get started.
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  menuItems
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
+                  paginatedItems.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedIdsSet.has(item.id)}
+                          onChange={() => toggleOne(item.id)}
+                          inputProps={{ 'aria-label': `select ${item.name}` }}
+                        />
+                      </TableCell>
+                      <TableCell>
                           <Box>
                             <Typography variant="subtitle2" fontWeight="bold">
                               {item.name}
@@ -580,8 +780,8 @@ export default function MenuPage() {
                             <Delete />
                           </IconButton>
                         </TableCell>
-                      </TableRow>
-                    ))
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -805,6 +1005,140 @@ export default function MenuPage() {
           </Box>
         </FormDialog>
 
+        {/* Bulk Edit Dialog */}
+        <Dialog open={bulkEditOpen} onClose={handleCloseBulkEdit} maxWidth="sm" fullWidth>
+          <DialogTitle>Bulk Edit {selectedIds.length} Menu Item(s)</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={bulkEditData.categoryId}
+                    label="Category"
+                    onChange={(e) =>
+                      setBulkEditData((prev) => ({ ...prev, categoryId: e.target.value }))
+                    }
+                  >
+                    <MuiMenuItem value="">—</MuiMenuItem>
+                    {categoryOptionsForSelect.map((opt) => (
+                      <MuiMenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </MuiMenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormField
+                  type="switch"
+                  name="applyCategory"
+                  label="Apply to all"
+                  value={bulkEditData.applyCategory}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <FormField
+                  type="switch"
+                  name="available"
+                  label="Available"
+                  value={bulkEditData.available}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+                <FormField
+                  type="switch"
+                  name="applyAvailable"
+                  label="Apply to all"
+                  value={bulkEditData.applyAvailable}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <FormField
+                  type="number"
+                  name="preparationTime"
+                  label="Prep Time (min)"
+                  value={bulkEditData.preparationTime}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+                <FormField
+                  type="switch"
+                  name="applyPreparationTime"
+                  label="Apply to all"
+                  value={bulkEditData.applyPreparationTime}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <FormControl size="small" sx={{ minWidth: 100 }}>
+                  <InputLabel>Price</InputLabel>
+                  <Select
+                    value={bulkEditData.priceAdjustmentType}
+                    label="Price"
+                    onChange={(e) =>
+                      setBulkEditData((prev) => ({
+                        ...prev,
+                        priceAdjustmentType: e.target.value as 'percentage' | 'fixed',
+                      }))
+                    }
+                  >
+                    <MuiMenuItem value="percentage">% change</MuiMenuItem>
+                    <MuiMenuItem value="fixed">+/- amount</MuiMenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  label={bulkEditData.priceAdjustmentType === 'percentage' ? '%' : 'Amount'}
+                  type="number"
+                  value={bulkEditData.priceAdjustmentValue}
+                  onChange={(e) =>
+                    setBulkEditData((prev) => ({ ...prev, priceAdjustmentValue: e.target.value }))
+                  }
+                  placeholder={
+                    bulkEditData.priceAdjustmentType === 'percentage' ? 'e.g. 10 or -5' : 'e.g. 2.50'
+                  }
+                  sx={{ width: 120 }}
+                />
+                <FormField
+                  type="switch"
+                  name="applyPriceAdjustment"
+                  label="Apply to all"
+                  value={bulkEditData.applyPriceAdjustment}
+                  onChange={(field, value) =>
+                    setBulkEditData((prev) => ({ ...prev, [field]: value }))
+                  }
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Select at least one field above and check &quot;Apply to all&quot; to update.
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseBulkEdit}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleBulkEditSubmit}
+              disabled={bulkEditLoading}
+              startIcon={bulkEditLoading ? <CircularProgress size={20} color="inherit" /> : undefined}
+            >
+              {bulkEditLoading ? 'Applying...' : 'Apply'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Category Create/Edit Dialog */}
         <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
@@ -939,10 +1273,10 @@ export default function MenuPage() {
 
         {/* Snackbar */}
         <AppSnackbar
-          open={snackbar.open}
-          onClose={hideSnackbar}
-          message={snackbar.message}
-          severity={snackbar.severity}
+          open={bulkSnackbar.open || snackbar.open}
+          onClose={bulkSnackbar.open ? hideBulkSnackbar : hideSnackbar}
+          message={bulkSnackbar.open ? bulkSnackbar.message : snackbar.message}
+          severity={bulkSnackbar.open ? bulkSnackbar.severity : snackbar.severity}
         />
 
         {/* Delete Confirmation Dialog */}
