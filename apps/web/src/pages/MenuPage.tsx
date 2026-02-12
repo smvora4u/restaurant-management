@@ -638,15 +638,25 @@ export default function MenuPage() {
               </Box>
               <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                 <FormControl fullWidth required size="small">
-                  <InputLabel>Category</InputLabel>
+                  <InputLabel id="menu-item-category-label" shrink>
+                    Category
+                  </InputLabel>
                   <Select
+                    labelId="menu-item-category-label"
                     value={formData.categoryId}
                     label="Category"
                     onChange={(e) => handleInputChange('categoryId', e.target.value)}
                     displayEmpty
+                    renderValue={(value) => {
+                      if (!value) {
+                        return categoryOptionsForSelect.length === 0 ? 'Add a category first' : 'Select category';
+                      }
+                      const opt = categoryOptionsForSelect.find((o) => o.value === value);
+                      return opt?.label ?? value;
+                    }}
                   >
                     <MuiMenuItem value="">
-                      <em>{categoryOptionsForSelect.length === 0 ? 'Add a category first' : 'Select category'}</em>
+                      <em>—</em>
                     </MuiMenuItem>
                     {categoryOptionsForSelect.map((opt) => (
                       <MuiMenuItem key={opt.value} value={opt.value}>
