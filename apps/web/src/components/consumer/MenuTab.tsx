@@ -1025,26 +1025,32 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                 >
                   {item.name}
                 </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
-                  paragraph
-                  sx={{ 
+                <Box
+                  sx={{
+                    display: { xs: item.description ? 'block' : 'none', md: 'block' },
                     flexGrow: 1,
-                    fontSize: '0.875rem',
-                    lineHeight: 1.4,
-                    mb: 2,
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    minHeight: '3.15rem',
-                    maxHeight: '3.15rem',
-                    wordBreak: 'break-word'
                   }}
                 >
-                  {item.description}
-                </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    paragraph
+                    sx={{ 
+                      fontSize: '0.875rem',
+                      lineHeight: 1.4,
+                      mb: 2,
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      minHeight: '3.15rem',
+                      maxHeight: '3.15rem',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {item.description}
+                  </Typography>
+                </Box>
                 <Box sx={{ 
                   display: 'flex', 
                   justifyContent: 'space-between', 
