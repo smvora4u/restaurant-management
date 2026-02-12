@@ -564,6 +564,11 @@ export default function ConsumerPage() {
           maxWidth: '100%', 
           mx: 'auto', 
           p: { xs: 1, sm: 2, md: 3 },
+          paddingBottom: (theme) => ({
+            xs: `calc(${theme.spacing(1)} + env(safe-area-inset-bottom))`,
+            sm: `calc(${theme.spacing(2)} + env(safe-area-inset-bottom))`,
+            md: theme.spacing(3),
+          }),
           minHeight: '100vh',
           backgroundColor: '#f5f5f5'
         }}>
@@ -598,7 +603,7 @@ export default function ConsumerPage() {
                 allowScrollButtonsMobile
                 sx={{
                   '& .MuiTab-root': {
-                    minHeight: 72,
+                    minHeight: { xs: 48, sm: 56, md: 72 },
                     fontSize: '0.9rem',
                     fontWeight: 500,
                     textTransform: 'none',

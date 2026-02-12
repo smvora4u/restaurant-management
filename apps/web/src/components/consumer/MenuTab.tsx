@@ -29,6 +29,7 @@ import {
   Remove as RemoveIcon,
   ShoppingCart as ShoppingCartIcon,
   Delete as DeleteIcon,
+  RestaurantMenu as RestaurantMenuIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_MENU_ITEMS } from '../../graphql/queries/menu';
@@ -562,6 +563,15 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     return matchesSearch && matchesCategory && item.available;
   }) || [];
 
+  const restaurantName = (() => {
+    try {
+      const stored = localStorage.getItem('currentRestaurant');
+      return stored ? JSON.parse(stored).name : null;
+    } catch {
+      return null;
+    }
+  })();
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -580,7 +590,11 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
+      <Typography
+        variant="h5"
+        gutterBottom
+        sx={{ fontSize: { xs: '1rem', md: '1.5rem' } }}
+      >
         {isParcelOrder 
           ? `Menu - ${orderType === 'takeout' ? 'Takeout' : 'Delivery'} Order`
           : `Menu - Table #${tableNumber}`
@@ -589,7 +603,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
 
       {/* Current Order Summary */}
       {currentOrderData && (
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3, md: 3 }, mb: 3, backgroundColor: 'success.50', border: '1px solid', borderColor: 'success.200' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <ShoppingCartIcon sx={{ mr: 1, color: 'success.main' }} />
             <Typography variant="h6" color="success.dark">
@@ -775,7 +789,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
 
       {/* New Items Order Summary */}
       {getTotalItems() > 0 && (
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'primary.50' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3, md: 3 }, mb: 3, backgroundColor: 'primary.50' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <ShoppingCartIcon sx={{ mr: 1, color: 'primary.main' }} />
             <Typography variant="h6">
@@ -881,7 +895,16 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           sx={{ mb: 2 }}
         />
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            flexWrap: { xs: 'nowrap', md: 'wrap' },
+            overflowX: { xs: 'auto', md: 'visible' },
+            WebkitOverflowScrolling: { xs: 'touch', md: 'auto' },
+            pb: { xs: 1, md: 0 },
+          }}
+        >
           {categories.map((category) => (
             <Chip
               key={category}
@@ -889,6 +912,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
               onClick={() => setSelectedCategory(category)}
               color={selectedCategory === category ? 'primary' : 'default'}
               variant={selectedCategory === category ? 'filled' : 'outlined'}
+              sx={{ flexShrink: 0 }}
             />
           ))}
         </Box>
@@ -910,7 +934,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
         width: '100%',
         minWidth: 0,
         overflow: 'visible',
-        gridAutoRows: 'minmax(400px, auto)'
+        gridAutoRows: { xs: 'auto', sm: 'auto', md: 'minmax(400px, auto)' }
       }}>
         {filteredItems.map((item: MenuItem) => (
             <Card 
@@ -918,7 +942,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
               sx={{ 
                 height: '100%', 
                 width: '100%',
-                minWidth: '280px',
+                minWidth: { xs: 0, md: '280px' },
                 display: 'flex', 
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -931,7 +955,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                 }
               }}
             >
-              {item.imageUrl && (
+              {item.imageUrl ? (
                 <CardMedia
                   component="img"
                   height="200"
@@ -942,6 +966,37 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     width: '100%'
                   }}
                 />
+              ) : (
+                <Box
+                  sx={{
+                    height: { xs: 80, sm: 90, md: 100 },
+                    backgroundColor: 'grey.100',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    gap: 0.5,
+                  }}
+                >
+                  <RestaurantMenuIcon sx={{ fontSize: 28, color: 'grey.400' }} />
+                  {restaurantName && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'grey.600',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                        textAlign: 'center',
+                        px: 1,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {restaurantName}
+                    </Typography>
+                  )}
+                </Box>
               )}
               <CardContent sx={{ 
                 flexGrow: 1, 
@@ -1032,9 +1087,9 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     onClick={() => handleRemoveFromCart(item.id)}
                     disabled={getCartQuantity(item.id) === 0}
                     sx={{ 
-                      minWidth: '40px',
-                      width: '40px',
-                      height: '40px',
+                      minWidth: { xs: 44, md: 40 },
+                      width: { xs: 44, md: 40 },
+                      height: { xs: 44, md: 40 },
                       p: 0,
                       borderRadius: '50%'
                     }}
@@ -1061,9 +1116,9 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     variant="contained"
                     onClick={() => handleAddToCart(item.id)}
                     sx={{ 
-                      minWidth: '40px',
-                      width: '40px',
-                      height: '40px',
+                      minWidth: { xs: 44, md: 40 },
+                      width: { xs: 44, md: 40 },
+                      height: { xs: 44, md: 40 },
                       p: 0,
                       borderRadius: '50%'
                     }}

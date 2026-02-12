@@ -26,7 +26,7 @@ export default function ConsumerLayout({ children, tableNumber, orderType, userN
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="sticky" elevation={2}>
+      <AppBar position="sticky" elevation={2} sx={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <Toolbar>
           <RestaurantIcon sx={{ mr: 2 }} />
           <Box sx={{ flexGrow: 1 }}>
@@ -61,6 +61,7 @@ export default function ConsumerLayout({ children, tableNumber, orderType, userN
         sx={{
           backgroundColor: 'grey.100',
           py: 2,
+          paddingBottom: (theme) => `max(${theme.spacing(2)}, env(safe-area-inset-bottom))`,
           mt: 'auto',
         }}
       >
