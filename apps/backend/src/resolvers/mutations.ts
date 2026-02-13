@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { MenuItem, MenuCategory, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
-import { publishOrderUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
+import { publishOrderUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated, publishMenuItemsUpdated } from './subscriptions.js';
 import { parseDateInput } from '../utils/dateUtils.js';
 
 export const mutationResolvers = {
@@ -19,7 +19,9 @@ export const mutationResolvers = {
       throw new Error('Either category or categoryId is required');
     }
     const menuItem = new MenuItem({ ...input, restaurantId });
-    return await menuItem.save();
+    const saved = await menuItem.save();
+    if (restaurantId) await publishMenuItemsUpdated(restaurantId);
+    return saved;
   },
   updateMenuItem: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
@@ -31,11 +33,13 @@ export const mutationResolvers = {
       if (!cat) throw new Error('Category not found');
       input.category = cat.name;
     }
-    return await MenuItem.findOneAndUpdate(
+    const updated = await MenuItem.findOneAndUpdate(
       { _id: id, restaurantId },
       { ...input, restaurantId, updatedAt: new Date() },
       { new: true }
     );
+    if (restaurantId) await publishMenuItemsUpdated(restaurantId);
+    return updated;
   },
   deleteMenuItem: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
@@ -43,6 +47,7 @@ export const mutationResolvers = {
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
     const result = await MenuItem.findOneAndDelete({ _id: id, restaurantId });
+    if (result && restaurantId) await publishMenuItemsUpdated(restaurantId);
     return !!result;
   },
   createMenuCategory: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
@@ -54,18 +59,22 @@ export const mutationResolvers = {
       throw new Error('Unauthorized');
     }
     const category = new MenuCategory({ ...input, restaurantId });
-    return await category.save();
+    const saved = await category.save();
+    if (restaurantId) await publishMenuItemsUpdated(restaurantId);
+    return saved;
   },
   updateMenuCategory: async (_: any, { id, input }: { id: string; input: any }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    return await MenuCategory.findOneAndUpdate(
+    const updated = await MenuCategory.findOneAndUpdate(
       { _id: id, restaurantId },
       { ...input, updatedAt: new Date() },
       { new: true }
     );
+    if (restaurantId) await publishMenuItemsUpdated(restaurantId);
+    return updated;
   },
   deleteMenuCategory: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
@@ -81,6 +90,7 @@ export const mutationResolvers = {
       throw new Error('Cannot delete: remove or reassign subcategories first');
     }
     const result = await MenuCategory.findOneAndDelete({ _id: id, restaurantId });
+    if (result && restaurantId) await publishMenuItemsUpdated(restaurantId);
     return !!result;
   },
   

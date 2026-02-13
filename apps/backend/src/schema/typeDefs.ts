@@ -834,6 +834,11 @@ export const typeDefs = `#graphql
     modifiedCount: Int!
   }
 
+  type MenuItemsUpdate {
+    restaurantId: ID!
+    updatedAt: String!
+  }
+
   type Subscription {
     orderUpdated(restaurantId: ID!): Order!
     orderItemStatusUpdated(restaurantId: ID!): Order!
@@ -845,6 +850,7 @@ export const typeDefs = `#graphql
     feeLedgerUpdated: FeeLedger!
     paymentStatusUpdated: FeeLedger!
     dueFeesUpdated(restaurantId: ID!): DueFeesUpdate!
+    menuItemsUpdated(restaurantId: ID!): MenuItemsUpdate!
   }
 
   type AuditLog {

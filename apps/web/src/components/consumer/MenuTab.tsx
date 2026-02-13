@@ -45,6 +45,7 @@ import {
 import { getStatusChipColor } from '../../utils/statusColors';
 import { formatCurrencyFromContext } from '../../utils/currency';
 import { useOrderSubscriptions } from '../../hooks/useOrderSubscriptions';
+import { useMenuSubscriptions } from '../../hooks/useMenuSubscriptions';
 
 
 interface MenuItem {
@@ -93,9 +94,8 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   const [hasOrderModifications, setHasOrderModifications] = useState(false);
 
 
-  const { data, loading, error } = useQuery(GET_MENU_ITEMS, {
+  const { data, loading, error, refetch: refetchMenuItems } = useQuery(GET_MENU_ITEMS, {
     fetchPolicy: 'cache-and-network',
-    pollInterval: 5000
   });
   const [createOrder, { loading: orderLoading }] = useMutation(CREATE_ORDER);
   const [updateOrder, { loading: updateLoading }] = useMutation(UPDATE_ORDER);
@@ -177,6 +177,25 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   };
 
   const restaurantId = getRestaurantId();
+
+  // Restaurant ID for menu subscription (from localStorage - available as soon as ConsumerPage loads restaurant)
+  const menuRestaurantId = (() => {
+    const currentRestaurant = localStorage.getItem('currentRestaurant');
+    if (!currentRestaurant) return null;
+    try {
+      const restaurant = JSON.parse(currentRestaurant);
+      return restaurant?.id ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  // Set up real-time menu subscription (replaces polling)
+  useMenuSubscriptions({
+    restaurantId: menuRestaurantId,
+    onMenuItemsUpdated: refetchMenuItems,
+    fallbackRefetch: refetchMenuItems,
+  });
 
   // Set up real-time subscriptions
   useOrderSubscriptions({
@@ -730,95 +749,28 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     '&:last-child': { borderBottom: 0 }
                   }}
                 >
-                  {/* Row 1: item name, quantity selector, total, delete - all on one line, no wrap */}
+                  {/* Row 1: item name only */}
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: { xs: 1, sm: 1.5 },
-                      flexWrap: 'nowrap',
+                      gap: 1,
                       minWidth: 0
                     }}
                   >
                     <Typography
                       variant="body1"
-                      fontWeight="medium"
+                      fontWeight={600}
                       sx={{
                         flex: 1,
                         minWidth: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        pr: 1
+                        color: 'rgba(0, 0, 0, 0.92)'
                       }}
                     >
                       {menuItem?.name || `Item ${item.menuItemId}`}
-                    </Typography>
-                    {canEdit ? (
-                      <>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            const currentModification = modifiedOrderItems[item.menuItemId];
-                            const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
-                            handleModifyOrderItem(item.menuItemId, baseQuantity - 1);
-                          }}
-                          disabled={currentQuantity <= 1}
-                          sx={{
-                            minWidth: { xs: '36px', sm: '32px' },
-                            height: { xs: '36px', sm: '32px' },
-                            p: 0,
-                            borderRadius: '50%',
-                            flexShrink: 0
-                          }}
-                        >
-                          <RemoveIcon fontSize="small" />
-                        </Button>
-                        <Typography variant="body2" sx={{ minWidth: '1.75rem', textAlign: 'center', fontWeight: 'bold', flexShrink: 0 }}>
-                          {currentQuantity}
-                        </Typography>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            const currentModification = modifiedOrderItems[item.menuItemId];
-                            const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
-                            handleModifyOrderItem(item.menuItemId, baseQuantity + 1);
-                          }}
-                          sx={{
-                            minWidth: { xs: '36px', sm: '32px' },
-                            height: { xs: '36px', sm: '32px' },
-                            p: 0,
-                            borderRadius: '50%',
-                            flexShrink: 0
-                          }}
-                        >
-                          <AddIcon fontSize="small" />
-                        </Button>
-                      </>
-                    ) : (
-                      <Chip
-                        label={`Qty: ${currentQuantity}`}
-                        size="small"
-                        sx={{
-                          flexShrink: 0,
-                          fontSize: '0.7rem',
-                          height: '20px',
-                          bgcolor: 'grey.100',
-                          color: 'text.primary',
-                          border: '1px solid',
-                          borderColor: 'grey.300',
-                          fontWeight: 600
-                        }}
-                      />
-                    )}
-                    <Typography
-                      variant="body1"
-                      fontWeight="bold"
-                      sx={{ minWidth: { xs: '52px', sm: '56px' }, textAlign: 'right', flexShrink: 0 }}
-                    >
-                      {formatCurrencyFromContext(item.price * currentQuantity)}
                     </Typography>
                     {canEdit && (
                       <Button
@@ -838,7 +790,78 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                       </Button>
                     )}
                   </Box>
-                  {/* Row 2: unit price (left), status chip (right) */}
+                  {/* Row 2: qty (left), price (right) */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {canEdit ? (
+                        <>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              const currentModification = modifiedOrderItems[item.menuItemId];
+                              const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
+                              handleModifyOrderItem(item.menuItemId, baseQuantity - 1);
+                            }}
+                            disabled={currentQuantity <= 1}
+                            sx={{
+                              minWidth: { xs: '36px', sm: '32px' },
+                              height: { xs: '36px', sm: '32px' },
+                              p: 0,
+                              borderRadius: '50%',
+                              flexShrink: 0
+                            }}
+                          >
+                            <RemoveIcon fontSize="small" />
+                          </Button>
+                          <Typography variant="body2" sx={{ minWidth: '1.75rem', textAlign: 'center', fontWeight: 'bold', flexShrink: 0 }}>
+                            {currentQuantity}
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              const currentModification = modifiedOrderItems[item.menuItemId];
+                              const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
+                              handleModifyOrderItem(item.menuItemId, baseQuantity + 1);
+                            }}
+                            sx={{
+                              minWidth: { xs: '36px', sm: '32px' },
+                              height: { xs: '36px', sm: '32px' },
+                              p: 0,
+                              borderRadius: '50%',
+                              flexShrink: 0
+                            }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Chip
+                          label={`Qty: ${currentQuantity}`}
+                          size="small"
+                          sx={{
+                            flexShrink: 0,
+                            fontSize: '0.7rem',
+                            height: '20px',
+                            bgcolor: 'grey.100',
+                            color: 'text.primary',
+                            border: '1px solid',
+                            borderColor: 'grey.300',
+                            fontWeight: 600
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Typography
+                      variant="body1"
+                      fontWeight="bold"
+                      sx={{ minWidth: { xs: '52px', sm: '56px' }, textAlign: 'right', flexShrink: 0 }}
+                    >
+                      {formatCurrencyFromContext(item.price * currentQuantity)}
+                    </Typography>
+                  </Box>
+                  {/* Row 3: unit price (left), status chip (right) */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                     <Typography variant="caption" color="text.secondary">
                       {formatCurrencyFromContext(item.price)} each
