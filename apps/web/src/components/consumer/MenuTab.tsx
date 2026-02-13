@@ -89,6 +89,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   const [isOrderUpdate, setIsOrderUpdate] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [modifiedOrderItems, setModifiedOrderItems] = useState<{ [itemId: string]: number }>({});
+  const [modifiedOrderInstructions, setModifiedOrderInstructions] = useState<Record<number, string>>({});
   const [hasOrderModifications, setHasOrderModifications] = useState(false);
 
 
@@ -287,8 +288,14 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     return modifiedOrderItems[itemId] !== undefined ? modifiedOrderItems[itemId] : originalQuantity;
   };
 
+  const handleOrderInstructionsChange = (itemIndex: number, value: string) => {
+    setModifiedOrderInstructions(prev => ({ ...prev, [itemIndex]: value }));
+    setHasOrderModifications(true);
+  };
+
   const handleCancelOrderModifications = () => {
     setModifiedOrderItems({});
+    setModifiedOrderInstructions({});
     setHasOrderModifications(false);
     setShowConfirmDialog(false);
   };
@@ -298,7 +305,9 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     
     // Allow submission if there are cart items OR if there are order modifications
     const hasCartItems = getTotalItems() > 0;
-    const hasOrderModifications = Object.keys(modifiedOrderItems).length > 0;
+    const hasQuantityModifications = Object.keys(modifiedOrderItems).length > 0;
+    const hasInstructionModifications = Object.keys(modifiedOrderInstructions).length > 0;
+    const hasOrderModifications = hasQuantityModifications || hasInstructionModifications;
     
     if (!hasCartItems && !hasOrderModifications) {
       return;
@@ -345,15 +354,19 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
         });
 
         // Apply modifications to existing items (only pending items can be modified)
-        const modifiedExistingItems = existingItems.map((item: OrderItem) => {
+        const modifiedExistingItems = existingItems.map((item: OrderItem, itemIndex: number) => {
           const modifiedQuantity = modifiedOrderItems[item.menuItemId];
-          if (item.status === 'pending' && modifiedQuantity !== undefined) {
-            return {
-              ...item,
-              quantity: modifiedQuantity
-            };
+          const modifiedInstructions = modifiedOrderInstructions[itemIndex];
+          let updated = { ...item };
+          if (item.status === 'pending') {
+            if (modifiedQuantity !== undefined) {
+              updated.quantity = modifiedQuantity;
+            }
+            if (modifiedInstructions !== undefined) {
+              updated.specialInstructions = modifiedInstructions.trim() || undefined;
+            }
           }
-          return item;
+          return updated;
         }).filter((item: OrderItem) => item.quantity > 0); // Remove items with 0 quantity
 
         // Merge modified existing items with new cart items
@@ -474,12 +487,14 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
             // Clear modification states AFTER refetch is complete
             setCart({});
             setModifiedOrderItems({});
+            setModifiedOrderInstructions({});
             setHasOrderModifications(false);
             setExpandedNoteItemId(null);
           } catch (error) {
             // Still clear states even if refetch fails
             setCart({});
             setModifiedOrderItems({});
+            setModifiedOrderInstructions({});
             setHasOrderModifications(false);
             setExpandedNoteItemId(null);
           }
@@ -842,8 +857,23 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                       }}
                     />
                   </Box>
-                  {/* Note: full-width row below */}
-                  {item.specialInstructions && (
+                  {/* Note: inline editable for pending items, read-only for others */}
+                  {canEdit ? (
+                    <TextField
+                      size="small"
+                      fullWidth
+                      placeholder="Add note (optional) e.g., No onions, extra cheese"
+                      value={modifiedOrderInstructions[index] ?? item.specialInstructions ?? ''}
+                      onChange={(e) => handleOrderInstructionsChange(index, e.target.value)}
+                      inputProps={{ maxLength: 200 }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          backgroundColor: 'grey.50',
+                          '& fieldset': { borderLeft: '3px solid', borderColor: 'primary.light' }
+                        }
+                      }}
+                    />
+                  ) : item.specialInstructions ? (
                     <Box
                       sx={{
                         display: 'flex',
@@ -864,7 +894,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                         {item.specialInstructions}
                       </Typography>
                     </Box>
-                  )}
+                  ) : null}
                 </ListItem>
               );
             })}
