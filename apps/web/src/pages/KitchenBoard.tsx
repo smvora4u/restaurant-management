@@ -12,12 +12,15 @@ import {
 import {
   Restaurant as RestaurantIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
 import KitchenItemCard from '../components/kitchen/KitchenItemCard';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { GET_ORDERS_FOR_STAFF, GET_MENU_ITEMS } from '../graphql';
-import { UPDATE_ORDER_ITEM_STATUS_FOR_STAFF } from '../graphql/mutations/staff';
+import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
+import { UPDATE_ORDER } from '../graphql/mutations/orders';
+import { updatePartialQuantityStatus, mergeOrderItemsByStatus } from '../utils/orderItemManagement';
+import { calculateOrderStatus } from '../utils/statusManagement';
 import { getStatusBackgroundColor } from '../utils/statusColors';
 
 interface FlattenedItem {
@@ -75,23 +78,28 @@ export default function KitchenBoard() {
     skip: !staff?.restaurantId
   });
 
-  // Mutation
-  const [updateItemStatus] = useMutation(UPDATE_ORDER_ITEM_STATUS_FOR_STAFF, {
-    onCompleted: (data) => {
-      console.log('Kitchen Board - Mutation completed successfully:', data);
+  const apolloClient = useApolloClient();
+
+  // Mutation - use updateOrder for unified order update path
+  const [updateOrder] = useMutation(UPDATE_ORDER, {
+    onCompleted: () => {
       setSnackbar({
         open: true,
         message: 'Item status updated successfully!',
         severity: 'success'
       });
+      refetchOrders();
     },
     onError: (error) => {
-      console.error('Kitchen Board - Mutation error:', error);
+      console.error('Kitchen Board - Update order error:', error);
       setSnackbar({
         open: true,
-        message: `Error updating status: ${error.message}`,
+        message: error.message?.includes('terminal state')
+          ? 'Order was completed or cancelled by another user. Refreshing.'
+          : `Error updating status: ${error.message}`,
         severity: 'error'
       });
+      refetchOrders();
     }
   });
 
@@ -176,14 +184,14 @@ export default function KitchenBoard() {
         }
       });
       
+      const getMenuItemId = (obj: any) => (typeof obj === 'string' ? obj : obj?.id ?? obj);
+
       // Convert merged items to FlattenedItem format
       mergedItemsMap.forEach(({ item, itemIndex }) => {
-        const itemKey = `${order.id}-${itemIndex}`;
-        const isItemUpdating = updatingItems.has(itemKey);
-        
-        // Preserve the normalized specialInstructions to ensure consistency
         const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
-        
+        const itemKey = `${order.id}-${getMenuItemId(item.menuItemId)}-${item.status}-${normalizedInstructions}`;
+        const isItemUpdating = updatingItems.has(itemKey);
+
         items.push({
           orderId: order.id,
           itemIndex, // Use original index for tracking
@@ -232,89 +240,115 @@ export default function KitchenBoard() {
       return;
     }
 
-    // Find the actual item index in the order (since items may be merged)
-    const order = ordersData?.ordersForStaff?.find((o: any) => o.id === item.orderId);
-    if (!order) {
-      setSnackbar({
-        open: true,
-        message: 'Order not found',
-        severity: 'error'
-      });
-      return;
-    }
-
-    // Find the first item that matches this menuItemId, current status, and specialInstructions
-    // Normalize specialInstructions for comparison
     const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
     const itemInstructions = normalizeInstructions(item.specialInstructions);
-    
-    const actualItemIndex = order.items.findIndex((orderItem: any) => {
-      const orderItemInstructions = normalizeInstructions(orderItem.specialInstructions);
-      return orderItem.menuItemId === item.menuItemId &&
-        orderItem.status === item.status &&
-        orderItemInstructions === itemInstructions;
-    });
+    const itemKey = `${item.orderId}-${item.menuItemId}-${item.status}-${itemInstructions}`;
 
-    if (actualItemIndex === -1) {
-      setSnackbar({
-        open: true,
-        message: 'Item not found in order',
-        severity: 'error'
-      });
-      return;
-    }
-
-    const itemKey = `${item.orderId}-${actualItemIndex}`;
-    
-    // Check if this item is already being updated
-    if (updatingItems.has(itemKey)) {
-      console.log('Item is already being updated:', itemKey);
-      return;
-    }
-    
-    // Mark this item as being updated
+    // Prevent double-click
+    if (updatingItems.has(itemKey)) return;
     setUpdatingItems(prev => new Set(prev).add(itemKey));
-    
-    console.log('Updating item status:', {
-      orderId: item.orderId,
-      itemIndex: actualItemIndex,
-      status: nextStatus,
-      quantity: item.quantity
-    });
-    
+
     try {
-      await updateItemStatus({
+      // Fetch latest order to avoid stale overwrite
+      const { data } = await apolloClient.query({
+        query: GET_ORDER_BY_ID,
+        variables: { id: item.orderId },
+        fetchPolicy: 'network-only'
+      });
+
+      const order = data?.order;
+      if (!order) {
+        setSnackbar({ open: true, message: 'Order not found', severity: 'error' });
+        return;
+      }
+
+      const restaurantId = (order as any).restaurantId || staff?.restaurantId;
+      if (!restaurantId) {
+        setSnackbar({ open: true, message: 'Restaurant context missing. Please refresh and try again.', severity: 'error' });
+        return;
+      }
+
+      // Block update if order is already completed/cancelled
+      if (order.status === 'completed' || order.status === 'cancelled') {
+        setSnackbar({
+          open: true,
+          message: 'Order was completed or cancelled by another user. Refreshing.',
+          severity: 'info'
+        });
+        refetchOrders();
+        return;
+      }
+
+      // Find first raw item matching the clicked item (handle populated objects with _id or id)
+      const getMenuItemId = (obj: any): string => {
+        if (obj == null) return '';
+        if (typeof obj === 'string') return obj;
+        const id = obj?.id ?? obj?._id;
+        return id != null ? String(id) : '';
+      };
+      const rawItemIndex = order.items.findIndex((orderItem: any) => {
+        const orderItemInstructions = normalizeInstructions(orderItem.specialInstructions);
+        return getMenuItemId(orderItem.menuItemId) === getMenuItemId(item.menuItemId) &&
+          orderItem.status === item.status &&
+          orderItemInstructions === itemInstructions;
+      });
+
+      if (rawItemIndex === -1) {
+        setSnackbar({ open: true, message: 'Item not found in order', severity: 'error' });
+        return;
+      }
+
+      // Update 1 unit to next status (preserves partial-quantity behavior)
+      const updatedItems = updatePartialQuantityStatus(
+        order.items,
+        rawItemIndex,
+        nextStatus as 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled',
+        1
+      );
+      const mergedItems = mergeOrderItemsByStatus(updatedItems);
+      const newOrderStatus = calculateOrderStatus(mergedItems);
+      const totalAmount = mergedItems.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0);
+
+      // Clean items for API (normalize menuItemId, remove __typename)
+      const cleanItems = mergedItems.map((i: any) => ({
+        menuItemId: getMenuItemId(i.menuItemId),
+        quantity: i.quantity,
+        price: i.price,
+        status: i.status,
+        specialInstructions: i.specialInstructions
+      }));
+
+      await updateOrder({
         variables: {
-          orderId: item.orderId,
-          itemIndex: actualItemIndex,
-          status: nextStatus
+          id: item.orderId,
+          input: {
+            restaurantId,
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: cleanItems,
+            status: newOrderStatus,
+            totalAmount
+          }
         }
       });
-      
-      console.log('Item status update successful');
-      
-      // Show success message
-      setSnackbar({
-        open: true,
-        message: `Item moved to ${nextStatus}`,
-        severity: 'success'
-      });
-      
+
+      setSnackbar({ open: true, message: `Item moved to ${nextStatus}`, severity: 'success' });
     } catch (error) {
-      console.error('Error updating item status:', error);
-      
-      // Show error message
       setSnackbar({
         open: true,
-        message: `Error updating item: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: error instanceof Error ? error.message : 'Unknown error',
         severity: 'error'
       });
     } finally {
-      // Remove from updating set
       setUpdatingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(itemKey);
-        return newSet;
+        const next = new Set(prev);
+        next.delete(itemKey);
+        return next;
       });
     }
   };
@@ -440,7 +474,9 @@ export default function KitchenBoard() {
                       </Box>
                     ) : (
                       itemsByStatus[column.key]?.map((item, index) => {
-                        const itemKey = `${item.orderId}-${item.itemIndex}`;
+                        const normInstr = (item.specialInstructions && item.specialInstructions.trim()) || '';
+                        const mid = typeof item.menuItemId === 'string' ? item.menuItemId : (item.menuItemId as any)?.id ?? item.menuItemId;
+                        const itemKey = `${item.orderId}-${mid}-${item.status}-${normInstr}`;
                         const isUpdating = updatingItems.has(itemKey);
                         
                         return (

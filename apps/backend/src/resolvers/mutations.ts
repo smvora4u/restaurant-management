@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { MenuItem, MenuCategory, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
-import { publishOrderUpdated, publishOrderItemStatusUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
+import { publishOrderUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated } from './subscriptions.js';
 import { parseDateInput } from '../utils/dateUtils.js';
 
 export const mutationResolvers = {
@@ -362,49 +362,6 @@ export const mutationResolvers = {
     const currency = ledgers[0]?.currency || 'USD';
     const settlement = await Settlement.create({ restaurantId, currency, periodStart: start, periodEnd: end, totalOrders, totalOrderAmount, totalFees, generatedAt: new Date() });
     return settlement;
-  },
-  updateOrderItemStatus: async (_: any, { orderId, itemIndex, status }: { orderId: string; itemIndex: number; status: string }, context: GraphQLContext) => {
-    if (!context.restaurant) {
-      throw new Error('Authentication required');
-    }
-    // Convert restaurantId string to ObjectId for proper MongoDB comparison
-    const restaurantObjectId = new mongoose.Types.ObjectId(context.restaurant.id);
-    const order = await Order.findOne({ _id: orderId, restaurantId: restaurantObjectId });
-    if (!order) {
-      throw new Error('Order not found');
-    }
-    
-    if (!order.items || itemIndex < 0 || itemIndex >= order.items.length) {
-      throw new Error('Invalid item index');
-    }
-    
-    // Update the specific item status
-    if (order.items[itemIndex]) {
-      order.items[itemIndex].status = status as any;
-    }
-    
-    // Calculate overall order status based on item statuses
-    const itemStatuses = order.items.map(item => item.status);
-    if (itemStatuses.every(status => status === 'cancelled')) {
-      order.status = 'cancelled';
-    } else if (itemStatuses.every(status => status === 'served')) {
-      order.status = 'completed';
-    } else if (itemStatuses.some(status => status === 'served')) {
-      order.status = 'served';
-    } else if (itemStatuses.some(status => status === 'ready')) {
-      order.status = 'ready';
-    } else if (itemStatuses.some(status => status === 'preparing')) {
-      order.status = 'preparing';
-    } else if (itemStatuses.some(status => status === 'confirmed')) {
-      order.status = 'confirmed';
-    } else {
-      order.status = 'pending';
-    }
-    
-    order.updatedAt = new Date();
-    const savedOrder = await order.save();
-    await publishOrderItemStatusUpdated(savedOrder);
-    return savedOrder;
   },
   deleteOrder: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant) {

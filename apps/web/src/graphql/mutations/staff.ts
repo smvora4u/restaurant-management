@@ -74,28 +74,3 @@ export const UPDATE_ORDER_STATUS_FOR_STAFF = gql`
   }
 `;
 
-export const UPDATE_ORDER_ITEM_STATUS_FOR_STAFF = gql`
-  mutation UpdateOrderItemStatusForStaff($orderId: ID!, $itemIndex: Int!, $status: String!) {
-    updateOrderItemStatusForStaff(orderId: $orderId, itemIndex: $itemIndex, status: $status) {
-      id
-      tableNumber
-      orderType
-      status
-      totalAmount
-      customerName
-      customerPhone
-      notes
-      sessionId
-      userId
-      createdAt
-      updatedAt
-      items {
-        menuItemId
-        quantity
-        price
-        status
-        specialInstructions
-      }
-    }
-  }
-`;

@@ -1,6 +1,6 @@
 import { Staff, Order, MenuItem } from '../models/index.js';
-import { ORDER_STATUSES, ORDER_ITEM_STATUSES, OrderItemStatus } from '../constants/orderStatuses.js';
-import { publishOrderItemStatusUpdated, publishOrderUpdated } from './subscriptions.js';
+import { ORDER_STATUSES } from '../constants/orderStatuses.js';
+import { publishOrderUpdated } from './subscriptions.js';
 
 export const staffManagementResolvers = {
   Query: {
@@ -176,101 +176,6 @@ export const staffManagementResolvers = {
         };
       } catch (error) {
         throw new Error(`Failed to update order status: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    },
-
-    updateOrderItemStatusForStaff: async (_: any, { orderId, itemIndex, status }: { orderId: string; itemIndex: number; status: string }) => {
-      try {
-        if (!ORDER_ITEM_STATUSES.includes(status as any)) {
-          throw new Error('Invalid item status');
-        }
-
-        const order = await Order.findById(orderId);
-        if (!order) {
-          throw new Error('Order not found');
-        }
-
-        if (itemIndex < 0 || itemIndex >= order.items.length) {
-          throw new Error('Invalid item index');
-        }
-
-        const currentItem = order.items[itemIndex];
-        if (!currentItem) {
-          throw new Error('Item not found');
-        }
-
-        // Update the item status
-        currentItem.status = status as OrderItemStatus;
-
-        // Merge items with same menuItemId, status, and specialInstructions
-        const mergedItemsMap = new Map<string, any>();
-
-        order.items.forEach((item) => {
-          // Normalize specialInstructions: undefined, null, or empty string all become empty string
-          const normalizedInstructions = (item.specialInstructions && item.specialInstructions.trim()) || '';
-          const key = `${item.menuItemId}-${item.status}-${normalizedInstructions}`;
-          
-          if (mergedItemsMap.has(key)) {
-            // Merge with existing item - add quantities
-            const existing = mergedItemsMap.get(key);
-            existing.quantity += item.quantity;
-            // Ensure specialInstructions is normalized in the merged item
-            existing.specialInstructions = normalizedInstructions || undefined;
-          } else {
-            // Add new item - convert to plain object if needed
-            const itemObj = ('toObject' in item && typeof (item as any).toObject === 'function') 
-              ? (item as any).toObject() 
-              : { ...item };
-            itemObj.specialInstructions = normalizedInstructions || undefined;
-            mergedItemsMap.set(key, itemObj);
-          }
-        });
-
-        // Update order with merged items
-        order.items = Array.from(mergedItemsMap.values());
-        
-        // Calculate overall order status based on item statuses (same logic as restaurant mutations)
-        const itemStatuses = order.items.map(item => item.status);
-        if (itemStatuses.every(status => status === 'cancelled')) {
-          order.status = 'cancelled';
-        } else if (itemStatuses.every(status => status === 'served')) {
-          order.status = 'completed';
-        } else if (itemStatuses.some(status => status === 'served')) {
-          order.status = 'served';
-        } else if (itemStatuses.some(status => status === 'ready')) {
-          order.status = 'ready';
-        } else if (itemStatuses.some(status => status === 'preparing')) {
-          order.status = 'preparing';
-        } else if (itemStatuses.some(status => status === 'confirmed')) {
-          order.status = 'confirmed';
-        } else {
-          order.status = 'pending';
-        }
-        
-        order.updatedAt = new Date();
-        await order.save();
-
-        // Publish real-time update events for both item status and overall order status
-        await publishOrderItemStatusUpdated(order);
-        await publishOrderUpdated(order);
-
-        return {
-          id: order._id,
-          tableNumber: order.tableNumber,
-          orderType: order.orderType,
-          items: order.items,
-          status: order.status,
-          totalAmount: order.totalAmount,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          notes: order.notes,
-          sessionId: order.sessionId,
-          userId: order.userId,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt
-        };
-      } catch (error) {
-        throw new Error(`Failed to update order item status: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
 

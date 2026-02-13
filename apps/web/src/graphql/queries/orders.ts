@@ -30,6 +30,7 @@ export const GET_ORDER_BY_ID = gql`
   query GetOrderById($id: ID!) {
     order(id: $id) {
       id
+      restaurantId
       tableNumber
       orderType
       status

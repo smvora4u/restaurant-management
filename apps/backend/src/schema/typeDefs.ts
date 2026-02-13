@@ -254,7 +254,6 @@ export const typeDefs = `#graphql
     
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
-    updateOrderItemStatusForStaff(orderId: ID!, itemIndex: Int!, status: String!): Order!
     
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
@@ -273,7 +272,6 @@ export const typeDefs = `#graphql
     
     createOrder(input: OrderInput!): Order!
     updateOrder(id: ID!, input: OrderInput!): Order!
-    updateOrderItemStatus(orderId: ID!, itemIndex: Int!, status: String!): Order!
     deleteOrder(id: ID!): Boolean!
     
     createReservation(input: ReservationInput!): Reservation!
