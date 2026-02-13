@@ -85,7 +85,7 @@ export default function StaffOrderManagement() {
     initializeEditing,
     handleQuantityChange,
     handleRemoveItem,
-    handleAddItem,
+    handleAddItems,
     handleUpdateItemStatus,
     canCancelOrder
   } = useOrderManagement({
@@ -249,10 +249,15 @@ export default function StaffOrderManagement() {
     }
   };
 
-  const handleAddItemWrapper = (menuItemId: string, quantity: number, specialInstructions: string) => {
-    const menuItem = menuData?.menuItems?.find((item: any) => item.id === menuItemId);
-    if (menuItem) {
-      handleAddItem(menuItemId, quantity, specialInstructions, menuItem.price);
+  const handleAddItemsWrapper = (entries: Array<{ menuItemId: string; quantity: number; specialInstructions: string }>) => {
+    const itemsWithPrice = entries
+      .map(({ menuItemId, quantity, specialInstructions }) => {
+        const menuItem = menuData?.menuItems?.find((item: any) => item.id === menuItemId);
+        return menuItem ? { menuItemId, quantity, specialInstructions, price: menuItem.price } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    if (itemsWithPrice.length > 0) {
+      handleAddItems(itemsWithPrice);
     }
   };
 
@@ -364,7 +369,7 @@ export default function StaffOrderManagement() {
               onUpdateItemStatus={handleUpdateItemStatus}
               onUpdateItemQuantity={handleQuantityChange}
               onRemoveItem={handleRemoveItem}
-              onAddItem={handleAddItemWrapper}
+              onAddItems={handleAddItemsWrapper}
               isEditing={true}
               restrictCancelToPending={true}
               orderStatus={order.status}

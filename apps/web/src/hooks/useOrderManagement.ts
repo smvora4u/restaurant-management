@@ -50,8 +50,9 @@ export const useOrderManagement = ({
   const handleQuantityChangeWrapper = useCallback((index: number, newQuantity: number) => {
     setEditingItems(prev => {
       const updated = handleQuantityChange(prev, index, newQuantity);
+      const merged = mergeOrderItemsByStatus(updated);
       setHasUnsavedChanges(true);
-      return updated;
+      return merged;
     });
   }, []);
 
@@ -63,6 +64,26 @@ export const useOrderManagement = ({
       }
       
       const updated = removeOrderItem(prev, index);
+      setHasUnsavedChanges(true);
+      return updated;
+    });
+  }, []);
+
+  const handleAddItems = useCallback((items: Array<{ menuItemId: string; quantity: number; specialInstructions: string; price: number }>) => {
+    if (items.length === 0) return;
+    setEditingItems(prev => {
+      let updated = prev;
+      for (const item of items) {
+        const newItem = {
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          price: item.price,
+          status: 'pending' as const,
+          specialInstructions: item.specialInstructions
+        };
+        updated = addNewOrderItem(updated, newItem);
+      }
+      updated = mergeOrderItemsByStatus(updated);
       setHasUnsavedChanges(true);
       return updated;
     });
@@ -121,8 +142,9 @@ export const useOrderManagement = ({
       const newTotalAmount = editingItems.reduce((total, item) => total + (item.price * item.quantity), 0);
 
       // Clean items to remove __typename and other Apollo Client fields
+      // Normalize menuItemId (Apollo may return populated object)
       const cleanItems = editingItems.map(item => ({
-        menuItemId: item.menuItemId,
+        menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
         quantity: item.quantity,
         price: item.price,
         status: item.status,
@@ -205,6 +227,13 @@ export const useOrderManagement = ({
     return ['pending', 'confirmed', 'preparing'].includes(currentStatus);
   }, []);
 
+  const syncFromExternal = useCallback((items: any[]) => {
+    const mergedItems = mergeOrderItemsByStatus(items);
+    setEditingItems(mergedItems);
+    setHasUnsavedChanges(false);
+    isInitializedRef.current = true;
+  }, []);
+
   return {
     editingItems,
     hasUnsavedChanges,
@@ -213,7 +242,9 @@ export const useOrderManagement = ({
     handleQuantityChange: handleQuantityChangeWrapper,
     handleRemoveItem,
     handleAddItem,
+    handleAddItems,
     handleUpdateItemStatus,
+    syncFromExternal,
     saveChanges,
     canCompleteOrder,
     canCancelOrder

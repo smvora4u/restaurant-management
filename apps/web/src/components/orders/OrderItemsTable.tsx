@@ -42,6 +42,12 @@ import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { ItemStatus, getStatusColor } from '../../utils/statusColors';
 import { ConfirmationDialog } from '../common';
 
+export interface AddItemEntry {
+  menuItemId: string;
+  quantity: number;
+  specialInstructions: string;
+}
+
 interface OrderItemsTableProps {
   items: any[];
   restaurant: any;
@@ -49,7 +55,7 @@ interface OrderItemsTableProps {
   onUpdateItemStatus: (itemIndex: number, status: ItemStatus, quantity?: number) => void;
   onUpdateItemQuantity: (itemIndex: number, newQuantity: number) => void;
   onRemoveItem: (itemIndex: number) => void;
-  onAddItem: (menuItemId: string, quantity: number, specialInstructions: string) => void;
+  onAddItems: (items: AddItemEntry[]) => void;
   isEditing?: boolean;
   onToggleEdit?: () => void;
   hasUnsavedChanges?: boolean;
@@ -76,11 +82,11 @@ export default function OrderItemsTable({
   onUpdateItemStatus,
   onUpdateItemQuantity,
   onRemoveItem,
-  onAddItem,
+  onAddItems,
   isEditing = false,
   onToggleEdit,
-  hasUnsavedChanges = false,
-  isSaving = false,
+  hasUnsavedChanges: _hasUnsavedChanges = false,
+  isSaving: _isSaving = false,
   restrictCancelToPending = false,
   orderStatus
 }: OrderItemsTableProps) {
@@ -89,9 +95,7 @@ export default function OrderItemsTable({
   const [newItemStatus, setNewItemStatus] = useState<ItemStatus>('pending');
   const [statusUpdateQuantity, setStatusUpdateQuantity] = useState<string>('1');
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
-  const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState<string>('1');
-  const [newItemSpecialInstructions, setNewItemSpecialInstructions] = useState('');
+  const [selectedItems, setSelectedItems] = useState<Record<string, { quantity: number; specialInstructions: string }>>({});
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [itemToDeleteIndex, setItemToDeleteIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,8 +107,12 @@ export default function OrderItemsTable({
   // Check if order can be edited (not cancelled or completed)
   const isOrderEditable = orderStatus !== 'cancelled' && orderStatus !== 'completed';
 
-  const getMenuItemDetails = (menuItemId: string) => {
-    return menuItems.find((item: any) => item.id === menuItemId);
+  const getMenuItemId = (menuItemId: string | { id?: string }) =>
+    typeof menuItemId === 'string' ? menuItemId : menuItemId?.id ?? '';
+
+  const getMenuItemDetails = (menuItemId: string | { id?: string }) => {
+    const id = getMenuItemId(menuItemId);
+    return menuItems.find((item: any) => item.id === id);
   };
 
   const handleConfirmDelete = () => {
@@ -124,7 +132,7 @@ export default function OrderItemsTable({
     if (itemToDeleteIndex === null) return '';
     const item = items[itemToDeleteIndex];
     if (!item) return '';
-    const menuItem = getMenuItemDetails(item.menuItemId);
+    const menuItem = getMenuItemDetails(getMenuItemId(item.menuItemId));
     return menuItem?.name || 'this item';
   };
 
@@ -144,22 +152,59 @@ export default function OrderItemsTable({
     }
   };
 
-  const handleAddItem = () => {
-    const quantity = parseInt(newItemQuantity) || 1;
-    if (selectedMenuItemId && quantity > 0) {
-      const menuItem = getMenuItemDetails(selectedMenuItemId);
-      if (!menuItem?.available) {
-        return; // silently ignore or optionally show feedback via parent in future
+  const handleAddItems = () => {
+    const entries: AddItemEntry[] = [];
+    for (const [menuItemId, { quantity, specialInstructions }] of Object.entries(selectedItems)) {
+      if (quantity > 0) {
+        const menuItem = getMenuItemDetails(menuItemId);
+        if (!menuItem?.available) continue;
+        entries.push({ menuItemId, quantity, specialInstructions });
       }
-      onAddItem(selectedMenuItemId, quantity, newItemSpecialInstructions);
+    }
+    if (entries.length > 0) {
+      onAddItems(entries);
       setAddItemDialogOpen(false);
-      setSelectedMenuItemId('');
-      setNewItemQuantity('1');
-      setNewItemSpecialInstructions('');
+      setSelectedItems({});
       setSearchQuery('');
       setSelectedCategory('all');
     }
   };
+
+  const handleMenuItemSelect = (menuItemId: string) => {
+    setSelectedItems(prev => {
+      if (prev[menuItemId]) {
+        const next = { ...prev };
+        delete next[menuItemId];
+        return next;
+      }
+      return { ...prev, [menuItemId]: { quantity: 1, specialInstructions: '' } };
+    });
+  };
+
+  const handleSelectedItemQuantityChange = (menuItemId: string, delta: number) => {
+    setSelectedItems(prev => {
+      const current = prev[menuItemId];
+      if (!current) return prev;
+      const nextQty = Math.max(0, current.quantity + delta);
+      if (nextQty <= 0) {
+        const next = { ...prev };
+        delete next[menuItemId];
+        return next;
+      }
+      return { ...prev, [menuItemId]: { ...current, quantity: nextQty } };
+    });
+  };
+
+  const handleSelectedItemInstructionsChange = (menuItemId: string, value: string) => {
+    setSelectedItems(prev => {
+      const current = prev[menuItemId];
+      if (!current) return prev;
+      return { ...prev, [menuItemId]: { ...current, specialInstructions: value } };
+    });
+  };
+
+  const selectedItemsCount = Object.values(selectedItems).filter(s => s.quantity > 0).length;
+  const hasSelectedItems = selectedItemsCount > 0;
 
   // Get unique categories from menu items
   const categories = useMemo(() => {
@@ -194,10 +239,6 @@ export default function OrderItemsTable({
 
     return grouped;
   }, [menuItems, searchQuery, selectedCategory]);
-
-  const handleMenuItemSelect = (menuItemId: string) => {
-    setSelectedMenuItemId(menuItemId);
-  };
 
   const handleQuantityChange = (itemIndex: number, newQuantity: number) => {
     if (newQuantity > 0) {
@@ -260,11 +301,11 @@ export default function OrderItemsTable({
             {items.map((item, index) => {
               const menuItem = getMenuItemDetails(item.menuItemId);
               return (
-                <TableRow key={`${item.menuItemId}-${index}`}>
+                <TableRow key={`${getMenuItemId(item.menuItemId)}-${index}`}>
                   <TableCell>
                     <Box>
                       <Typography variant="subtitle1" fontWeight={600}>
-                        {menuItem?.name || `Unknown Item (${item.menuItemId.slice(-8)})`}
+                        {menuItem?.name || `Unknown Item (${getMenuItemId(item.menuItemId).slice(-8)})`}
                       </Typography>
                       {menuItem?.description && (
                         <Typography variant="caption" color="text.secondary">
@@ -461,8 +502,7 @@ export default function OrderItemsTable({
           setAddItemDialogOpen(false);
           setSearchQuery('');
           setSelectedCategory('all');
-          setSelectedMenuItemId('');
-          setNewItemQuantity('1');
+          setSelectedItems({});
         }} 
         maxWidth="lg" 
         fullWidth
@@ -470,11 +510,11 @@ export default function OrderItemsTable({
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h6">Add New Item</Typography>
+            <Typography variant="h6">Add New Items</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {selectedMenuItemId && (
+              {hasSelectedItems && (
                 <Chip 
-                  label="Item Selected" 
+                  label={`${selectedItemsCount} item${selectedItemsCount !== 1 ? 's' : ''} selected`}
                   color="primary" 
                   size="small"
                 />
@@ -573,16 +613,20 @@ export default function OrderItemsTable({
                       gap: 2
                     }}
                   >
-                    {items.map((item: any) => (
+                    {items.map((item: any) => {
+                      const sel = selectedItems[item.id];
+                      const isSelected = !!sel;
+                      const qty = sel?.quantity ?? 0;
+                      return (
                       <Card
                         key={item.id}
-                        onClick={() => handleMenuItemSelect(item.id)}
+                        onClick={() => item.available && handleMenuItemSelect(item.id)}
                         sx={{
                           cursor: item.available ? 'pointer' : 'not-allowed',
                           height: '100%',
-                          border: selectedMenuItemId === item.id ? 2 : 1,
-                          borderColor: selectedMenuItemId === item.id ? 'primary.main' : 'divider',
-                          backgroundColor: selectedMenuItemId === item.id ? 'action.selected' : 'background.paper',
+                          border: isSelected ? 2 : 1,
+                          borderColor: isSelected ? 'primary.main' : 'divider',
+                          backgroundColor: isSelected ? 'action.selected' : 'background.paper',
                           opacity: item.available ? 1 : 0.6,
                           transition: 'all 0.2s',
                           '&:hover': {
@@ -628,9 +672,9 @@ export default function OrderItemsTable({
                                 }}
                               />
                             )}
-                            {selectedMenuItemId === item.id && (
+                            {isSelected && (
                               <Chip
-                                label="Selected"
+                                label={`Qty: ${qty}`}
                                 color="primary"
                                 size="small"
                                 sx={{
@@ -674,107 +718,122 @@ export default function OrderItemsTable({
                                 {item.description}
                               </Typography>
                             )}
-                            <Typography
-                              variant="h6"
-                              color="primary"
-                              sx={{ fontWeight: 700 }}
-                            >
-                              {formatCurrencyFromRestaurant(item.price, restaurant)}
-                            </Typography>
+                            {isSelected ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }} onClick={(e) => e.stopPropagation()}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleSelectedItemQuantityChange(item.id, -1)}
+                                  sx={{ bgcolor: 'action.hover' }}
+                                >
+                                  <Remove fontSize="small" />
+                                </IconButton>
+                                <Typography variant="body1" sx={{ minWidth: 24, textAlign: 'center', fontWeight: 600 }}>
+                                  {qty}
+                                </Typography>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleSelectedItemQuantityChange(item.id, 1)}
+                                  sx={{ bgcolor: 'action.hover' }}
+                                >
+                                  <Add fontSize="small" />
+                                </IconButton>
+                                <Typography variant="body2" color="primary" sx={{ ml: 1, fontWeight: 600 }}>
+                                  {formatCurrencyFromRestaurant(item.price * qty, restaurant)}
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Typography
+                                variant="h6"
+                                color="primary"
+                                sx={{ fontWeight: 700 }}
+                              >
+                                {formatCurrencyFromRestaurant(item.price, restaurant)}
+                              </Typography>
+                            )}
                           </CardContent>
                         </Card>
-                    ))}
+                    );})}
                   </Box>
                 </Box>
               ))
             )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-          {/* Left side: Quantity and Special Instructions */}
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              flex: 1,
-              width: { xs: '100%', sm: 'auto' }
-            }}
-          >
-            <TextField
-              label="Quantity"
-              type="text"
-              value={newItemQuantity}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Allow empty string for editing, or valid numbers
-                if (value === '' || /^\d+$/.test(value)) {
-                  setNewItemQuantity(value);
-                }
+        <DialogActions sx={{ px: 3, py: 2, flexDirection: 'column', gap: 2, alignItems: 'stretch' }}>
+          {/* Selected items list with per-item instructions (Option C - Hybrid) */}
+          {hasSelectedItems && (
+            <Box
+              sx={{
+                width: '100%',
+                maxHeight: 200,
+                overflow: 'auto',
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+                p: 2,
+                bgcolor: 'grey.50'
               }}
-              onBlur={(e) => {
-                // Ensure minimum value of 1 when field loses focus
-                const numValue = parseInt(e.target.value) || 1;
-                setNewItemQuantity(Math.max(1, numValue).toString());
-              }}
-              inputProps={{ 
-                min: 1,
-                maxLength: 10,
-                inputMode: 'numeric',
-                pattern: '[0-9]*'
-              }}
-              size="small"
-              sx={{ 
-                minWidth: { xs: '100%', sm: 120 },
-                flex: { xs: '1 1 auto', sm: '0 0 auto' }
-              }}
-              disabled={!selectedMenuItemId}
-            />
-            <TextField
-              label="Special Instructions"
-              value={newItemSpecialInstructions}
-              onChange={(e) => setNewItemSpecialInstructions(e.target.value)}
-              multiline
-              rows={1}
-              size="small"
-              placeholder="e.g., No onions, extra cheese..."
-              sx={{ 
-                flex: { xs: '1 1 auto', sm: '1 1 200px' },
-                minWidth: { xs: '100%', sm: 200 }
-              }}
-              disabled={!selectedMenuItemId}
-            />
-          </Box>
+            >
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Selected items ({selectedItemsCount})
+              </Typography>
+              {Object.entries(selectedItems)
+                .filter(([, s]) => s.quantity > 0)
+                .map(([menuItemId, { quantity, specialInstructions }]) => {
+                  const mi = getMenuItemDetails(menuItemId);
+                  if (!mi) return null;
+                  return (
+                    <Box
+                      key={menuItemId}
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        py: 1,
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        '&:last-child': { borderBottom: 0 }
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight={600} sx={{ minWidth: 120 }}>
+                        {mi.name} x{quantity}
+                      </Typography>
+                      <Typography variant="body2" color="primary" sx={{ minWidth: 60 }}>
+                        {formatCurrencyFromRestaurant(mi.price * quantity, restaurant)}
+                      </Typography>
+                      <TextField
+                        size="small"
+                        placeholder="e.g., No onions, extra cheese"
+                        value={specialInstructions}
+                        onChange={(e) => handleSelectedItemInstructionsChange(menuItemId, e.target.value)}
+                        inputProps={{ maxLength: 200 }}
+                        sx={{ flex: 1, minWidth: 150 }}
+                      />
+                    </Box>
+                  );
+                })}
+            </Box>
+          )}
 
-          {/* Right side: Buttons */}
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              gap: 1,
-              flexDirection: { xs: 'row', sm: 'row' },
-              width: { xs: '100%', sm: 'auto' },
-              justifyContent: { xs: 'flex-end', sm: 'flex-end' }
-            }}
-          >
-            <Button 
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button
               onClick={() => {
                 setAddItemDialogOpen(false);
                 setSearchQuery('');
                 setSelectedCategory('all');
-                setSelectedMenuItemId('');
-                setNewItemQuantity('1');
-                setNewItemSpecialInstructions('');
+                setSelectedItems({});
               }}
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleAddItem} 
-              variant="contained" 
-              disabled={!selectedMenuItemId}
+            <Button
+              onClick={handleAddItems}
+              variant="contained"
+              disabled={!hasSelectedItems}
               startIcon={<Add />}
             >
-              Add Item
+              Add Items
             </Button>
           </Box>
         </DialogActions>
