@@ -22,6 +22,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -73,10 +75,15 @@ interface MenuTabProps {
   onOrderCreated?: (orderId?: string) => void;
 }
 
+type CartItem = { quantity: number; specialInstructions: string };
+
 export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId, currentUser, onOrderCreated }: MenuTabProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [cart, setCart] = useState<{ [itemId: string]: number }>({});
+  const [cart, setCart] = useState<Record<string, CartItem>>({});
+  const [expandedNoteItemId, setExpandedNoteItemId] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [isOrderUpdate, setIsOrderUpdate] = useState(false);
@@ -195,17 +202,23 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
       setOrderError('This item is currently unavailable.');
       return;
     }
-    setCart(prev => ({
-      ...prev,
-      [itemId]: (prev[itemId] || 0) + 1
-    }));
+    setCart(prev => {
+      const current = prev[itemId];
+      const newQty = (current?.quantity || 0) + 1;
+      return {
+        ...prev,
+        [itemId]: { quantity: newQty, specialInstructions: current?.specialInstructions ?? '' }
+      };
+    });
   };
 
   const handleRemoveFromCart = (itemId: string) => {
     setCart(prev => {
       const newCart = { ...prev };
-      if (newCart[itemId] > 1) {
-        newCart[itemId] -= 1;
+      const current = newCart[itemId];
+      if (!current) return prev;
+      if (current.quantity > 1) {
+        newCart[itemId] = { ...current, quantity: current.quantity - 1 };
       } else {
         delete newCart[itemId];
       }
@@ -216,12 +229,22 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   const handleDecreaseQuantity = (itemId: string) => {
     setCart(prev => {
       const newCart = { ...prev };
-      if (newCart[itemId] > 1) {
-        newCart[itemId] -= 1;
+      const current = newCart[itemId];
+      if (!current) return prev;
+      if (current.quantity > 1) {
+        newCart[itemId] = { ...current, quantity: current.quantity - 1 };
       } else {
         delete newCart[itemId];
       }
       return newCart;
+    });
+  };
+
+  const handleInstructionsChange = (itemId: string, value: string) => {
+    setCart(prev => {
+      const current = prev[itemId];
+      if (!current) return prev;
+      return { ...prev, [itemId]: { ...current, specialInstructions: value } };
     });
   };
 
@@ -301,7 +324,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           status: item.status || 'pending' // Include status field
         }));
 
-        const unavailableInCart = Object.entries(cart).filter(([itemId]) => {
+        const unavailableInCart = Object.keys(cart).filter((itemId) => {
           const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId);
           return !item || !item.available;
         });
@@ -310,11 +333,12 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           return;
         }
 
-        const cartItems = Object.entries(cart).map(([itemId, quantity]) => {
+        const cartItems = Object.entries(cart).map(([itemId, { quantity, specialInstructions }]) => {
           const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId)!;
           return {
             menuItemId: itemId,
             quantity,
+            specialInstructions: specialInstructions.trim() || undefined,
             price: item.price,
             status: 'pending'
           };
@@ -333,19 +357,20 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
         }).filter((item: OrderItem) => item.quantity > 0); // Remove items with 0 quantity
 
         // Merge modified existing items with new cart items
+        // Items with same menuItemId but different specialInstructions stay separate
         const mergedItems = [...modifiedExistingItems];
-        
+        const normalize = (s?: string) => (s && s.trim()) || '';
+
         cartItems.forEach(cartItem => {
-          // Find existing pending item with same menuItemId
-          const existingPendingItem = mergedItems.find(item => 
-            item.menuItemId === cartItem.menuItemId && item.status === 'pending'
+          const existingPendingItem = mergedItems.find(item =>
+            item.menuItemId === cartItem.menuItemId &&
+            item.status === 'pending' &&
+            normalize(item.specialInstructions) === normalize(cartItem.specialInstructions)
           );
-          
+
           if (existingPendingItem) {
-            // Merge with existing pending item
             existingPendingItem.quantity += cartItem.quantity;
           } else {
-            // Add new item (no existing pending item found)
             mergedItems.push(cartItem);
           }
         });
@@ -450,11 +475,13 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
             setCart({});
             setModifiedOrderItems({});
             setHasOrderModifications(false);
+            setExpandedNoteItemId(null);
           } catch (error) {
             // Still clear states even if refetch fails
             setCart({});
             setModifiedOrderItems({});
             setHasOrderModifications(false);
+            setExpandedNoteItemId(null);
           }
           
           // Notify parent component that order was updated
@@ -464,7 +491,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
         }
       } else {
         // Create new order (for parcel orders or when no existing order)
-        const unavailableInCart = Object.entries(cart).filter(([itemId]) => {
+        const unavailableInCart = Object.keys(cart).filter((itemId) => {
           const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId);
           return !item || !item.available;
         });
@@ -472,11 +499,12 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           setOrderError('Some items in your cart became unavailable. Please review your cart.');
           return;
         }
-        const orderItems = Object.entries(cart).map(([itemId, quantity]) => {
+        const orderItems = Object.entries(cart).map(([itemId, { quantity, specialInstructions }]) => {
           const item = data.menuItems.find((mi: MenuItem) => mi.id === itemId)!;
           return {
             menuItemId: itemId,
             quantity,
+            specialInstructions: specialInstructions.trim() || undefined,
             price: item.price,
             status: 'pending'
           };
@@ -519,6 +547,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
 
         if (result.data?.createOrder) {
           setCart({});
+          setExpandedNoteItemId(null);
           setOrderSuccess(true);
           setOrderError(null);
           
@@ -540,13 +569,13 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   };
 
 
-  const getCartQuantity = (itemId: string) => cart[itemId] || 0;
+  const getCartQuantity = (itemId: string) => cart[itemId]?.quantity || 0;
 
-  const getTotalItems = () => Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+  const getTotalItems = () => Object.values(cart).reduce((sum, c) => sum + c.quantity, 0);
 
   const getTotalPrice = () => {
     if (!data?.menuItems) return 0;
-    return Object.entries(cart).reduce((total, [itemId, quantity]) => {
+    return Object.entries(cart).reduce((total, [itemId, { quantity }]) => {
       const item = data.menuItems.find((item: MenuItem) => item.id === itemId);
       return total + (item ? item.price * quantity : 0);
     }, 0);
@@ -672,96 +701,169 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
               const canEdit = itemStatus === 'pending';
               
               return (
-                <ListItem key={index} sx={{ px: 0, opacity: isRemoved ? 0.5 : 1 }}>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body1" fontWeight="medium">
-                          {menuItem?.name || `Item ${item.menuItemId}`}
-                        </Typography>
-                        <Chip 
-                          label={itemStatus} 
-                          size="small" 
-                          sx={{ 
-                            fontSize: '0.7rem', 
-                            height: '20px',
-                            backgroundColor: getStatusChipColor(itemStatus).bgcolor,
-                            color: getStatusChipColor(itemStatus).color,
-                            border: `1px solid ${getStatusChipColor(itemStatus).border}`,
-                            fontWeight: 500
-                          }}
-                        />
-                        {!canEdit && (
-                          <Chip
-                            label={`Qty: ${currentQuantity}`}
-                            size="small"
-                            sx={{
-                              fontSize: '0.7rem',
-                              height: '20px',
-                              ml: 0.5,
-                              bgcolor: 'grey.100',
-                              color: 'text.primary',
-                              border: '1px solid',
-                              borderColor: 'grey.300',
-                              fontWeight: 600
-                            }}
-                          />
-                        )}
-                      </Box>
-                    }
-                    secondary={`${formatCurrencyFromContext(item.price)} each`}
-                    sx={{ flex: 1 }}
-                  />
-                  
-                  {canEdit && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          const currentModification = modifiedOrderItems[item.menuItemId];
-                          const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
-                          handleModifyOrderItem(item.menuItemId, baseQuantity - 1);
-                        }}
-                        disabled={currentQuantity <= 1}
-                        sx={{ minWidth: '32px', height: '32px', p: 0, borderRadius: '50%' }}
-                      >
-                        <RemoveIcon fontSize="small" />
-                      </Button>
-                      
-                      <Typography variant="body2" sx={{ minWidth: '2rem', textAlign: 'center', fontWeight: 'bold' }}>
-                        {currentQuantity}
-                      </Typography>
-                      
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          const currentModification = modifiedOrderItems[item.menuItemId];
-                          const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
-                          handleModifyOrderItem(item.menuItemId, baseQuantity + 1);
-                        }}
-                        sx={{ minWidth: '32px', height: '32px', p: 0, borderRadius: '50%' }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </Button>
-                    </Box>
-                  )}
-                  
-                  <Typography variant="body1" fontWeight="bold" sx={{ ml: 2, minWidth: '60px', textAlign: 'right' }}>
-                    {formatCurrencyFromContext(item.price * currentQuantity)}
-                  </Typography>
-                  
-                  {canEdit && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      onClick={() => handleRemoveOrderItem(item.menuItemId)}
-                      sx={{ minWidth: '32px', height: '32px', p: 0, borderRadius: '50%', ml: 1 }}
+                <ListItem
+                  key={index}
+                  sx={{
+                    px: 0,
+                    py: 1.5,
+                    opacity: isRemoved ? 0.5 : 1,
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    gap: 1,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    '&:last-child': { borderBottom: 0 }
+                  }}
+                >
+                  {/* Row 1: item name, quantity selector, total, delete - all on one line, no wrap */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: { xs: 1, sm: 1.5 },
+                      flexWrap: 'nowrap',
+                      minWidth: 0
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      fontWeight="medium"
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        pr: 1
+                      }}
                     >
-                      <DeleteIcon fontSize="small" />
-                    </Button>
+                      {menuItem?.name || `Item ${item.menuItemId}`}
+                    </Typography>
+                    {canEdit ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            const currentModification = modifiedOrderItems[item.menuItemId];
+                            const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
+                            handleModifyOrderItem(item.menuItemId, baseQuantity - 1);
+                          }}
+                          disabled={currentQuantity <= 1}
+                          sx={{
+                            minWidth: { xs: '36px', sm: '32px' },
+                            height: { xs: '36px', sm: '32px' },
+                            p: 0,
+                            borderRadius: '50%',
+                            flexShrink: 0
+                          }}
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </Button>
+                        <Typography variant="body2" sx={{ minWidth: '1.75rem', textAlign: 'center', fontWeight: 'bold', flexShrink: 0 }}>
+                          {currentQuantity}
+                        </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            const currentModification = modifiedOrderItems[item.menuItemId];
+                            const baseQuantity = currentModification !== undefined ? currentModification : item.quantity;
+                            handleModifyOrderItem(item.menuItemId, baseQuantity + 1);
+                          }}
+                          sx={{
+                            minWidth: { xs: '36px', sm: '32px' },
+                            height: { xs: '36px', sm: '32px' },
+                            p: 0,
+                            borderRadius: '50%',
+                            flexShrink: 0
+                          }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Chip
+                        label={`Qty: ${currentQuantity}`}
+                        size="small"
+                        sx={{
+                          flexShrink: 0,
+                          fontSize: '0.7rem',
+                          height: '20px',
+                          bgcolor: 'grey.100',
+                          color: 'text.primary',
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          fontWeight: 600
+                        }}
+                      />
+                    )}
+                    <Typography
+                      variant="body1"
+                      fontWeight="bold"
+                      sx={{ minWidth: { xs: '52px', sm: '56px' }, textAlign: 'right', flexShrink: 0 }}
+                    >
+                      {formatCurrencyFromContext(item.price * currentQuantity)}
+                    </Typography>
+                    {canEdit && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleRemoveOrderItem(item.menuItemId)}
+                        sx={{
+                          minWidth: { xs: '36px', sm: '32px' },
+                          height: { xs: '36px', sm: '32px' },
+                          p: 0,
+                          borderRadius: '50%',
+                          flexShrink: 0
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </Button>
+                    )}
+                  </Box>
+                  {/* Row 2: unit price (left), status chip (right) */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatCurrencyFromContext(item.price)} each
+                    </Typography>
+                    <Chip
+                      label={itemStatus}
+                      size="small"
+                      sx={{
+                        flexShrink: 0,
+                        fontSize: '0.7rem',
+                        height: '20px',
+                        backgroundColor: getStatusChipColor(itemStatus).bgcolor,
+                        color: getStatusChipColor(itemStatus).color,
+                        border: `1px solid ${getStatusChipColor(itemStatus).border}`,
+                        fontWeight: 500
+                      }}
+                    />
+                  </Box>
+                  {/* Note: full-width row below */}
+                  {item.specialInstructions && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 0.5,
+                        py: 1,
+                        px: 1.5,
+                        backgroundColor: 'grey.50',
+                        borderRadius: 1,
+                        borderLeft: '3px solid',
+                        borderColor: 'primary.light'
+                      }}
+                    >
+                      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flexShrink: 0 }}>
+                        Note:
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', wordBreak: 'break-word' }}>
+                        {item.specialInstructions}
+                      </Typography>
+                    </Box>
                   )}
                 </ListItem>
               );
@@ -798,55 +900,78 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           </Box>
           
           <List dense>
-            {Object.entries(cart).map(([itemId, quantity]) => {
+            {Object.entries(cart).map(([itemId, { quantity, specialInstructions }]) => {
               const item = data?.menuItems?.find((item: MenuItem) => item.id === itemId);
               if (!item) return null;
-              
+              const showNoteField = !isMobile || expandedNoteItemId === itemId || specialInstructions;
+
               return (
-                <ListItem key={itemId} sx={{ px: 0 }}>
-                  <ListItemText
-                    primary={item.name}
-                    secondary={`${formatCurrencyFromContext(item.price)} each`}
-                    sx={{ flex: 1 }}
-                  />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleDecreaseQuantity(itemId)}
-                      sx={{ minWidth: '32px', height: '32px', p: 0 }}
-                    >
-                      <RemoveIcon fontSize="small" />
-                    </Button>
-                    
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        minWidth: '24px', 
-                        textAlign: 'center',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {quantity}
-                    </Typography>
-                    
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleAddToCart(itemId)}
-                      sx={{ minWidth: '32px', height: '32px', p: 0 }}
-                    >
-                      <AddIcon fontSize="small" />
-                    </Button>
-                    
-                    <Typography 
-                      variant="body1" 
-                      fontWeight="bold"
-                      sx={{ minWidth: '60px', textAlign: 'right' }}
-                    >
-                      {formatCurrencyFromContext(item.price * quantity)}
-                    </Typography>
+                <ListItem key={itemId} sx={{ px: 0, flexDirection: 'column', alignItems: 'stretch' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <ListItemText
+                      primary={item.name}
+                      secondary={`${formatCurrencyFromContext(item.price)} each`}
+                      sx={{ flex: 1 }}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleDecreaseQuantity(itemId)}
+                        sx={{ minWidth: '32px', height: '32px', p: 0 }}
+                      >
+                        <RemoveIcon fontSize="small" />
+                      </Button>
+                      
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          minWidth: '24px', 
+                          textAlign: 'center',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {quantity}
+                      </Typography>
+                      
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleAddToCart(itemId)}
+                        sx={{ minWidth: '32px', height: '32px', p: 0 }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </Button>
+                      
+                      <Typography 
+                        variant="body1" 
+                        fontWeight="bold"
+                        sx={{ minWidth: '60px', textAlign: 'right' }}
+                      >
+                        {formatCurrencyFromContext(item.price * quantity)}
+                      </Typography>
+                    </Box>
                   </Box>
+                  {isMobile && !showNoteField ? (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setExpandedNoteItemId(itemId)}
+                      sx={{ alignSelf: 'flex-start', mt: 0.5, px: 0, textTransform: 'none', fontSize: '0.8rem' }}
+                    >
+                      + Add note
+                    </Button>
+                  ) : (
+                    <TextField
+                      size="small"
+                      placeholder="Add note (optional) e.g., No onions, extra cheese"
+                      value={specialInstructions}
+                      onChange={(e) => handleInstructionsChange(itemId, e.target.value)}
+                      inputProps={{ maxLength: 200 }}
+                      sx={{ mt: 1, width: '100%' }}
+                      onBlur={() => isMobile && !specialInstructions && setExpandedNoteItemId(null)}
+                    />
+                  )}
                 </ListItem>
               );
             })}
