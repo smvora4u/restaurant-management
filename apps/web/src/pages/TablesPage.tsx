@@ -36,6 +36,7 @@ import {
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 import { ConfirmationDialog } from '../components/common';
+import { validateForm, validationRules, clearFieldError } from '../utils/validation';
 import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE, GET_ORDERS_FOR_STAFF } from '../graphql';
 
 const tableStatuses = [
