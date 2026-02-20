@@ -13,6 +13,7 @@ export const CREATE_RESTAURANT = gql`
         currency
         timezone
         theme
+        billSize
       }
       isActive
       createdAt
@@ -34,6 +35,7 @@ export const UPDATE_RESTAURANT = gql`
         currency
         timezone
         theme
+        billSize
       }
       isActive
       createdAt
@@ -47,6 +49,26 @@ export const DEACTIVATE_RESTAURANT = gql`
     deactivateRestaurant(id: $id) {
       id
       isActive
+    }
+  }
+`;
+
+export const UPDATE_RESTAURANT_SETTINGS = gql`
+  mutation UpdateRestaurantSettings($input: RestaurantSettingsInput!) {
+    updateRestaurantSettings(input: $input) {
+      id
+      name
+      slug
+      settings {
+        currency
+        timezone
+        theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
+      }
     }
   }
 `;

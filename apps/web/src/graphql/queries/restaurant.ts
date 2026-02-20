@@ -13,6 +13,11 @@ export const GET_ALL_RESTAURANTS = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
       }
       isActive
       createdAt
@@ -34,6 +39,11 @@ export const GET_RESTAURANT_BY_ID = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
       }
       isActive
       createdAt
@@ -55,6 +65,11 @@ export const GET_RESTAURANT_BY_SLUG = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
       }
       isActive
       createdAt

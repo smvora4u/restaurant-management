@@ -31,6 +31,7 @@ import {
   Person as PersonIcon,
   Payment as PaymentIcon,
   Inventory as InventoryIcon,
+  Settings as SettingsIcon,
   Logout,
 } from '@mui/icons-material';
 
@@ -50,6 +51,7 @@ const menuItems = [
   { text: 'Purchases', icon: <InventoryIcon />, path: '/restaurant/purchases' },
   { text: 'Fees', icon: <PaymentIcon />, path: '/restaurant/fees' },
   { text: 'QR Codes', icon: <QRCodeIcon />, path: '/restaurant/qr-codes' },
+  { text: 'Settings', icon: <SettingsIcon />, path: '/restaurant/settings' },
 ];
 
 export default function Layout({ children }: LayoutProps) {

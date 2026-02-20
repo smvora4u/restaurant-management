@@ -4,7 +4,8 @@
   "workspaces": [
     "apps/backend",
     "apps/web",
-    "apps/mobile"
+    "apps/mobile",
+    "apps/printer-proxy"
   ],
   "scripts": {
     "build": "npm -ws run build",

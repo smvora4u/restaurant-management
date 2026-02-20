@@ -21,6 +21,17 @@ export const typeDefs = `#graphql
     currency: String!
     timezone: String!
     theme: String
+    billSize: String
+    networkPrinter: NetworkPrinterConfig
+  }
+
+  type NetworkPrinterConfig {
+    host: String!
+    port: Int!
+  }
+
+  type PrinterProxyStatus {
+    connected: Boolean!
   }
 
   type AuthPayload {
@@ -199,6 +210,7 @@ export const typeDefs = `#graphql
     staffById(id: ID!): Staff
     ordersForStaff(restaurantId: ID!): [Order!]!
     orderByIdForStaff(id: ID!): Order
+    printerProxyStatus(restaurantId: ID!): PrinterProxyStatus!
     feeLedgers(restaurantId: ID!, limit: Int, offset: Int): FeeLedgerConnection!
     restaurantFeeConfig(restaurantId: ID!): RestaurantFeeConfig
     settlements(restaurantId: ID!, limit: Int, offset: Int): [Settlement!]!
@@ -227,6 +239,7 @@ export const typeDefs = `#graphql
     loginRestaurant(email: String!, password: String!): AuthPayload!
     resetRestaurantPassword(email: String!): PasswordResetResponse!
     updateRestaurantPassword(token: String!, newPassword: String!): PasswordResetResponse!
+    updateRestaurantSettings(input: RestaurantSettingsInput!): Restaurant!
     
     # Admin Authentication
     loginAdmin(email: String!, password: String!): AdminAuthPayload!
@@ -254,6 +267,7 @@ export const typeDefs = `#graphql
     
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
+    requestNetworkPrint(orderId: ID!): Boolean!
     
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
@@ -583,6 +597,13 @@ export const typeDefs = `#graphql
     currency: String
     timezone: String
     theme: String
+    billSize: String
+    networkPrinter: NetworkPrinterInput
+  }
+
+  input NetworkPrinterInput {
+    host: String!
+    port: Int!
   }
 
   input MenuCategoryInput {

@@ -22,6 +22,7 @@ import UnifiedLogin from './pages/UnifiedLogin';
 import PasswordReset from './pages/PasswordReset';
 import RestaurantSettlements from './pages/RestaurantSettlements';
 import RestaurantFees from './pages/RestaurantFees';
+import RestaurantSettings from './pages/RestaurantSettings';
 import KitchenBoard from './pages/KitchenBoard';
 import SalaryManagement from './pages/SalaryManagement';
 import StaffSalaryView from './pages/StaffSalaryView';
@@ -191,7 +192,15 @@ function App() {
                 <ProtectedRestaurantRoute>
                   <RestaurantFees />
                 </ProtectedRestaurantRoute>
-              } 
+              }
+            />
+            <Route 
+              path="/restaurant/settings" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <RestaurantSettings />
+                </ProtectedRestaurantRoute>
+              }
             />
             <Route 
               path="/restaurant/salary-management/:staffId" 

@@ -107,6 +107,16 @@ export const adminMutations = {
         updateData.password = await hashPassword(updateData.password);
       }
       
+      // Merge settings instead of replacing
+      if (updateData.settings) {
+        const existing = await Restaurant.findById(id).select('settings');
+        const currentSettings = (existing?.settings as Record<string, any>) || {};
+        updateData.settings = {
+          ...currentSettings,
+          ...updateData.settings
+        };
+      }
+      
       const updated = await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
       if (updated) {
         // publish events

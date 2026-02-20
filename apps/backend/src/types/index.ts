@@ -25,6 +25,7 @@ export interface IRestaurant extends Document {
     currency: string;
     timezone: string;
     theme?: any;
+    billSize?: '58mm' | '80mm';
   };
   isActive: boolean;
   createdAt: Date;
@@ -141,6 +142,7 @@ export interface RestaurantInput {
     currency?: string;
     timezone?: string;
     theme?: any;
+    billSize?: string;
   };
 }
 

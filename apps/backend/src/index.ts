@@ -10,7 +10,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 // Import our modular components
 import { typeDefs } from './schema/typeDefs.js';
@@ -25,6 +25,8 @@ import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
 import { useServer } from 'graphql-ws/use/ws';
+import { registerProxy, unregisterByWebSocket } from './services/printerProxy.js';
+import jwt from 'jsonwebtoken';
 
 async function start() {
   try {
@@ -160,10 +162,41 @@ async function start() {
     });
     await server.start();
 
-    // Create WebSocket server for subscriptions
-    const wsServer = new WebSocketServer({
-      server: httpServer,
-      path: '/graphql',
+    // Create WebSocket servers - we handle upgrade manually to support multiple paths
+    const wsServer = new WebSocketServer({ noServer: true });
+    const printerProxyWss = new WebSocketServer({ noServer: true });
+
+    httpServer.on('upgrade', (request, socket, head) => {
+      const url = new URL(request.url || '', `http://${request.headers.host}`);
+      if (url.pathname === '/printer-proxy') {
+        printerProxyWss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+          const token = url.searchParams.get('token');
+          const restaurantId = url.searchParams.get('restaurantId');
+          if (!token || !restaurantId) {
+            ws.close(4000, 'Missing token or restaurantId');
+            return;
+          }
+          try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+            const id = decoded.restaurantId || decoded.staffId && (decoded as any).restaurantId;
+            if (!id || String(id) !== String(restaurantId)) {
+              ws.close(4001, 'Invalid token for restaurant');
+              return;
+            }
+            registerProxy(restaurantId, ws);
+            ws.on('close', () => unregisterByWebSocket(ws));
+            ws.on('error', () => unregisterByWebSocket(ws));
+          } catch {
+            ws.close(4001, 'Invalid token');
+          }
+        });
+      } else if (url.pathname === '/graphql') {
+        wsServer.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+          wsServer.emit('connection', ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
     });
 
     // Use the WebSocket server for GraphQL subscriptions

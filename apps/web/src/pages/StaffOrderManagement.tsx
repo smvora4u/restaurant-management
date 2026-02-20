@@ -18,7 +18,7 @@ import {
   Button
 } from '@mui/material';
 import { useQuery, useMutation } from '@apollo/client';
-import { CheckCircle } from '@mui/icons-material';
+import { CheckCircle, Print } from '@mui/icons-material';
 import { formatFullDateTime } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import OrderHeader from '../components/orders/OrderHeader';
@@ -30,7 +30,9 @@ import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
 import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
+import { REQUEST_NETWORK_PRINT } from '../graphql/mutations/printer';
 import { calculateOrderStatus, canCompleteOrder as canCompleteFromItems } from '../utils/statusManagement';
+import { printBill } from '../components/orders/BillPrint';
 
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
@@ -63,6 +65,9 @@ export default function StaffOrderManagement() {
   const { data: menuData } = useQuery(GET_MENU_ITEMS, { fetchPolicy: 'cache-and-network' });
 
   // Mutation for marking order as paid
+  const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT, {
+    onError: () => {}
+  });
   const [, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -133,11 +138,11 @@ export default function StaffOrderManagement() {
       const hadTable = orderBeforeUpdate?.orderType === 'dine-in' && orderBeforeUpdate?.tableNumber;
       
       // Refetch to get updated order data
-      refetch().then(() => {
-        const updatedOrder = orderData?.order;
+      refetch().then((result) => {
+        const updatedOrder = result?.data?.order ?? orderData?.order;
         const isCompleted = updatedOrder?.status === 'completed';
         const isCancelled = updatedOrder?.status === 'cancelled';
-        const tableDetached = hadTable && !updatedOrder?.tableNumber;
+        const tableDetached = hadTable && updatedOrder && !updatedOrder?.tableNumber;
         
         if (isCompleted && tableDetached) {
           setSnackbarMessage('Order completed and table detached successfully!');
@@ -152,6 +157,40 @@ export default function StaffOrderManagement() {
         }
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
+
+        // Auto-print bill when order is completed
+        if (isCompleted && orderBeforeUpdate && restaurant) {
+          const menuItemsList = menuData?.menuItems || [];
+          const doNetworkPrint = async (orderId: string) => {
+            try {
+              const res = await requestNetworkPrint({ variables: { orderId } });
+              return !!res.data?.requestNetworkPrint;
+            } catch {
+              return false;
+            }
+          };
+          printBill(
+            {
+              id: orderBeforeUpdate.id,
+              tableNumber: orderBeforeUpdate.tableNumber,
+              orderType: orderBeforeUpdate.orderType,
+              items: orderBeforeUpdate.items.map((i: any) => ({
+                menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
+                quantity: i.quantity,
+                price: i.price,
+                specialInstructions: i.specialInstructions
+              })),
+              totalAmount: orderBeforeUpdate.totalAmount,
+              customerName: orderBeforeUpdate.customerName,
+              customerPhone: orderBeforeUpdate.customerPhone,
+              createdAt: orderBeforeUpdate.createdAt
+            },
+            restaurant,
+            menuItemsList.map((m: any) => ({ id: m.id, name: m.name })),
+            true,
+            { requestNetworkPrint: doNetworkPrint }
+          );
+        }
       });
     },
     onError: (error) => {
@@ -319,45 +358,87 @@ export default function StaffOrderManagement() {
           onCancelOrder={handleCancelOrderClick}
         />
 
-        {/* Staff Mark Paid (permission-gated) */}
-        {(staff?.permissions || []).includes('manage_orders') && (
-          <Box sx={{ mb: 2 }}>
-            {order.paid ? (
-              <Box
-                sx={{
-                  p: 1.5,
-                  border: '1px solid',
-                  borderColor: 'success.light',
-                  bgcolor: 'success.50',
-                  borderRadius: 1,
-                  minWidth: 220
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
-                  <CheckCircle color="success" fontSize="small" />
-                  <Typography variant="subtitle2" color="success.main">Paid</Typography>
+        {/* Staff Mark Paid (permission-gated) and Print Bill */}
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+          {(staff?.permissions || []).includes('manage_orders') && (
+            <>
+              {order.paid ? (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    border: '1px solid',
+                    borderColor: 'success.light',
+                    bgcolor: 'success.50',
+                    borderRadius: 1,
+                    minWidth: 220
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+                    <CheckCircle color="success" fontSize="small" />
+                    <Typography variant="subtitle2" color="success.main">Paid</Typography>
+                  </Box>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Method</Typography>
+                    <Typography variant="caption" fontWeight="bold">{order.paymentMethod || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">Transaction</Typography>
+                    <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">Paid at</Typography>
+                    <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1, rowGap: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">Method</Typography>
-                  <Typography variant="caption" fontWeight="bold">{order.paymentMethod || '-'}</Typography>
-                  <Typography variant="caption" color="text.secondary">Transaction</Typography>
-                  <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
-                  <Typography variant="caption" color="text.secondary">Paid at</Typography>
-                  <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
-                </Box>
-              </Box>
-            ) : (
-              <Button 
-                variant="contained" 
-                color="success"
-                disabled={paying || order.status !== 'completed'}
-                onClick={() => setCompleteConfirmationOpen(true)}
-              >
-                Mark Paid
-              </Button>
-            )}
-          </Box>
-        )}
+              ) : (
+                <Button 
+                  variant="contained" 
+                  color="success"
+                  disabled={paying || order.status !== 'completed'}
+                  onClick={() => setCompleteConfirmationOpen(true)}
+                >
+                  Mark Paid
+                </Button>
+              )}
+            </>
+          )}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Print />}
+            onClick={() => {
+              if (order && restaurant) {
+                const doNetworkPrint = async (orderId: string) => {
+                  try {
+                    const res = await requestNetworkPrint({ variables: { orderId } });
+                    return !!res.data?.requestNetworkPrint;
+                  } catch {
+                    return false;
+                  }
+                };
+                printBill(
+                  {
+                    id: order.id,
+                    tableNumber: order.tableNumber,
+                    orderType: order.orderType,
+                    items: order.items.map((i: any) => ({
+                      menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
+                      quantity: i.quantity,
+                      price: i.price,
+                      specialInstructions: i.specialInstructions
+                    })),
+                    totalAmount: order.totalAmount,
+                    customerName: order.customerName,
+                    customerPhone: order.customerPhone,
+                    createdAt: order.createdAt
+                  },
+                  restaurant,
+                  menuItems.map((m: any) => ({ id: m.id, name: m.name })),
+                  true,
+                  { requestNetworkPrint: doNetworkPrint }
+                );
+              }
+            }}
+          >
+            Print Bill
+          </Button>
+        </Box>
 
         {/* Order Items Table */}
         <Card sx={{ mb: 3 }}>

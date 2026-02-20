@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Restaurant } from '../models/index.js';
 import { RestaurantInput } from '../types/index.js';
+import { GraphQLContext } from '../types/index.js';
 import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
@@ -230,6 +231,33 @@ export const restaurantAuthResolvers = {
       } catch (error) {
         throw new Error(`Failed to update restaurant password: ${error instanceof Error ? error.message : String(error)}`);
       }
+    },
+
+    updateRestaurantSettings: async (_: any, { input }: { input: Record<string, any> }, context: GraphQLContext) => {
+      if (!context.restaurant) {
+        throw new Error('Authentication required');
+      }
+      const restaurant = await Restaurant.findById(context.restaurant.id);
+      if (!restaurant) {
+        throw new Error('Restaurant not found');
+      }
+      const currentSettings = (restaurant.settings as any) || {};
+      const mergedSettings = {
+        ...currentSettings,
+        ...(input.currency !== undefined && { currency: input.currency }),
+        ...(input.timezone !== undefined && { timezone: input.timezone }),
+        ...(input.theme !== undefined && { theme: input.theme }),
+        ...(input.billSize !== undefined && { billSize: input.billSize }),
+        ...(input.networkPrinter !== undefined && {
+          networkPrinter:
+            input.networkPrinter?.host
+              ? { host: input.networkPrinter.host, port: input.networkPrinter.port ?? 9100 }
+              : undefined
+        })
+      };
+      restaurant.settings = mergedSettings;
+      await restaurant.save();
+      return restaurant;
     }
   }
 };
