@@ -95,10 +95,10 @@ export default function TablesPage() {
   const activeStatuses = new Set(['pending', 'confirmed', 'preparing', 'ready', 'served']);
   const occupiedTableNumbers = new Set(
     orders
-      .filter((o: any) => o.orderType === 'dine-in' && o.tableNumber && activeStatuses.has(o.status))
-      .map((o: any) => o.tableNumber)
+      .filter((o: any) => o.orderType === 'dine-in' && o.tableNumber != null && activeStatuses.has(o.status))
+      .map((o: any) => String(o.tableNumber))
   );
-  const isTableOccupied = (tableNumber?: number) => !!tableNumber && occupiedTableNumbers.has(tableNumber);
+  const isTableOccupied = (tableNumber?: string | number) => tableNumber != null && occupiedTableNumbers.has(String(tableNumber));
 
   // Load restaurant data from localStorage
   useEffect(() => {
@@ -153,8 +153,8 @@ export default function TablesPage() {
     setFormErrors({});
   };
 
-  const handleShowQRCode = (tableNumber: number) => {
-    setShowQRCode(tableNumber.toString());
+  const handleShowQRCode = (tableNumber: string | number) => {
+    setShowQRCode(String(tableNumber));
   };
 
   const handleCloseQRCode = () => {
@@ -168,18 +168,14 @@ export default function TablesPage() {
   const handleSubmit = async () => {
     const errors: Record<string, string> = {};
     
-    // Validate table number
-    if (!formData.number.trim()) {
+    // Validate table number (allows alphanumeric: e.g. "1", "A1", "Terrace-1")
+    const tableNumberValue = formData.number.trim();
+    if (!tableNumberValue) {
       errors.number = 'Table number is required';
-    } else {
-      const tableNumber = parseInt(formData.number);
-      if (isNaN(tableNumber) || tableNumber < 1) {
-        errors.number = 'Table number must be a positive number';
-      } else if (!editingTable) {
-        const existingTable = tables.find((table: any) => table.number === tableNumber);
-        if (existingTable) {
-          errors.number = `Table ${tableNumber} already exists`;
-        }
+    } else if (!editingTable) {
+      const existingTable = tables.find((table: any) => String(table.number) === tableNumberValue);
+      if (existingTable) {
+        errors.number = `Table ${tableNumberValue} already exists`;
       }
     }
     
@@ -214,11 +210,9 @@ export default function TablesPage() {
         return;
       }
 
-      const tableNumber = parseInt(formData.number);
-
       const input = {
         restaurantId,
-        number: tableNumber,
+        number: formData.number.trim(),
         capacity: parseInt(formData.capacity),
         status: formData.status,
         location: formData.location || null,
@@ -239,7 +233,7 @@ export default function TablesPage() {
         
         // Show QR code for newly created table
         if (result.data?.createTable) {
-          setShowQRCode(result.data.createTable.number.toString());
+          setShowQRCode(String(result.data.createTable.number));
         }
         
         setSnackbar({ open: true, message: 'Table created successfully! QR code generated.', severity: 'success' });
@@ -493,28 +487,15 @@ export default function TablesPage() {
                 type="text"
                 value={formData.number}
                 onChange={(e) => {
-                  const value = e.target.value;
-                  // Allow empty string for editing, or valid numbers
-                  if (value === '' || /^\d+$/.test(value)) {
-                    handleInputChange('number')(e);
-                    if (formErrors.number) setFormErrors(clearFieldError(formErrors, 'number'));
-                  }
-                }}
-                onBlur={(e) => {
-                  // Ensure minimum value of 1 when field loses focus
-                  const numValue = parseInt(e.target.value) || 1;
-                  setFormData(prev => ({ ...prev, number: Math.max(1, numValue).toString() }));
+                  handleInputChange('number')(e);
+                  if (formErrors.number) setFormErrors(clearFieldError(formErrors, 'number'));
                 }}
                 error={!!formErrors.number}
                 helperText={formErrors.number}
                 fullWidth
                 required
-                inputProps={{ 
-                  min: 1,
-                  maxLength: 10,
-                  inputMode: 'numeric',
-                  pattern: '[0-9]*'
-                }}
+                placeholder="e.g. 1, A1, Terrace-1"
+                inputProps={{ maxLength: 20 }}
               />
               <TextField
                 label="Capacity"

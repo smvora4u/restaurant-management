@@ -3,7 +3,7 @@ import { Box, Typography, Paper, Button } from '@mui/material';
 import QRCode from 'qrcode';
 
 interface QRCodeGeneratorProps {
-  tableNumber?: number;
+  tableNumber?: string | number;
   value?: string;
   label?: string;
   size?: number;

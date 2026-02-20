@@ -77,7 +77,7 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
           input: {
             restaurantId,
             status: newStatus,
-            tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
+            tableNumber: shouldDetachTable ? null : (order.tableNumber != null ? String(order.tableNumber) : null), // Detach table if completing dine-in order
             orderType: order.orderType,
             customerName: order.customerName,
             customerPhone: order.customerPhone,
@@ -120,7 +120,7 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
           input: {
             restaurantId,
             status: 'completed',
-            tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if completing dine-in order
+            tableNumber: shouldDetachTable ? null : (order.tableNumber != null ? String(order.tableNumber) : null), // Detach table if completing dine-in order
             orderType: order.orderType,
             customerName: order.customerName,
             customerPhone: order.customerPhone,
@@ -162,7 +162,7 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
           input: {
             restaurantId,
             status: 'cancelled',
-            tableNumber: shouldDetachTable ? null : order.tableNumber, // Detach table if canceling dine-in order
+            tableNumber: shouldDetachTable ? null : (order.tableNumber != null ? String(order.tableNumber) : null), // Detach table if canceling dine-in order
             orderType: order.orderType,
             customerName: order.customerName,
             customerPhone: order.customerPhone,

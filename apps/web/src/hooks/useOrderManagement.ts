@@ -157,7 +157,7 @@ export const useOrderManagement = ({
           input: {
             restaurantId: restaurantId || originalOrder?.restaurantId || originalOrder?.restaurant?.id,
             orderType: originalOrder?.orderType,
-            tableNumber: originalOrder?.tableNumber,
+            tableNumber: originalOrder?.tableNumber != null ? String(originalOrder.tableNumber) : originalOrder?.tableNumber,
             items: cleanItems,
             status: newOrderStatus,
             totalAmount: newTotalAmount,

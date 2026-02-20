@@ -47,7 +47,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
   
   const [orderType, setOrderType] = useState('dine-in');
-  const [tableNumber, setTableNumber] = useState<number | null>(null);
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -114,7 +114,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     if (orderType === 'dine-in') {
       rules.push({
         field: 'tableNumber',
-        validator: (value: any) => value !== null && value !== undefined,
+        validator: (value: any) => value != null && value !== '',
         message: 'Table selection is required for dine-in orders'
       });
     }
@@ -139,7 +139,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     if (orderType === 'dine-in') {
       rules.push({
         field: 'tableNumber',
-        validator: (value: any) => value !== null && value !== undefined,
+        validator: (value: any) => value != null && value !== '',
         message: 'Table selection is required for dine-in orders'
       });
     }
@@ -239,7 +239,8 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
                 <Select
                   value={tableNumber || ''}
                   onChange={(e) => {
-                    setTableNumber(Number(e.target.value));
+                    const val = e.target.value;
+                    setTableNumber(val ? val : null);
                     if (fieldErrors.tableNumber) setFieldErrors(clearFieldError(fieldErrors, 'tableNumber'));
                   }}
                   disabled={tablesLoading}

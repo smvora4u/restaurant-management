@@ -91,7 +91,7 @@ export default function ConsumerPage() {
 
   // Query to check for existing table orders
   useQuery(GET_ORDER_BY_TABLE, {
-    variables: { tableNumber: tableNumber ? parseInt(tableNumber) : 0 },
+    variables: { tableNumber: tableNumber || '' },
     skip: !tableNumber || !isValidTable || !restaurant,
     onCompleted: (data) => {
       if (data?.orderByTable && ['pending', 'confirmed', 'preparing', 'ready'].includes(data.orderByTable.status)) {
@@ -136,10 +136,10 @@ export default function ConsumerPage() {
         const incompleteOrders = data.ordersByMobile.filter((order: any) => order.status !== 'completed');
         if (incompleteOrders.length > 0) {
           const existingOrder = incompleteOrders[0];
-          const currentTableNumber = tableNumber ? parseInt(tableNumber) : 0;
+          const currentTableNumber = tableNumber || '';
           
           // If user is trying to access a different table than their existing order
-          if (existingOrder.tableNumber !== currentTableNumber) {
+          if (String(existingOrder.tableNumber) !== String(currentTableNumber)) {
             setExistingTableOrder(existingOrder);
             setShowRedirectMessage(true);
             setRedirectCountdown(5);
@@ -258,17 +258,10 @@ export default function ConsumerPage() {
 
   // Validate table number, order ID, or parcel order type
   useEffect(() => {
-    if (tableNumber) {
-      const tableNum = parseInt(tableNumber);
-      if (tableNum > 0 && tableNum <= 100) {
-        setIsValidTable(true);
-        setIsValidOrder(false);
-        setIsValidParcel(false);
-      } else {
-        setIsValidTable(false);
-        setIsValidOrder(false);
-        setIsValidParcel(false);
-      }
+    if (tableNumber && tableNumber.trim()) {
+      setIsValidTable(true);
+      setIsValidOrder(false);
+      setIsValidParcel(false);
     } else if (orderId) {
       // Basic validation for order ID (MongoDB ObjectId format)
       if (orderId.length === 24 && /^[0-9a-fA-F]{24}$/.test(orderId)) {
@@ -528,13 +521,13 @@ export default function ConsumerPage() {
     );
   }
 
-  const tableNum = tableNumber ? parseInt(tableNumber) : 0;
+  const tableNum = tableNumber || '';
   const orderIdValue = orderId || parcelOrderId || '';
   const parcelOrderType = orderType || '';
 
   if (isValidTable === false && isValidOrder === false && isValidParcel === false) {
     return (
-      <ConsumerLayout tableNumber={0} orderType={parcelOrderType} userName={currentUser?.name}>
+      <ConsumerLayout tableNumber="" orderType={parcelOrderType} userName={currentUser?.name}>
         <Alert severity="error" sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom>
             Invalid Access

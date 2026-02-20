@@ -18,9 +18,7 @@ import { resolvers } from './resolvers/index.js';
 import { connectMongo } from './config/database.js';
 import { seedInitialData } from './utils/seedData.js';
 import { fixTableIndexes } from './utils/fixTableIndexes.js';
-import { backfillPaidAt } from './utils/backfillPaidAt.js';
-import { backfillPurchaseDate } from './utils/backfillPurchaseDate.js';
-import { backfillMenuCategories } from './utils/backfillMenuCategories.js';
+import { migrateTableNumberToString } from './utils/migrateTableNumberToString.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
@@ -33,15 +31,9 @@ async function start() {
     
     // Fix table indexes to prevent duplicate key errors
     await fixTableIndexes();
-    
-    // Backfill paidAt for old payments
-    await backfillPaidAt();
 
-    // Backfill purchaseDate for old purchases
-    await backfillPurchaseDate();
-
-    // Backfill menu categoryId from legacy category strings
-    await backfillMenuCategories();
+    // Migrate table number / tableNumber from Number to String (idempotent)
+    await migrateTableNumberToString();
     
     // Seed initial data
     await seedInitialData();

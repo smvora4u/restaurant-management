@@ -107,7 +107,7 @@ export const typeDefs = `#graphql
 
   type Table {
     id: ID!
-    number: Int!
+    number: String!
     capacity: Int!
     status: String!
     location: String
@@ -135,7 +135,7 @@ export const typeDefs = `#graphql
   type Order {
     id: ID!
     restaurantId: ID!
-    tableNumber: Int
+    tableNumber: String
     orderType: String!
     items: [OrderItem!]!
     status: String!
@@ -158,7 +158,7 @@ export const typeDefs = `#graphql
     customerName: String!
     customerPhone: String!
     customerEmail: String
-    tableNumber: Int!
+    tableNumber: String!
     date: String!
     time: String!
     partySize: Int!
@@ -179,7 +179,7 @@ export const typeDefs = `#graphql
     availableTables: [Table!]!
     orders: [Order!]!
     order(id: ID!): Order
-    orderByTable(tableNumber: Int!): Order
+    orderByTable(tableNumber: String!): Order
     orderById(id: ID!): Order
     ordersBySession(sessionId: String!, orderType: String!): [Order!]!
     ordersByUser(userId: String!, orderType: String!): [Order!]!
@@ -616,7 +616,7 @@ export const typeDefs = `#graphql
 
   input TableInput {
     restaurantId: ID!
-    number: Int!
+    number: String!
     capacity: Int!
     status: String
     location: String
@@ -640,7 +640,7 @@ export const typeDefs = `#graphql
 
   input OrderInput {
     restaurantId: ID!
-    tableNumber: Int
+    tableNumber: String
     orderType: String!
     items: [OrderItemInput!]!
     status: String
@@ -657,7 +657,7 @@ export const typeDefs = `#graphql
     customerName: String!
     customerPhone: String!
     customerEmail: String
-    tableNumber: Int!
+    tableNumber: String!
     date: String!
     time: String!
     partySize: Int!

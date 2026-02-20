@@ -30,7 +30,7 @@ interface FlattenedItem {
   menuItemId: string;
   quantity: number;
   status: 'pending' | 'preparing' | 'ready' | 'served';
-  tableNumber?: number;
+  tableNumber?: string | number;
   orderType: 'dine-in' | 'takeout' | 'delivery';
   specialInstructions?: string;
   itemName?: string;

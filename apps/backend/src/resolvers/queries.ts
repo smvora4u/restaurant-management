@@ -200,7 +200,7 @@ export const queryResolvers = {
       throw error;
     }
   },
-  orderByTable: async (_: any, { tableNumber }: { tableNumber: number }, context: GraphQLContext) => {
+  orderByTable: async (_: any, { tableNumber }: { tableNumber: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }

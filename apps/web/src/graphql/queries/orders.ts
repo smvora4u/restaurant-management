@@ -58,7 +58,7 @@ export const GET_ORDER_BY_ID = gql`
 `;
 
 export const GET_ORDER_BY_TABLE = gql`
-  query GetOrderByTable($tableNumber: Int!) {
+  query GetOrderByTable($tableNumber: String!) {
     orderByTable(tableNumber: $tableNumber) {
       id
       tableNumber

@@ -3,7 +3,7 @@ import { ITable } from '../types/index.js';
 
 const TableSchema = new Schema<ITable>({
   restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-  number: { type: Number, required: true },
+  number: { type: String, required: true },
   capacity: { type: Number, required: true },
   status: { 
     type: String, 

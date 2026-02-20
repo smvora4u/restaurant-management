@@ -64,7 +64,7 @@ interface OrderItem {
 
 interface Order {
   id: string;
-  tableNumber?: number;
+  tableNumber?: string | number;
   orderType: string;
   items: OrderItem[];
   status: string;
@@ -668,10 +668,10 @@ export default function OrderListPage() {
               <TextField
                 fullWidth
                 label="Table Number"
-                placeholder="e.g., 5"
+                placeholder="e.g., 5 or A1"
                 value={filters.tableNumber}
                 onChange={(e) => handleFilterChange('tableNumber', e.target.value)}
-                type="number"
+                type="text"
               />
               
               <FormControl fullWidth>

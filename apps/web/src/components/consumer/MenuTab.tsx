@@ -67,7 +67,7 @@ interface OrderItem {
 }
 
 interface MenuTabProps {
-  tableNumber: number;
+  tableNumber: string | number;
   orderId?: string;
   orderType?: string;
   isParcelOrder?: boolean;

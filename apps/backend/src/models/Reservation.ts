@@ -6,7 +6,7 @@ const ReservationSchema = new Schema<IReservation>({
   customerName: { type: String, required: true },
   customerPhone: { type: String, required: true },
   customerEmail: String,
-  tableNumber: { type: Number, required: true },
+  tableNumber: { type: String, required: true },
   date: { type: Date, required: true },
   time: { type: String, required: true },
   partySize: { type: Number, required: true },
