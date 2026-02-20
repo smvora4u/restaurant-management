@@ -154,6 +154,14 @@ function App() {
               } 
             />
             <Route 
+              path="/restaurant/kitchen" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <KitchenBoard />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
               path="/restaurant/reservations" 
               element={
                 <ProtectedRestaurantRoute>

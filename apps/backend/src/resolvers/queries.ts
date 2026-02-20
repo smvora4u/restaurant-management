@@ -263,12 +263,13 @@ export const queryResolvers = {
     }).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   
-  // Staff-specific queries
+  // Staff-specific queries (also supports restaurant auth for Kitchen Board access)
   ordersForStaff: async (_: any, { restaurantId }: { restaurantId: string }, context: GraphQLContext) => {
-    if (!context.staff) {
-      throw new Error('Staff authentication required');
+    const authRestaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!authRestaurantId) {
+      throw new Error('Authentication required');
     }
-    if (context.staff.restaurantId !== restaurantId) {
+    if (authRestaurantId !== restaurantId) {
       throw new Error('Access denied: Cannot access orders from different restaurant');
     }
     // Convert restaurantId string to ObjectId for proper MongoDB comparison

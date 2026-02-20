@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
+import Layout from '../components/Layout';
 import KitchenItemCard from '../components/kitchen/KitchenItemCard';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { GET_ORDERS_FOR_STAFF, GET_MENU_ITEMS } from '../graphql';
@@ -67,15 +68,18 @@ export default function KitchenBoard() {
   // Track which items are currently being updated to prevent duplicate backend updates
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
 
+  // Derive restaurantId from staff (staff user) or restaurant (restaurant user)
+  const restaurantId = staff?.restaurantId || restaurant?.id;
+
   // Queries
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS_FOR_STAFF, {
-    variables: { restaurantId: staff?.restaurantId },
-    skip: !staff?.restaurantId,
+    variables: { restaurantId },
+    skip: !restaurantId,
     fetchPolicy: 'cache-and-network'
   });
 
   const { data: menuData } = useQuery(GET_MENU_ITEMS, {
-    skip: !staff?.restaurantId
+    skip: !restaurantId
   });
 
   const apolloClient = useApolloClient();
@@ -105,7 +109,7 @@ export default function KitchenBoard() {
 
   // Real-time subscriptions
   useOrderSubscriptions({
-    restaurantId: staff?.restaurantId || '',
+    restaurantId: restaurantId || '',
     onOrderUpdated: (updatedOrder) => {
       console.log('Kitchen Board - Order updated received:', updatedOrder);
       refetchOrders();
@@ -120,19 +124,21 @@ export default function KitchenBoard() {
     }
   });
 
-  // Initialize staff data
+  // Initialize staff and/or restaurant data (staff user has both, restaurant user has only restaurant)
   useEffect(() => {
     const staffData = localStorage.getItem('staff');
     const restaurantData = localStorage.getItem('restaurant');
-    
-    if (!staffData) {
-      navigate('/login');
-      return;
+
+    if (staffData && staffData !== 'undefined' && staffData !== 'null') {
+      setStaff(JSON.parse(staffData));
     }
-    
-    setStaff(JSON.parse(staffData));
     if (restaurantData && restaurantData !== 'undefined' && restaurantData !== 'null') {
       setRestaurant(JSON.parse(restaurantData));
+    }
+
+    // Require either staff or restaurant context
+    if (!staffData && !restaurantData) {
+      navigate('/login');
     }
   }, [navigate]);
 
@@ -262,8 +268,8 @@ export default function KitchenBoard() {
         return;
       }
 
-      const restaurantId = (order as any).restaurantId || staff?.restaurantId;
-      if (!restaurantId) {
+      const effectiveRestaurantId = (order as any).restaurantId || restaurantId;
+      if (!effectiveRestaurantId) {
         setSnackbar({ open: true, message: 'Restaurant context missing. Please refresh and try again.', severity: 'error' });
         return;
       }
@@ -322,7 +328,7 @@ export default function KitchenBoard() {
         variables: {
           id: item.orderId,
           input: {
-            restaurantId,
+            restaurantId: effectiveRestaurantId,
             tableNumber: order.tableNumber,
             orderType: order.orderType,
             customerName: order.customerName,
@@ -354,7 +360,7 @@ export default function KitchenBoard() {
   };
 
 
-  if (!staff) {
+  if (!restaurantId) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
@@ -363,9 +369,10 @@ export default function KitchenBoard() {
   }
 
   const totalItems = flattenedItems.length;
+  const isRestaurantUser = !staff && restaurant;
 
-  return (
-    <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
+  const content = (
+    <>
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <Box sx={{ 
@@ -518,6 +525,14 @@ export default function KitchenBoard() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+    </>
+  );
+
+  return isRestaurantUser ? (
+    <Layout>{content}</Layout>
+  ) : (
+    <StaffLayout staffPermissions={staff?.permissions || []} staff={staff!} restaurant={restaurant}>
+      {content}
     </StaffLayout>
   );
 }
