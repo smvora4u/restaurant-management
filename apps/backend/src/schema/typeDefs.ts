@@ -22,6 +22,7 @@ export const typeDefs = `#graphql
     timezone: String!
     theme: String
     itemInstructions: [String!]
+    kitchenBoardClickIncrement: Int
   }
 
   type AuthPayload {
@@ -587,6 +588,7 @@ export const typeDefs = `#graphql
     timezone: String
     theme: String
     itemInstructions: [String!]
+    kitchenBoardClickIncrement: Int
   }
 
   input MenuCategoryInput {

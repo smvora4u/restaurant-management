@@ -305,12 +305,14 @@ export default function KitchenBoard() {
         return;
       }
 
-      // Update 1 unit to next status (preserves partial-quantity behavior)
+      // Update quantity to next status (restaurant setting: kitchenBoardClickIncrement, default 1)
+      const clickIncrement = Math.max(1, restaurant?.settings?.kitchenBoardClickIncrement ?? 1);
+      const qtyToMove = Math.min(clickIncrement, item.quantity);
       const updatedItems = updatePartialQuantityStatus(
         order.items,
         rawItemIndex,
         nextStatus as 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled',
-        1
+        qtyToMove
       );
       const mergedItems = mergeOrderItemsByStatus(updatedItems);
       const newOrderStatus = calculateOrderStatus(mergedItems);

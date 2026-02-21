@@ -27,6 +27,7 @@ import SalaryManagement from './pages/SalaryManagement';
 import StaffSalaryView from './pages/StaffSalaryView';
 import PurchaseManagement from './pages/PurchaseManagement';
 import ItemInstructionsSettings from './pages/ItemInstructionsSettings';
+import KitchenBoardSettings from './pages/KitchenBoardSettings';
 
 // Create theme
 const theme = createTheme({
@@ -183,6 +184,14 @@ function App() {
               element={
                 <ProtectedRestaurantRoute>
                   <ItemInstructionsSettings />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
+              path="/restaurant/kitchen-settings" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <KitchenBoardSettings />
                 </ProtectedRestaurantRoute>
               } 
             />

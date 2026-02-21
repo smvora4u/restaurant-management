@@ -254,11 +254,16 @@ export const restaurantAuthResolvers = {
         throw new Error('Restaurant not found');
       }
       const currentSettings = restaurant.settings || {};
+      const kitchenBoardClickIncrement =
+        input.kitchenBoardClickIncrement !== undefined
+          ? Math.max(1, Math.min(99, Number(input.kitchenBoardClickIncrement) || 1))
+          : ((currentSettings as any).kitchenBoardClickIncrement ?? 1);
       const mergedSettings = {
         currency: input.currency ?? currentSettings.currency ?? 'USD',
         timezone: input.timezone ?? currentSettings.timezone ?? 'UTC',
         theme: input.theme !== undefined ? input.theme : currentSettings.theme,
-        itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings as any).itemInstructions ?? []
+        itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings as any).itemInstructions ?? [],
+        kitchenBoardClickIncrement
       };
       restaurant.settings = mergedSettings as any;
       await restaurant.save();

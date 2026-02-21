@@ -14,6 +14,7 @@ export const GET_ALL_RESTAURANTS = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -36,6 +37,7 @@ export const GET_RESTAURANT_BY_ID = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -58,6 +60,7 @@ export const GET_RESTAURANT_BY_SLUG = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -77,6 +80,7 @@ export const GET_RESTAURANT_FOR_OWNER = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
     }
   }

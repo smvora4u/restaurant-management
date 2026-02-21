@@ -35,6 +35,7 @@ export const UPDATE_RESTAURANT = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -52,6 +53,7 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
         timezone
         theme
         itemInstructions
+        kitchenBoardClickIncrement
       }
     }
   }

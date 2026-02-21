@@ -16,6 +16,7 @@ export const LOGIN_RESTAURANT = gql`
           timezone
           theme
           itemInstructions
+          kitchenBoardClickIncrement
         }
         isActive
       }
@@ -39,6 +40,7 @@ export const REGISTER_RESTAURANT = gql`
           timezone
           theme
           itemInstructions
+          kitchenBoardClickIncrement
         }
         isActive
       }
@@ -87,6 +89,7 @@ export const LOGIN_STAFF = gql`
           timezone
           theme
           itemInstructions
+          kitchenBoardClickIncrement
         }
         isActive
       }
