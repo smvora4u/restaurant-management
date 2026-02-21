@@ -308,7 +308,7 @@ export default function StaffDashboard() {
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">
-                              {order.customerName || 'Walk-in'}
+                              {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
                             </Typography>
                             {order.customerPhone && (
                               <Typography variant="caption" color="text.secondary">

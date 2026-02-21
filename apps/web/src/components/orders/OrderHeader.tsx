@@ -137,7 +137,7 @@ export default function OrderHeader({
             Customer Information
           </Typography>
           <Typography variant="body1">
-            <strong>Name:</strong> {order.customerName || 'Walk-in Customer'}
+            <strong>Name:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in Customer')}
           </Typography>
           {order.customerPhone && (
             <Typography variant="body1">

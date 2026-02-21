@@ -576,7 +576,7 @@ export default function RestaurantOrderManagement() {
                         Customer Details
                       </Typography>
                       <Typography variant="body1" fontWeight="bold">
-                        {order.customerName || 'Walk-in Customer'}
+                        {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in Customer')}
                   </Typography>
                   {order.customerPhone && (
                         <Typography variant="body2" color="text.secondary">
@@ -897,7 +897,7 @@ export default function RestaurantOrderManagement() {
                       Customer:
                     </Typography>
                     <Typography variant="body2" fontWeight="medium" sx={{ maxWidth: '60%', textAlign: 'right' }}>
-                      {order.customerName || 'Walk-in'}
+                      {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
                     </Typography>
                   </Box>
                   
@@ -1003,7 +1003,7 @@ export default function RestaurantOrderManagement() {
                 Are you sure you want to cancel this order? The order will be marked as cancelled and cannot be reactivated.
               </Typography>
               <Typography variant="body2" color="warning.main" fontWeight="bold">
-                Order #{order.id.slice(-8)} - {order.customerName || 'Walk-in Customer'}
+                Order #{order.id.slice(-8)} - {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in Customer')}
               </Typography>
               {order.orderType === 'dine-in' && order.tableNumber && (
                 <Typography variant="body2" color="info.main" sx={{ mt: 1, fontWeight: 'medium' }}>

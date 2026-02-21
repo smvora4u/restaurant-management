@@ -94,7 +94,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               color: status === 'served' ? '#6c757d' : 'text.primary'
             }}
           >
-            {orderType === 'takeout' && customerName ? customerName : displayTableNumber}
+            {orderType === 'takeout' ? (customerName || 'Walk-in') : displayTableNumber}
           </Typography>
           
           {/* Show "Parcel" label for takeout orders with customer name */}

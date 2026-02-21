@@ -268,44 +268,38 @@ export default function OrderListPage() {
           </Box>
 
           {/* Customer Information */}
-          {(order.customerName || order.customerPhone) && (
-            <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <PersonIcon color="primary" />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Customer Information
+          <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <PersonIcon color="primary" />
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Customer Information
+                </Typography>
+              </Box>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                gap: 2
+              }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Customer Name
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
-                  gap: 2
-                }}>
-                  {order.customerName && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Customer Name
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {order.customerName}
-                      </Typography>
-                    </Box>
-                  )}
-                  {order.customerPhone && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Phone Number
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {order.customerPhone}
-                      </Typography>
-                    </Box>
-                  )}
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Phone Number
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {order.customerPhone || '—'}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          )}
+              </Box>
+            </CardContent>
+          </Card>
 
           {/* Order Items */}
           <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
@@ -783,11 +777,9 @@ export default function OrderListPage() {
                         </Typography>
                       </Box>
                       
-                      {order.customerName && (
-                        <Typography variant="body2">
-                          <strong>Customer:</strong> {order.customerName}
-                        </Typography>
-                      )}
+                      <Typography variant="body2">
+                        <strong>Customer:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
+                      </Typography>
                       
                       <Typography variant="body2">
                         <strong>Items:</strong> {order.items.length} ({order.items.reduce((sum, item) => sum + item.quantity, 0)} total)
@@ -896,18 +888,10 @@ export default function OrderListPage() {
                       </Box>
                       
                       <Box>
-                        {order.customerName ? (
-                          <Box>
-                            <Typography variant="body2">{order.customerName}</Typography>
-                            {order.customerPhone && (
-                              <Typography variant="caption" color="text.secondary">
-                                {order.customerPhone}
-                              </Typography>
-                            )}
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            -
+                        <Typography variant="body2">{order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}</Typography>
+                        {order.customerPhone && (
+                          <Typography variant="caption" color="text.secondary">
+                            {order.customerPhone}
                           </Typography>
                         )}
                       </Box>

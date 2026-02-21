@@ -27,7 +27,7 @@ import {
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_AVAILABLE_TABLES } from '../../graphql/queries/orders';
 import { CREATE_ORDER } from '../../graphql/mutations/orders';
-import { validateForm, validationRules, clearFieldError } from '../../utils/validation';
+import { validateForm, clearFieldError } from '../../utils/validation';
 
 interface CreateOrderDialogProps {
   open: boolean;
@@ -101,16 +101,10 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   // Pure validation function that doesn't update state (for use in render)
   const checkFormValid = () => {
     const formData = {
-      customerName,
-      customerPhone,
       tableNumber: orderType === 'dine-in' ? tableNumber : null
     };
     
-    const rules: any[] = [
-      validationRules.required('customerName', 'Customer name is required'),
-      validationRules.required('customerPhone', 'Customer phone is required')
-    ];
-    
+    const rules: any[] = [];
     if (orderType === 'dine-in') {
       rules.push({
         field: 'tableNumber',
@@ -126,16 +120,10 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
   // Validation function that updates state (for use in handlers)
   const isFormValid = () => {
     const formData = {
-      customerName,
-      customerPhone,
       tableNumber: orderType === 'dine-in' ? tableNumber : null
     };
     
-    const rules: any[] = [
-      validationRules.required('customerName', 'Customer name is required'),
-      validationRules.required('customerPhone', 'Customer phone is required')
-    ];
-    
+    const rules: any[] = [];
     if (orderType === 'dine-in') {
       rules.push({
         field: 'tableNumber',
@@ -164,8 +152,8 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
         tableNumber: orderType === 'dine-in' ? tableNumber : null,
         items: [],
         totalAmount: 0,
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
+        customerName: customerName.trim() || null,
+        customerPhone: customerPhone.trim() || null,
         notes: notes.trim(),
         status: 'pending'
       };
@@ -274,7 +262,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               }}
               error={!!fieldErrors.customerName}
               helperText={fieldErrors.customerName}
-              required
               margin="normal"
             />
           </Grid>
@@ -289,7 +276,6 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
               }}
               error={!!fieldErrors.customerPhone}
               helperText={fieldErrors.customerPhone}
-              required
               margin="normal"
             />
           </Grid>

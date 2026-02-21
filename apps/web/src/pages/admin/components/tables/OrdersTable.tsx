@@ -99,10 +99,10 @@ export default function OrdersTable({
                     <TableCell>
                       <Box>
                         <Typography variant="body2" fontWeight="bold">
-                          {order.customerName || 'N/A'}
+                          {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {order.customerPhone || 'No phone'}
+                          {order.customerPhone || '—'}
                         </Typography>
                       </Box>
                     </TableCell>
