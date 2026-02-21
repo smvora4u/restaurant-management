@@ -1,6 +1,7 @@
 import { MenuItem, MenuCategory, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { parseDateInput } from '../utils/dateUtils.js';
+import { sortTablesByNumber } from '../utils/sortTablesByNumber.js';
 import mongoose from 'mongoose';
 
 export const queryResolvers = {
@@ -52,7 +53,8 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    return await Table.find({ restaurantId }).sort({ number: 1 });
+    const tables = await Table.find({ restaurantId });
+    return sortTablesByNumber(tables);
   },
   table: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
@@ -71,7 +73,7 @@ export const queryResolvers = {
     const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
     
     // Get all tables
-    const allTables = await Table.find({ restaurantId: restaurantObjectId }).sort({ number: 1 });
+    const allTables = await Table.find({ restaurantId: restaurantObjectId });
     
     // Get tables with active orders
     const activeOrders = await Order.find({
@@ -82,10 +84,9 @@ export const queryResolvers = {
     
     const occupiedTableNumbers = new Set(activeOrders.map(order => order.tableNumber));
     
-    // Filter out occupied tables
+    // Filter out occupied tables and sort by natural number order
     const availableTables = allTables.filter(table => !occupiedTableNumbers.has(table.number));
-    
-    return availableTables;
+    return sortTablesByNumber(availableTables);
   },
   
   // Orders
