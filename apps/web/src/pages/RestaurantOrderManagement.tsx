@@ -656,6 +656,7 @@ export default function RestaurantOrderManagement() {
                   isSaving={isSaving}
                   restrictCancelToPending={true}
                   orderStatus={order.status}
+                  hideItemImageInAddDialog={true}
                 />
 
                 <Divider sx={{ my: 2 }} />

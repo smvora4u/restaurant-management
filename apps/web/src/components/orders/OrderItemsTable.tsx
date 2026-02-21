@@ -63,6 +63,7 @@ interface OrderItemsTableProps {
   isSaving?: boolean;
   restrictCancelToPending?: boolean;
   orderStatus?: string;
+  hideItemImageInAddDialog?: boolean;
 }
 
 
@@ -89,7 +90,8 @@ export default function OrderItemsTable({
   hasUnsavedChanges: _hasUnsavedChanges = false,
   isSaving: _isSaving = false,
   restrictCancelToPending = false,
-  orderStatus
+  orderStatus,
+  hideItemImageInAddDialog = false
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -640,6 +642,7 @@ export default function OrderItemsTable({
                           }
                         }}
                       >
+                          {!hideItemImageInAddDialog && (
                           <CardMedia
                             component="div"
                             sx={{
@@ -690,7 +693,26 @@ export default function OrderItemsTable({
                               />
                             )}
                           </CardMedia>
-                          <CardContent>
+                          )}
+                          <CardContent sx={{ position: 'relative', ...(hideItemImageInAddDialog && { pt: 2, pr: 10 }) }}>
+                            {hideItemImageInAddDialog && (
+                              <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
+                                {!item.available && (
+                                  <Chip
+                                    label="Unavailable"
+                                    color="error"
+                                    size="small"
+                                  />
+                                )}
+                                {isSelected && (
+                                  <Chip
+                                    label={`Qty: ${qty}`}
+                                    color="primary"
+                                    size="small"
+                                  />
+                                )}
+                              </Box>
+                            )}
                             <Typography 
                               variant="h6" 
                               component="div"

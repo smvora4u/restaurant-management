@@ -373,6 +373,7 @@ export default function StaffOrderManagement() {
               isEditing={true}
               restrictCancelToPending={true}
               orderStatus={order.status}
+              hideItemImageInAddDialog={true}
             />
           </CardContent>
         </Card>
