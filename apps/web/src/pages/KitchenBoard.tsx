@@ -165,6 +165,7 @@ export default function KitchenBoard() {
     const items: FlattenedItem[] = [];
     
     ordersData.ordersForStaff.forEach((order: any) => {
+      if (order.status === 'cancelled') return; // Skip cancelled orders - items should not appear on kitchen board
       // Merge items within each order that have same menuItemId, status, and specialInstructions
       const mergedItemsMap = new Map<string, { item: any; itemIndex: number }>();
       
