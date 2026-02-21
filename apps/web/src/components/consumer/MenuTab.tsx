@@ -24,6 +24,7 @@ import {
   DialogActions,
   useTheme,
   useMediaQuery,
+  Autocomplete,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -78,9 +79,23 @@ interface MenuTabProps {
 
 type CartItem = { quantity: number; specialInstructions: string };
 
+const INSTRUCTIONS_DELIMITER = '; ';
+
+function getItemInstructionsFromContext(): string[] {
+  try {
+    const raw = localStorage.getItem('currentRestaurant');
+    if (!raw) return [];
+    const restaurant = JSON.parse(raw);
+    return restaurant?.settings?.itemInstructions ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId, currentUser, onOrderCreated }: MenuTabProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const itemInstructions = getItemInstructionsFromContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cart, setCart] = useState<Record<string, CartItem>>({});
@@ -260,7 +275,8 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     });
   };
 
-  const handleInstructionsChange = (itemId: string, value: string) => {
+  const handleInstructionsChange = (itemId: string, selected: string[]) => {
+    const value = selected.join('; ');
     setCart(prev => {
       const current = prev[itemId];
       if (!current) return prev;
@@ -307,7 +323,8 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
     return modifiedOrderItems[itemId] !== undefined ? modifiedOrderItems[itemId] : originalQuantity;
   };
 
-  const handleOrderInstructionsChange = (itemIndex: number, value: string) => {
+  const handleOrderInstructionsChange = (itemIndex: number, selected: string[]) => {
+    const value = selected.join(INSTRUCTIONS_DELIMITER);
     setModifiedOrderInstructions(prev => ({ ...prev, [itemIndex]: value }));
     setHasOrderModifications(true);
   };
@@ -881,22 +898,31 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     />
                   </Box>
                   {/* Note: inline editable for pending items, read-only for others */}
-                  {canEdit ? (
-                    <TextField
+                  {canEdit && itemInstructions.length > 0 ? (
+                    <Autocomplete
+                      multiple
                       size="small"
-                      fullWidth
-                      placeholder="Add note (optional) e.g., No onions, extra cheese"
-                      value={modifiedOrderInstructions[index] ?? item.specialInstructions ?? ''}
-                      onChange={(e) => handleOrderInstructionsChange(index, e.target.value)}
-                      inputProps={{ maxLength: 200 }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: 'grey.50',
-                          '& fieldset': { borderLeft: '3px solid', borderColor: 'primary.light' }
-                        }
-                      }}
+                      options={itemInstructions}
+                      value={(modifiedOrderInstructions[index] ?? item.specialInstructions ?? '')
+                        .split(INSTRUCTIONS_DELIMITER)
+                        .filter(Boolean)
+                        .filter((s) => itemInstructions.includes(s))}
+                      onChange={(_, selected) => handleOrderInstructionsChange(index, selected)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Select instructions"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: 'grey.50',
+                              '& fieldset': { borderLeft: '3px solid', borderColor: 'primary.light' }
+                            }
+                          }}
+                        />
+                      )}
+                      sx={{ mt: 1, width: '100%' }}
                     />
-                  ) : item.specialInstructions ? (
+                  ) : canEdit && itemInstructions.length === 0 ? null : item.specialInstructions ? (
                     <Box
                       sx={{
                         display: 'flex',
@@ -1005,26 +1031,37 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                       </Typography>
                     </Box>
                   </Box>
-                  {isMobile && !showNoteField ? (
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setExpandedNoteItemId(itemId)}
-                      sx={{ alignSelf: 'flex-start', mt: 0.5, px: 0, textTransform: 'none', fontSize: '0.8rem' }}
-                    >
-                      + Add note
-                    </Button>
-                  ) : (
-                    <TextField
-                      size="small"
-                      placeholder="Add note (optional) e.g., No onions, extra cheese"
-                      value={specialInstructions}
-                      onChange={(e) => handleInstructionsChange(itemId, e.target.value)}
-                      inputProps={{ maxLength: 200 }}
-                      sx={{ mt: 1, width: '100%' }}
-                      onBlur={() => isMobile && !specialInstructions && setExpandedNoteItemId(null)}
-                    />
-                  )}
+                  {itemInstructions.length > 0 ? (
+                    isMobile && !showNoteField ? (
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => setExpandedNoteItemId(itemId)}
+                        sx={{ alignSelf: 'flex-start', mt: 0.5, px: 0, textTransform: 'none', fontSize: '0.8rem' }}
+                      >
+                        + Add note
+                      </Button>
+                    ) : (
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={itemInstructions}
+                        value={specialInstructions
+                          .split(INSTRUCTIONS_DELIMITER)
+                          .filter(Boolean)
+                          .filter((s) => itemInstructions.includes(s))}
+                        onChange={(_, selected) => handleInstructionsChange(itemId, selected)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            placeholder="Select instructions"
+                            onBlur={() => isMobile && !specialInstructions && setExpandedNoteItemId(null)}
+                          />
+                        )}
+                        sx={{ mt: 1, width: '100%' }}
+                      />
+                    )
+                  ) : null}
                 </ListItem>
               );
             })}

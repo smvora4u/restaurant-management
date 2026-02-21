@@ -112,6 +112,7 @@ export const staffAuthResolvers = {
             slug: restaurant.slug,
             address: restaurant.address,
             phone: restaurant.phone,
+            settings: restaurant.settings,
             isActive: restaurant.isActive
           }
         };

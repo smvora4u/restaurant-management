@@ -13,6 +13,7 @@ export interface IRestaurant {
     currency: string;
     timezone: string;
     theme?: any;
+    itemInstructions?: string[];
   };
   isActive: boolean;
   createdAt: Date;
@@ -29,7 +30,8 @@ const RestaurantSchema = new Schema<IRestaurant>({
   settings: {
     currency: { type: String, default: 'USD' },
     timezone: { type: String, default: 'UTC' },
-    theme: Schema.Types.Mixed
+    theme: Schema.Types.Mixed,
+    itemInstructions: { type: [String], default: [] }
   },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

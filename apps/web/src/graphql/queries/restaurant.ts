@@ -13,6 +13,7 @@ export const GET_ALL_RESTAURANTS = gql`
         currency
         timezone
         theme
+        itemInstructions
       }
       isActive
       createdAt
@@ -34,6 +35,7 @@ export const GET_RESTAURANT_BY_ID = gql`
         currency
         timezone
         theme
+        itemInstructions
       }
       isActive
       createdAt
@@ -55,10 +57,27 @@ export const GET_RESTAURANT_BY_SLUG = gql`
         currency
         timezone
         theme
+        itemInstructions
       }
       isActive
       createdAt
       updatedAt
+    }
+  }
+`;
+
+export const GET_RESTAURANT_FOR_OWNER = gql`
+  query GetRestaurantForOwner {
+    restaurantForOwner {
+      id
+      name
+      slug
+      settings {
+        currency
+        timezone
+        theme
+        itemInstructions
+      }
     }
   }
 `;

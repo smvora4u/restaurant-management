@@ -28,7 +28,8 @@ import {
   Tabs,
   Tab,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Autocomplete,
 } from '@mui/material';
 import {
   Edit,
@@ -195,7 +196,11 @@ export default function OrderItemsTable({
     });
   };
 
-  const handleSelectedItemInstructionsChange = (menuItemId: string, value: string) => {
+  const INSTRUCTIONS_DELIMITER = '; ';
+  const itemInstructions: string[] = restaurant?.settings?.itemInstructions ?? [];
+
+  const handleSelectedItemInstructionsChange = (menuItemId: string, selected: string[]) => {
+    const value = selected.join(INSTRUCTIONS_DELIMITER);
     setSelectedItems(prev => {
       const current = prev[menuItemId];
       if (!current) return prev;
@@ -802,14 +807,26 @@ export default function OrderItemsTable({
                       <Typography variant="body2" color="primary" sx={{ minWidth: 60 }}>
                         {formatCurrencyFromRestaurant(mi.price * quantity, restaurant)}
                       </Typography>
-                      <TextField
-                        size="small"
-                        placeholder="e.g., No onions, extra cheese"
-                        value={specialInstructions}
-                        onChange={(e) => handleSelectedItemInstructionsChange(menuItemId, e.target.value)}
-                        inputProps={{ maxLength: 200 }}
-                        sx={{ flex: 1, minWidth: 150 }}
-                      />
+                      {itemInstructions.length > 0 ? (
+                        <Autocomplete
+                          multiple
+                          size="small"
+                          options={itemInstructions}
+                          value={specialInstructions
+                            .split(INSTRUCTIONS_DELIMITER)
+                            .filter(Boolean)
+                            .filter((s) => itemInstructions.includes(s))}
+                          onChange={(_, selected) => handleSelectedItemInstructionsChange(menuItemId, selected)}
+                          renderInput={(params) => (
+                            <TextField {...params} placeholder="Select instructions" />
+                          )}
+                          sx={{ flex: 1, minWidth: 150 }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          No instructions configured
+                        </Typography>
+                      )}
                     </Box>
                   );
                 })}

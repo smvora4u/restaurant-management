@@ -25,6 +25,7 @@ export interface IRestaurant extends Document {
     currency: string;
     timezone: string;
     theme?: any;
+    itemInstructions?: string[];
   };
   isActive: boolean;
   createdAt: Date;

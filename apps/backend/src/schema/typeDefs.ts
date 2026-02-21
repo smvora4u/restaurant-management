@@ -21,6 +21,7 @@ export const typeDefs = `#graphql
     currency: String!
     timezone: String!
     theme: String
+    itemInstructions: [String!]
   }
 
   type AuthPayload {
@@ -170,6 +171,7 @@ export const typeDefs = `#graphql
   type Query {
     health: Health!
     restaurantBySlug(slug: String!): Restaurant
+    restaurantForOwner: Restaurant
     menuItems: [MenuItem!]!
     menuItem(id: ID!): MenuItem
     menuCategories: [MenuCategory!]!
@@ -227,6 +229,7 @@ export const typeDefs = `#graphql
     loginRestaurant(email: String!, password: String!): AuthPayload!
     resetRestaurantPassword(email: String!): PasswordResetResponse!
     updateRestaurantPassword(token: String!, newPassword: String!): PasswordResetResponse!
+    updateRestaurantSettings(input: RestaurantSettingsInput!): Restaurant!
     
     # Admin Authentication
     loginAdmin(email: String!, password: String!): AdminAuthPayload!
@@ -583,6 +586,7 @@ export const typeDefs = `#graphql
     currency: String
     timezone: String
     theme: String
+    itemInstructions: [String!]
   }
 
   input MenuCategoryInput {

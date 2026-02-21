@@ -5,8 +5,21 @@ import { RestaurantInput } from '../types/index.js';
 import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
+import { publishRestaurantUpdated } from './subscriptions.js';
 
 export const restaurantAuthResolvers = {
+  Query: {
+    restaurantForOwner: async (_: any, __: any, context: any) => {
+      if (!context?.restaurant?.id) {
+        throw new Error('Authentication required');
+      }
+      const restaurant = await Restaurant.findById(context.restaurant.id);
+      if (!restaurant || !restaurant.isActive) {
+        throw new Error('Restaurant not found');
+      }
+      return restaurant;
+    }
+  },
   Mutation: {
     registerRestaurant: async (_: any, { input }: { input: RestaurantInput }) => {
       try {
@@ -230,6 +243,27 @@ export const restaurantAuthResolvers = {
       } catch (error) {
         throw new Error(`Failed to update restaurant password: ${error instanceof Error ? error.message : String(error)}`);
       }
+    },
+
+    updateRestaurantSettings: async (_: any, { input }: { input: any }, context: any) => {
+      if (!context?.restaurant?.id) {
+        throw new Error('Authentication required');
+      }
+      const restaurant = await Restaurant.findById(context.restaurant.id);
+      if (!restaurant || !restaurant.isActive) {
+        throw new Error('Restaurant not found');
+      }
+      const currentSettings = restaurant.settings || {};
+      const mergedSettings = {
+        currency: input.currency ?? currentSettings.currency ?? 'USD',
+        timezone: input.timezone ?? currentSettings.timezone ?? 'UTC',
+        theme: input.theme !== undefined ? input.theme : currentSettings.theme,
+        itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings as any).itemInstructions ?? []
+      };
+      restaurant.settings = mergedSettings as any;
+      await restaurant.save();
+      await publishRestaurantUpdated(restaurant);
+      return restaurant;
     }
   }
 };

@@ -15,6 +15,7 @@ export const LOGIN_RESTAURANT = gql`
           currency
           timezone
           theme
+          itemInstructions
         }
         isActive
       }
@@ -37,6 +38,7 @@ export const REGISTER_RESTAURANT = gql`
           currency
           timezone
           theme
+          itemInstructions
         }
         isActive
       }
@@ -80,6 +82,12 @@ export const LOGIN_STAFF = gql`
         slug
         address
         phone
+        settings {
+          currency
+          timezone
+          theme
+          itemInstructions
+        }
         isActive
       }
     }

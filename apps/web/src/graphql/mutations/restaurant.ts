@@ -34,10 +34,25 @@ export const UPDATE_RESTAURANT = gql`
         currency
         timezone
         theme
+        itemInstructions
       }
       isActive
       createdAt
       updatedAt
+    }
+  }
+`;
+
+export const UPDATE_RESTAURANT_SETTINGS = gql`
+  mutation UpdateRestaurantSettings($input: RestaurantSettingsInput!) {
+    updateRestaurantSettings(input: $input) {
+      id
+      settings {
+        currency
+        timezone
+        theme
+        itemInstructions
+      }
     }
   }
 `;
