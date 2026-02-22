@@ -1,6 +1,6 @@
 # Backend Dockerfile - use with context: . (repo root)
-# Render: Root Directory = (empty), Dockerfile Path = Dockerfile.backend
-# docker-compose: context: ., dockerfile: Dockerfile.backend
+# Render: Root Directory = (empty), uses Dockerfile by default
+# docker-compose: context: ., dockerfile: Dockerfile
 FROM node:20-alpine
 WORKDIR /app
 

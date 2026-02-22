@@ -4,7 +4,7 @@
 #   Build: npm install && npm run build -w @restaurant/backend
 #   Start: npm start -w @restaurant/backend
 #
-# OPTION B - Docker: Root Directory = (empty), Dockerfile = Dockerfile.backend
+# OPTION B - Docker: Root Directory = (empty), uses Dockerfile by default
 #   Context must be repo root so apps/backend and apps/printer-proxy are available.
 #   If Root Directory is apps/backend, use apps/backend/Dockerfile instead (no printer-proxy).
 
