@@ -152,7 +152,7 @@ export default function ReservationsPage() {
       validationRules.required('customerName', 'Customer name is required'),
       validationRules.required('customerPhone', 'Phone number is required'),
       validationRules.email('customerEmail', false, 'Invalid email address'),
-      validationRules.positiveInteger('tableNumber', true, 1, 'Table number must be a positive number'),
+      validationRules.required('tableNumber', 'Table number is required'),
       validationRules.required('date', 'Date is required'),
       validationRules.required('time', 'Time is required'),
       validationRules.positiveInteger('partySize', true, 1, 'Party size must be a positive number')
@@ -174,7 +174,7 @@ export default function ReservationsPage() {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         customerEmail: formData.customerEmail || null,
-        tableNumber: parseInt(formData.tableNumber),
+        tableNumber: formData.tableNumber.trim(),
         date: String(dateTimestamp),
         time: formData.time,
         partySize: parseInt(formData.partySize),
@@ -496,27 +496,13 @@ export default function ReservationsPage() {
                   type="text"
                   value={formData.tableNumber}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow empty string for editing, or valid numbers
-                    if (value === '' || /^\d+$/.test(value)) {
-                      handleInputChange('tableNumber')(e);
-                      if (formErrors.tableNumber) setFormErrors(clearFieldError(formErrors, 'tableNumber'));
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Ensure minimum value of 1 when field loses focus
-                    const numValue = parseInt(e.target.value) || 1;
-                    setFormData(prev => ({ ...prev, tableNumber: Math.max(1, numValue).toString() }));
+                    handleInputChange('tableNumber')(e);
+                    if (formErrors.tableNumber) setFormErrors(clearFieldError(formErrors, 'tableNumber'));
                   }}
                   error={!!formErrors.tableNumber}
                   helperText={formErrors.tableNumber}
                   required
-                  inputProps={{ 
-                    min: 1,
-                    maxLength: 10,
-                    inputMode: 'numeric',
-                    pattern: '[0-9]*'
-                  }}
+                  inputProps={{ maxLength: 20 }}
                 />
                 <TextField
                   label="Party Size"

@@ -26,6 +26,9 @@ export interface IRestaurant extends Document {
     timezone: string;
     theme?: any;
     billSize?: '58mm' | '80mm';
+    networkPrinter?: { host: string; port: number };
+    itemInstructions?: string[];
+    kitchenBoardClickIncrement?: number;
   };
   isActive: boolean;
   createdAt: Date;
@@ -50,7 +53,7 @@ export interface IMenuItem extends Document {
 
 export interface ITable extends Document {
   restaurantId: Types.ObjectId;
-  number: number;
+  number: string;
   capacity: number;
   status: 'available' | 'occupied' | 'reserved' | 'cleaning';
   location?: string;
@@ -77,7 +80,7 @@ export interface IUser extends Document {
 
 export interface IOrder extends Document {
   restaurantId: Types.ObjectId;
-  tableNumber?: number;
+  tableNumber?: string;
   orderType: 'dine-in' | 'takeout' | 'delivery';
   items: IOrderItem[];
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
@@ -100,7 +103,7 @@ export interface IReservation extends Document {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
-  tableNumber: number;
+  tableNumber: string;
   date: Date;
   time: string;
   partySize: number;
@@ -162,7 +165,7 @@ export interface MenuItemInput {
 
 export interface TableInput {
   restaurantId: string;
-  number: number;
+  number: string;
   capacity: number;
   status?: string;
   location?: string;
@@ -186,7 +189,7 @@ export interface UserInput {
 
 export interface OrderInput {
   restaurantId: string;
-  tableNumber?: number;
+  tableNumber?: string;
   orderType: 'dine-in' | 'takeout' | 'delivery';
   items: OrderItemInput[];
   status?: string;
@@ -203,7 +206,7 @@ export interface ReservationInput {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
-  tableNumber: number;
+  tableNumber: string;
   date: string;
   time: string;
   partySize: number;

@@ -107,13 +107,18 @@ export const adminMutations = {
         updateData.password = await hashPassword(updateData.password);
       }
       
-      // Merge settings instead of replacing
+      // Merge settings to preserve itemInstructions, kitchenBoardClickIncrement, billSize, networkPrinter when admin updates
       if (updateData.settings) {
-        const existing = await Restaurant.findById(id).select('settings');
-        const currentSettings = (existing?.settings as Record<string, any>) || {};
+        const existing = await Restaurant.findById(id).select('settings').lean();
+        const existingSettings = (existing?.settings as any) || {};
         updateData.settings = {
-          ...currentSettings,
-          ...updateData.settings
+          currency: updateData.settings.currency ?? existingSettings.currency ?? 'USD',
+          timezone: updateData.settings.timezone ?? existingSettings.timezone ?? 'UTC',
+          theme: updateData.settings.theme !== undefined ? updateData.settings.theme : existingSettings.theme,
+          itemInstructions: updateData.settings.itemInstructions !== undefined ? updateData.settings.itemInstructions : (existingSettings.itemInstructions ?? []),
+          kitchenBoardClickIncrement: updateData.settings.kitchenBoardClickIncrement ?? existingSettings.kitchenBoardClickIncrement ?? 1,
+          billSize: updateData.settings.billSize ?? existingSettings.billSize,
+          networkPrinter: updateData.settings.networkPrinter ?? existingSettings.networkPrinter
         };
       }
       

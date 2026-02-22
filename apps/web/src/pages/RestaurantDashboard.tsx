@@ -20,7 +20,8 @@ import {
   DeliveryDining,
   OpenInNew,
   Payment,
-  Inventory
+  Inventory,
+  Notes
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
@@ -240,6 +241,13 @@ export default function RestaurantDashboard() {
                 onClick={() => navigate('/restaurant/purchases')}
               >
                 Purchase Management
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Notes />}
+                onClick={() => navigate('/restaurant/item-instructions')}
+              >
+                Item Instructions
               </Button>
             </Box>
           </Box>

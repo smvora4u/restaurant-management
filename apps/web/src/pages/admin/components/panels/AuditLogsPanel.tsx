@@ -127,7 +127,7 @@ export default function AuditLogsPanel() {
         const res = await loadOrderById({ variables: { id } });
         const order = res.data?.order;
         if (order) {
-          const label = order.tableNumber ? `Table ${order.tableNumber}` : (order.customerName || id.slice(-8));
+          const label = order.tableNumber ? `Table ${order.tableNumber}` : (order.customerName || 'Walk-in');
           setEntityNameById(prev => ({ ...prev, [id]: label }));
         }
       } catch {}

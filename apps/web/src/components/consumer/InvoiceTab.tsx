@@ -54,7 +54,7 @@ interface OrderItem {
 
 interface Invoice {
   id: string;
-  tableNumber?: number;
+  tableNumber?: string | number;
   orderType: string;
   status: string;
   items: OrderItem[];
@@ -64,7 +64,7 @@ interface Invoice {
 }
 
 interface InvoiceTabProps {
-  tableNumber: number;
+  tableNumber: string | number;
   orderId?: string;
   orderType?: string;
   isParcelOrder?: boolean;

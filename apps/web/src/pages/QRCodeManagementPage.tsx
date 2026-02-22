@@ -29,7 +29,7 @@ import { ConfirmationDialog } from '../components/common';
 export default function QRCodeManagementPage() {
   const [customTableNumber, setCustomTableNumber] = useState('');
   const [showCustomQR, setShowCustomQR] = useState(false);
-  const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string | number | null>(null);
   const [hiddenQRs, setHiddenQRs] = useState<Set<string>>(new Set());
   const [restaurant, setRestaurant] = useState<any>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -65,16 +65,16 @@ export default function QRCodeManagementPage() {
   const baseUrl = window.location.origin;
 
   const handleGenerateCustomQR = async () => {
-    if (customTableNumber) {
-      const tableNumber = parseInt(customTableNumber);
+    const trimmed = customTableNumber?.trim();
+    if (trimmed) {
       // Ensure table exists before showing QR code
-      await ensureTableExists(tableNumber);
+      await ensureTableExists(trimmed);
       setShowCustomQR(true);
-      setSelectedTable(tableNumber);
+      setSelectedTable(trimmed);
     }
   };
 
-  const handleTableSelect = async (tableNumber: number) => {
+  const handleTableSelect = async (tableNumber: string | number) => {
     // Ensure table exists before showing QR code
     await ensureTableExists(tableNumber);
     setSelectedTable(tableNumber);
@@ -123,9 +123,9 @@ export default function QRCodeManagementPage() {
     setRestoreAllConfirmOpen(false);
   };
 
-  const ensureTableExists = async (tableNumber: number) => {
+  const ensureTableExists = async (tableNumber: string | number) => {
     // Check if table already exists
-    const existingTable = tables.find((table: any) => table.number === tableNumber);
+    const existingTable = tables.find((table: any) => String(table.number) === String(tableNumber));
     
     if (!existingTable) {
       try {
@@ -218,7 +218,7 @@ export default function QRCodeManagementPage() {
     );
   };
 
-  const printQRCode = (tableNumber: number) => {
+  const printQRCode = (tableNumber: string | number) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`

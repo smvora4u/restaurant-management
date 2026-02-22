@@ -18,6 +18,8 @@ export const GET_ALL_RESTAURANTS = gql`
           host
           port
         }
+        itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -44,6 +46,8 @@ export const GET_RESTAURANT_BY_ID = gql`
           host
           port
         }
+        itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
@@ -70,10 +74,34 @@ export const GET_RESTAURANT_BY_SLUG = gql`
           host
           port
         }
+        itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
       updatedAt
+    }
+  }
+`;
+
+export const GET_RESTAURANT_FOR_OWNER = gql`
+  query GetRestaurantForOwner {
+    restaurantForOwner {
+      id
+      name
+      slug
+      settings {
+        currency
+        timezone
+        theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
+        itemInstructions
+        kitchenBoardClickIncrement
+      }
     }
   }
 `;

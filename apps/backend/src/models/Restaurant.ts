@@ -15,6 +15,8 @@ export interface IRestaurant {
     theme?: any;
     billSize?: '58mm' | '80mm';
     networkPrinter?: { host: string; port: number };
+    itemInstructions?: string[];
+    kitchenBoardClickIncrement?: number;
   };
   isActive: boolean;
   createdAt: Date;
@@ -36,7 +38,9 @@ const RestaurantSchema = new Schema<IRestaurant>({
     networkPrinter: {
       host: { type: String },
       port: { type: Number }
-    }
+    },
+    itemInstructions: { type: [String], default: [] },
+    kitchenBoardClickIncrement: { type: Number, default: 1 }
   },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

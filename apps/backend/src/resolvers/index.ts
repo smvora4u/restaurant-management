@@ -100,6 +100,7 @@ export const resolvers = {
   },
   Query: {
     ...queryResolvers,
+    ...restaurantAuthResolvers.Query,
     ...adminQueries,
     auditLogs: async (_: any, { limit = 50, offset = 0, action, entityType, restaurantId }: any, __: any, ___: any) => {
       const { AuditLog } = await import('../models/index.js');

@@ -26,11 +26,13 @@ import {
   MenuBook as MenuBookIcon,
   TableRestaurant as TableIcon,
   Receipt as OrderIcon,
+  Kitchen as KitchenIcon,
   CalendarToday as ReservationIcon,
   QrCode as QRCodeIcon,
   Person as PersonIcon,
   Payment as PaymentIcon,
   Inventory as InventoryIcon,
+  Notes as NotesIcon,
   Settings as SettingsIcon,
   Logout,
 } from '@mui/icons-material';
@@ -46,12 +48,15 @@ const menuItems = [
   { text: 'Menu', icon: <MenuBookIcon />, path: '/restaurant/menu' },
   { text: 'Tables', icon: <TableIcon />, path: '/restaurant/tables' },
   { text: 'Orders', icon: <OrderIcon />, path: '/restaurant/orders' },
+  { text: 'Kitchen Board', icon: <KitchenIcon />, path: '/restaurant/kitchen' },
   { text: 'Reservations', icon: <ReservationIcon />, path: '/restaurant/reservations' },
   { text: 'Staff', icon: <PersonIcon />, path: '/restaurant/staff-management' },
   { text: 'Purchases', icon: <InventoryIcon />, path: '/restaurant/purchases' },
   { text: 'Fees', icon: <PaymentIcon />, path: '/restaurant/fees' },
   { text: 'QR Codes', icon: <QRCodeIcon />, path: '/restaurant/qr-codes' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/restaurant/settings' },
+  { text: 'Item Instructions', icon: <NotesIcon />, path: '/restaurant/item-instructions' },
+  { text: 'Kitchen Settings', icon: <SettingsIcon />, path: '/restaurant/kitchen-settings' },
 ];
 
 export default function Layout({ children }: LayoutProps) {

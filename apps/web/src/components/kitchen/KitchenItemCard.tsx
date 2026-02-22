@@ -4,8 +4,7 @@ import {
   Typography,
   Box,
   Chip,
-  CircularProgress,
-  Tooltip
+  CircularProgress
 } from '@mui/material';
 import { getStatusColor, getStatusBackgroundColor, getStatusMuiIcon } from '../../utils/statusColors';
 
@@ -16,7 +15,7 @@ interface KitchenItemCardProps {
     menuItemId: string;
     quantity: number;
     status: 'pending' | 'preparing' | 'ready' | 'served';
-    tableNumber?: number;
+    tableNumber?: string | number;
     orderType: 'dine-in' | 'takeout' | 'delivery';
     specialInstructions?: string;
     itemName?: string;
@@ -36,7 +35,6 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
     specialInstructions, 
     itemName, 
     status, 
-    orderId,
     customerName,
     isUpdating: itemIsUpdating
   } = item;
@@ -48,8 +46,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
   const StatusIcon = getStatusMuiIcon(status);
 
   return (
-    <Tooltip title={`Order: ${orderId.slice(-8)}`} placement="top">
-      <Card
+    <Card
         onClick={onClick}
         sx={{
           cursor: (isUpdating || itemIsUpdating) ? 'not-allowed' : 'pointer',
@@ -97,7 +94,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               color: status === 'served' ? '#6c757d' : 'text.primary'
             }}
           >
-            {orderType === 'takeout' && customerName ? customerName : displayTableNumber}
+            {orderType === 'takeout' ? (customerName || 'Walk-in') : displayTableNumber}
           </Typography>
           
           {/* Show "Parcel" label for takeout orders with customer name */}
@@ -118,7 +115,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
 
           {/* Item Name */}
           <Typography
-            variant="h6"
+            variant="h5"
             component="div"
             sx={{
               textAlign: 'center',
@@ -130,6 +127,33 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
             {itemName || 'Loading...'}
           </Typography>
 
+          {/* Special Instructions - prominent, same visual weight as item name */}
+          {specialInstructions && (
+            <Box
+              sx={{
+                mb: 1,
+                py: 0.75,
+                px: 1.5,
+                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                borderRadius: 1,
+                border: '1px solid rgba(0, 0, 0, 0.12)'
+              }}
+            >
+              <Typography
+                variant="h5"
+                component="div"
+                sx={{
+                  display: 'block',
+                  fontWeight: 'medium',
+                  color: status === 'served' ? '#6c757d' : 'text.primary',
+                  textAlign: 'center'
+                }}
+              >
+                {specialInstructions}
+              </Typography>
+            </Box>
+          )}
+
           {/* Quantity - bigger for readability */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
             <Chip
@@ -138,54 +162,14 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               color={getStatusColor(status) as any}
               size="medium"
               sx={{
-                fontSize: '1rem',
-                height: 36,
-                px: 1.5,
+                fontSize: '1.25rem',
+                height: 42,
+                px: 2,
                 fontWeight: 700
               }}
             />
           </Box>
-
-          {/* Special Instructions */}
-          {specialInstructions && (
-            <Box
-              sx={{
-                mt: 1,
-                p: 1,
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                borderRadius: 1,
-                border: '1px solid rgba(0, 0, 0, 0.1)'
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  fontStyle: 'italic',
-                  color: 'text.secondary',
-                  textAlign: 'center'
-                }}
-              >
-                <strong>Note:</strong> {specialInstructions}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Order ID Reference */}
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              textAlign: 'center',
-              mt: 1,
-              color: 'text.secondary',
-              fontFamily: 'monospace'
-            }}
-          >
-            #{orderId.slice(-8)}
-          </Typography>
         </CardContent>
       </Card>
-    </Tooltip>
   );
 }

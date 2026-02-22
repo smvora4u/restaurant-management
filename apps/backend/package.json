@@ -8,10 +8,7 @@
     "dev": "nodemon --exec \"tsx\" src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "echo 'no linter configured'",
-    "migration:backfill-paidat": "tsx src/scripts/runMigration.ts",
-    "migration:backfill-purchase-date": "tsx src/scripts/runPurchaseDateMigration.ts",
-    "migration:backfill-menu-categories": "tsx src/scripts/runMenuCategoriesMigration.ts"
+    "lint": "echo 'no linter configured'"
   },
   "dependencies": {
     "@point-of-sale/receipt-printer-encoder": "^3.0.3",

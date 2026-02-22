@@ -15,7 +15,7 @@ import ResponsiveContainer from './ResponsiveContainer';
 
 interface ConsumerLayoutProps {
   children: ReactNode;
-  tableNumber: number;
+  tableNumber: string | number;
   orderType?: string;
   userName?: string;
 }

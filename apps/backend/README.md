@@ -104,7 +104,7 @@ query {
 # Create a new order
 mutation {
   createOrder(input: {
-    tableNumber: 1
+    tableNumber: "1"
     items: [{
       menuItemId: "ITEM_ID"
       quantity: 2

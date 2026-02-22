@@ -36,19 +36,12 @@ export const UPDATE_RESTAURANT = gql`
         timezone
         theme
         billSize
+        itemInstructions
+        kitchenBoardClickIncrement
       }
       isActive
       createdAt
       updatedAt
-    }
-  }
-`;
-
-export const DEACTIVATE_RESTAURANT = gql`
-  mutation DeactivateRestaurant($id: ID!) {
-    deactivateRestaurant(id: $id) {
-      id
-      isActive
     }
   }
 `;
@@ -68,7 +61,18 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
           host
           port
         }
+        itemInstructions
+        kitchenBoardClickIncrement
       }
+    }
+  }
+`;
+
+export const DEACTIVATE_RESTAURANT = gql`
+  mutation DeactivateRestaurant($id: ID!) {
+    deactivateRestaurant(id: $id) {
+      id
+      isActive
     }
   }
 `;

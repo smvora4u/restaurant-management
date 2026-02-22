@@ -28,7 +28,8 @@ import {
   Tabs,
   Tab,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Autocomplete,
 } from '@mui/material';
 import {
   Edit,
@@ -62,6 +63,7 @@ interface OrderItemsTableProps {
   isSaving?: boolean;
   restrictCancelToPending?: boolean;
   orderStatus?: string;
+  hideItemImageInAddDialog?: boolean;
 }
 
 
@@ -88,7 +90,8 @@ export default function OrderItemsTable({
   hasUnsavedChanges: _hasUnsavedChanges = false,
   isSaving: _isSaving = false,
   restrictCancelToPending = false,
-  orderStatus
+  orderStatus,
+  hideItemImageInAddDialog = false
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -195,7 +198,11 @@ export default function OrderItemsTable({
     });
   };
 
-  const handleSelectedItemInstructionsChange = (menuItemId: string, value: string) => {
+  const INSTRUCTIONS_DELIMITER = '; ';
+  const itemInstructions: string[] = restaurant?.settings?.itemInstructions ?? [];
+
+  const handleSelectedItemInstructionsChange = (menuItemId: string, selected: string[]) => {
+    const value = selected.join(INSTRUCTIONS_DELIMITER);
     setSelectedItems(prev => {
       const current = prev[menuItemId];
       if (!current) return prev;
@@ -635,6 +642,7 @@ export default function OrderItemsTable({
                           }
                         }}
                       >
+                          {!hideItemImageInAddDialog && (
                           <CardMedia
                             component="div"
                             sx={{
@@ -685,7 +693,26 @@ export default function OrderItemsTable({
                               />
                             )}
                           </CardMedia>
-                          <CardContent>
+                          )}
+                          <CardContent sx={{ position: 'relative', ...(hideItemImageInAddDialog && { pt: 2, pr: 10 }) }}>
+                            {hideItemImageInAddDialog && (
+                              <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
+                                {!item.available && (
+                                  <Chip
+                                    label="Unavailable"
+                                    color="error"
+                                    size="small"
+                                  />
+                                )}
+                                {isSelected && (
+                                  <Chip
+                                    label={`Qty: ${qty}`}
+                                    color="primary"
+                                    size="small"
+                                  />
+                                )}
+                              </Box>
+                            )}
                             <Typography 
                               variant="h6" 
                               component="div"
@@ -802,14 +829,26 @@ export default function OrderItemsTable({
                       <Typography variant="body2" color="primary" sx={{ minWidth: 60 }}>
                         {formatCurrencyFromRestaurant(mi.price * quantity, restaurant)}
                       </Typography>
-                      <TextField
-                        size="small"
-                        placeholder="e.g., No onions, extra cheese"
-                        value={specialInstructions}
-                        onChange={(e) => handleSelectedItemInstructionsChange(menuItemId, e.target.value)}
-                        inputProps={{ maxLength: 200 }}
-                        sx={{ flex: 1, minWidth: 150 }}
-                      />
+                      {itemInstructions.length > 0 ? (
+                        <Autocomplete
+                          multiple
+                          size="small"
+                          options={itemInstructions}
+                          value={specialInstructions
+                            .split(INSTRUCTIONS_DELIMITER)
+                            .filter(Boolean)
+                            .filter((s) => itemInstructions.includes(s))}
+                          onChange={(_, selected) => handleSelectedItemInstructionsChange(menuItemId, selected)}
+                          renderInput={(params) => (
+                            <TextField {...params} placeholder="Select instructions" />
+                          )}
+                          sx={{ flex: 1, minWidth: 150 }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          No instructions configured
+                        </Typography>
+                      )}
                     </Box>
                   );
                 })}

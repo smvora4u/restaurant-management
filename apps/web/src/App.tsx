@@ -27,6 +27,8 @@ import KitchenBoard from './pages/KitchenBoard';
 import SalaryManagement from './pages/SalaryManagement';
 import StaffSalaryView from './pages/StaffSalaryView';
 import PurchaseManagement from './pages/PurchaseManagement';
+import ItemInstructionsSettings from './pages/ItemInstructionsSettings';
+import KitchenBoardSettings from './pages/KitchenBoardSettings';
 
 // Create theme
 const theme = createTheme({
@@ -155,6 +157,14 @@ function App() {
               } 
             />
             <Route 
+              path="/restaurant/kitchen" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <KitchenBoard />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
               path="/restaurant/reservations" 
               element={
                 <ProtectedRestaurantRoute>
@@ -167,6 +177,22 @@ function App() {
               element={
                 <ProtectedRestaurantRoute>
                   <QRCodeManagementPage />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
+              path="/restaurant/item-instructions" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <ItemInstructionsSettings />
+                </ProtectedRestaurantRoute>
+              } 
+            />
+            <Route 
+              path="/restaurant/kitchen-settings" 
+              element={
+                <ProtectedRestaurantRoute>
+                  <KitchenBoardSettings />
                 </ProtectedRestaurantRoute>
               } 
             />
