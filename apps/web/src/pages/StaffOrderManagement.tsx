@@ -44,6 +44,7 @@ export default function StaffOrderManagement() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [completeConfirmationOpen, setCompleteConfirmationOpen] = useState(false);
+  const [markPaidConfirmationOpen, setMarkPaidConfirmationOpen] = useState(false);
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false);
 
   // Queries
@@ -68,7 +69,7 @@ export default function StaffOrderManagement() {
   const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT, {
     onError: () => {}
   });
-  const [, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
+  const [markOrderPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
       setSnackbarSeverity('success');
@@ -391,7 +392,7 @@ export default function StaffOrderManagement() {
                   variant="contained" 
                   color="success"
                   disabled={paying || order.status !== 'completed'}
-                  onClick={() => setCompleteConfirmationOpen(true)}
+                  onClick={() => setMarkPaidConfirmationOpen(true)}
                 >
                   Mark Paid
                 </Button>
@@ -501,6 +502,27 @@ export default function StaffOrderManagement() {
         </Dialog>
 
         {/* Confirmation Dialogs */}
+        <ConfirmationDialog
+          open={markPaidConfirmationOpen}
+          title="Mark Order as Paid"
+          message="This will record this order as paid (cash). Are you sure?"
+          onConfirm={async () => {
+            setMarkPaidConfirmationOpen(false);
+            await markOrderPaid({
+              variables: {
+                id: order.id,
+                paymentMethod: 'cash',
+                paymentTransactionId: `CASH_${Date.now()}`
+              }
+            });
+          }}
+          onClose={() => setMarkPaidConfirmationOpen(false)}
+          confirmText="Yes, Mark Paid"
+          cancelText="Cancel"
+          confirmColor="success"
+          loading={paying}
+        />
+
         <ConfirmationDialog
           open={completeConfirmationOpen}
           title="Complete Order"
