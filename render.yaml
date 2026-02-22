@@ -1,12 +1,12 @@
 # Render Blueprint - Backend service
-# Use this if you create a new Web Service from the repo, or as reference for build/start commands.
 #
-# For existing services: Update in Render Dashboard:
-#   Root Directory: (empty = repo root)
-#   Build Command: npm install && npm run build -w @restaurant/backend
-#   Start Command: npm start -w @restaurant/backend
+# OPTION A - Node runtime (recommended): Root Directory = (empty)
+#   Build: npm install && npm run build -w @restaurant/backend
+#   Start: npm start -w @restaurant/backend
 #
-# The backend build includes the printer-proxy bundle (for Download Printer Proxy).
+# OPTION B - Docker: Root Directory = (empty), Dockerfile = Dockerfile.backend
+#   Context must be repo root so apps/backend and apps/printer-proxy are available.
+#   If Root Directory is apps/backend, use apps/backend/Dockerfile instead (no printer-proxy).
 
 services:
   - type: web
