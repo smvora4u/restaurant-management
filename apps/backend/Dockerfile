@@ -1,30 +1,21 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy root package files for workspace resolution
-COPY package.json package-lock.json* ./
+# Copy package.json and tsconfig.json
+COPY package.json tsconfig.json ./
 
-# Copy backend and printer-proxy
-COPY apps/backend/package.json apps/backend/tsconfig.json ./apps/backend/
-COPY apps/backend/src ./apps/backend/src
-COPY apps/printer-proxy/package.json apps/printer-proxy/build-bundle.js apps/printer-proxy/tsconfig.json ./apps/printer-proxy/
-COPY apps/printer-proxy/src ./apps/printer-proxy/src
-
-# Install dependencies and build
+# Install all dependencies (including dev dependencies for build)
 RUN npm install
-RUN npm run build -w @restaurant/backend
-RUN npm run bundle -w @restaurant/printer-proxy
 
-# Copy printer-proxy bundle next to backend dist (for download endpoint)
-RUN cp /app/apps/printer-proxy/dist/bundle.js /app/apps/backend/printer-proxy-bundle.js
+# Copy source code
+COPY ./src ./src
 
-# Production: keep only backend runtime
-WORKDIR /app/apps/backend
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies to reduce image size
 RUN npm prune --omit=dev
 
 ENV PORT=4000
 EXPOSE 4000
 CMD ["npm", "start"]
-
-
-
