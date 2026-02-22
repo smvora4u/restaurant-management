@@ -54,6 +54,7 @@ const menuItems = [
   { text: 'Purchases', icon: <InventoryIcon />, path: '/restaurant/purchases' },
   { text: 'Fees', icon: <PaymentIcon />, path: '/restaurant/fees' },
   { text: 'QR Codes', icon: <QRCodeIcon />, path: '/restaurant/qr-codes' },
+  { text: 'Settings', icon: <SettingsIcon />, path: '/restaurant/settings' },
   { text: 'Item Instructions', icon: <NotesIcon />, path: '/restaurant/item-instructions' },
   { text: 'Kitchen Settings', icon: <SettingsIcon />, path: '/restaurant/kitchen-settings' },
 ];

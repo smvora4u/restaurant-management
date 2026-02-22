@@ -13,6 +13,8 @@ export interface IRestaurant {
     currency: string;
     timezone: string;
     theme?: any;
+    billSize?: '58mm' | '80mm';
+    networkPrinter?: { host: string; port: number };
     itemInstructions?: string[];
     kitchenBoardClickIncrement?: number;
   };
@@ -32,6 +34,11 @@ const RestaurantSchema = new Schema<IRestaurant>({
     currency: { type: String, default: 'USD' },
     timezone: { type: String, default: 'UTC' },
     theme: Schema.Types.Mixed,
+    billSize: { type: String, default: '80mm', enum: ['58mm', '80mm'] },
+    networkPrinter: {
+      host: { type: String },
+      port: { type: Number }
+    },
     itemInstructions: { type: [String], default: [] },
     kitchenBoardClickIncrement: { type: Number, default: 1 }
   },

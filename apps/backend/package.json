@@ -13,9 +13,11 @@
   "dependencies": {
     "@apollo/server": "^4.11.1",
     "@graphql-tools/schema": "^10.0.0",
+    "@point-of-sale/receipt-printer-encoder": "^3.0.3",
     "@sendgrid/mail": "^8.1.6",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.3",
+    "archiver": "^7.0.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
@@ -31,6 +33,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
     "@types/body-parser": "^1.19.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",

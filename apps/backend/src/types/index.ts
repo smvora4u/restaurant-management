@@ -25,7 +25,10 @@ export interface IRestaurant extends Document {
     currency: string;
     timezone: string;
     theme?: any;
+    billSize?: '58mm' | '80mm';
+    networkPrinter?: { host: string; port: number };
     itemInstructions?: string[];
+    kitchenBoardClickIncrement?: number;
   };
   isActive: boolean;
   createdAt: Date;
@@ -142,6 +145,7 @@ export interface RestaurantInput {
     currency?: string;
     timezone?: string;
     theme?: any;
+    billSize?: string;
   };
 }
 

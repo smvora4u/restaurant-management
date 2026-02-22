@@ -13,6 +13,11 @@ export const GET_ALL_RESTAURANTS = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
         itemInstructions
         kitchenBoardClickIncrement
       }
@@ -36,6 +41,11 @@ export const GET_RESTAURANT_BY_ID = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
         itemInstructions
         kitchenBoardClickIncrement
       }
@@ -59,6 +69,11 @@ export const GET_RESTAURANT_BY_SLUG = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
         itemInstructions
         kitchenBoardClickIncrement
       }
@@ -79,6 +94,11 @@ export const GET_RESTAURANT_FOR_OWNER = gql`
         currency
         timezone
         theme
+        billSize
+        networkPrinter {
+          host
+          port
+        }
         itemInstructions
         kitchenBoardClickIncrement
       }

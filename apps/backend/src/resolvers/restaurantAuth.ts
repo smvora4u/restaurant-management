@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Restaurant } from '../models/index.js';
 import { RestaurantInput } from '../types/index.js';
+import { GraphQLContext } from '../types/index.js';
 import { generatePasswordResetToken, consumePasswordResetToken, hashPassword } from '../utils/passwordReset.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { createSampleDataForRestaurant } from '../utils/restaurantSeedData.js';
@@ -245,7 +246,7 @@ export const restaurantAuthResolvers = {
       }
     },
 
-    updateRestaurantSettings: async (_: any, { input }: { input: any }, context: any) => {
+    updateRestaurantSettings: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
       if (!context?.restaurant?.id) {
         throw new Error('Authentication required');
       }
@@ -253,22 +254,39 @@ export const restaurantAuthResolvers = {
       if (!restaurant || !restaurant.isActive) {
         throw new Error('Restaurant not found');
       }
-      const currentSettings = restaurant.settings || {};
+      const currentSettings = (restaurant.settings as any) || {};
       const kitchenBoardClickIncrement =
         input.kitchenBoardClickIncrement !== undefined
           ? Math.max(1, Math.min(99, Number(input.kitchenBoardClickIncrement) || 1))
-          : ((currentSettings as any).kitchenBoardClickIncrement ?? 1);
+          : (currentSettings.kitchenBoardClickIncrement ?? 1);
       const mergedSettings = {
         currency: input.currency ?? currentSettings.currency ?? 'USD',
         timezone: input.timezone ?? currentSettings.timezone ?? 'UTC',
         theme: input.theme !== undefined ? input.theme : currentSettings.theme,
-        itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings as any).itemInstructions ?? [],
-        kitchenBoardClickIncrement
+        itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings.itemInstructions ?? []),
+        kitchenBoardClickIncrement,
+        billSize: input.billSize !== undefined ? input.billSize : currentSettings.billSize,
+        networkPrinter: input.networkPrinter !== undefined
+          ? (input.networkPrinter?.host ? { host: input.networkPrinter.host, port: input.networkPrinter.port ?? 9100 } : undefined)
+          : currentSettings.networkPrinter
       };
-      restaurant.settings = mergedSettings as any;
+      restaurant.settings = mergedSettings;
       await restaurant.save();
       await publishRestaurantUpdated(restaurant);
       return restaurant;
+    },
+
+    generatePrinterProxyToken: async (_: any, __: any, context: GraphQLContext) => {
+      if (!context?.restaurant?.id) {
+        throw new Error('Restaurant authentication required');
+      }
+      const restaurantId = context.restaurant.id;
+      const expiry = (process.env.PRINTER_PROXY_TOKEN_EXPIRY || '90d') as string;
+      return jwt.sign(
+        { restaurantId: String(restaurantId), purpose: 'printer-proxy' },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: expiry } as jwt.SignOptions
+      );
     }
   }
 };

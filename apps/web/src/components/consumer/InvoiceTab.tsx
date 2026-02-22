@@ -42,7 +42,7 @@ import {
   GET_ORDERS_BY_SESSION, 
   GET_ORDERS_BY_MOBILE 
 } from '../../graphql/queries/orders';
-import { PAY_ORDER } from '../../graphql/mutations/orders';
+import { MARK_ORDER_PAID } from '../../graphql/mutations/orders';
 
 
 interface OrderItem {
@@ -132,7 +132,7 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
   const { data, loading, error, refetch } = orderId ? orderQuery : tableQuery;
   const combinedRefetch = refetch || refetchMobileOrders || refetchSessionOrders;
 
-  const [payOrder] = useMutation(PAY_ORDER);
+  const [markOrderPaid] = useMutation(MARK_ORDER_PAID);
 
   // Refetch data when the tab becomes active or when refreshTrigger changes
   useEffect(() => {
@@ -155,12 +155,13 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
 
     setIsProcessing(true);
     try {
-      const tip = customTip ? parseFloat(customTip) : tipAmount;
-      await payOrder({
+      await markOrderPaid({
         variables: {
-          orderId: invoice.id,
+          id: invoice.id,
           paymentMethod,
-          tip: tip || 0,
+          paymentTransactionId: paymentMethod === 'card' || paymentMethod === 'online'
+            ? `TXN_${Date.now()}`
+            : undefined,
         },
       });
       setShowPaymentDialog(false);

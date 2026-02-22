@@ -15,6 +15,7 @@ export const LOGIN_RESTAURANT = gql`
           currency
           timezone
           theme
+          billSize
           itemInstructions
           kitchenBoardClickIncrement
         }
@@ -39,6 +40,7 @@ export const REGISTER_RESTAURANT = gql`
           currency
           timezone
           theme
+          billSize
           itemInstructions
           kitchenBoardClickIncrement
         }
@@ -88,6 +90,7 @@ export const LOGIN_STAFF = gql`
           currency
           timezone
           theme
+          billSize
           itemInstructions
           kitchenBoardClickIncrement
         }

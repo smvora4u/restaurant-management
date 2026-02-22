@@ -18,7 +18,8 @@ import {
   AccessTime,
   CheckCircle,
   Cancel,
-  ArrowBack
+  ArrowBack,
+  Print
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import { formatFullDateTime } from '../utils/dateFormatting';
@@ -32,10 +33,12 @@ import { mergeOrderItemsByStatus } from '../utils/orderItemManagement';
 import { calculateOrderStatus, getItemStatusSummary, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
+import { REQUEST_NETWORK_PRINT } from '../graphql/mutations/printer';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { useOrderStatus } from '../hooks/useOrderStatus';
 import { useOrderManagement } from '../hooks/useOrderManagement';
 import { getStatusColor } from '../utils/statusColors';
+import { printBill } from '../components/orders/BillPrint';
 
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
@@ -49,6 +52,7 @@ export default function RestaurantOrderManagement() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
   const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
+  const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -132,11 +136,11 @@ export default function RestaurantOrderManagement() {
       const hadTable = orderBeforeUpdate?.orderType === 'dine-in' && orderBeforeUpdate?.tableNumber;
       
       // Refetch to get updated order data
-      refetch().then(() => {
-        const updatedOrder = data?.order;
+      refetch().then((result) => {
+        const updatedOrder = result?.data?.order ?? data?.order;
         const isCompleted = updatedOrder?.status === 'completed';
         const isCancelled = updatedOrder?.status === 'cancelled';
-        const tableDetached = hadTable && !updatedOrder?.tableNumber;
+        const tableDetached = hadTable && updatedOrder && !updatedOrder?.tableNumber;
         
         if (isCompleted && tableDetached) {
           setSnackbarMessage('Order completed and table detached successfully!');
@@ -151,6 +155,7 @@ export default function RestaurantOrderManagement() {
         }
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
+        // Print is triggered in Complete Order confirmation before status update
       });
     },
     onError: (error) => {
@@ -786,6 +791,63 @@ export default function RestaurantOrderManagement() {
                             Mark Paid
                           </Button>
                         )}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Print />}
+                          onClick={() => {
+                            const o = data?.order || order;
+                            if (o && restaurant) {
+                              const doNetworkPrint = async (orderId: string) => {
+                                try {
+                                  setSnackbarMessage('Sending to printer...');
+                                  setSnackbarSeverity('info');
+                                  setSnackbarOpen(true);
+                                  const res = await requestNetworkPrint({ variables: { orderId } });
+                                  const ok = !!res.data?.requestNetworkPrint;
+                                  if (ok) {
+                                    setSnackbarMessage('Print sent to printer');
+                                    setSnackbarSeverity('success');
+                                  } else {
+                                    setSnackbarMessage('Print failed, trying browser...');
+                                    setSnackbarSeverity('warning');
+                                  }
+                                  setSnackbarOpen(true);
+                                  return ok;
+                                } catch (e: any) {
+                                  setSnackbarMessage('Print failed: ' + (e?.message || 'Unknown error'));
+                                  setSnackbarSeverity('error');
+                                  setSnackbarOpen(true);
+                                  return false;
+                                }
+                              };
+                              printBill(
+                                {
+                                  id: o.id,
+                                  tableNumber: o.tableNumber,
+                                  orderType: o.orderType,
+                                  items: o.items.map((i: any) => ({
+                                    menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
+                                    quantity: i.quantity,
+                                    price: i.price,
+                                    specialInstructions: i.specialInstructions
+                                  })),
+                                  totalAmount: o.totalAmount,
+                                  customerName: o.customerName,
+                                  customerPhone: o.customerPhone,
+                                  createdAt: o.createdAt
+                                },
+                                restaurant,
+                                menuItems.map((m: any) => ({ id: m.id, name: m.name })),
+                                true,
+                                { requestNetworkPrint: doNetworkPrint }
+                              );
+                            }
+                          }}
+                          sx={{ mt: 1 }}
+                        >
+                          Print Bill
+                        </Button>
 
                       </>
                     );
@@ -982,6 +1044,15 @@ export default function RestaurantOrderManagement() {
           onClose={() => setConfirmCompleteOpen(false)}
           onConfirm={async () => {
             setConfirmCompleteOpen(false);
+            // Print bill first (while order still has table number) then complete
+            const order = data?.order;
+            if (order && restaurant?.settings?.networkPrinter?.host) {
+              try {
+                await requestNetworkPrint({ variables: { orderId: order.id } });
+              } catch {
+                // Print failed, continue with complete
+              }
+            }
             await handleCompleteOrder();
           }}
           title="Complete Order"
