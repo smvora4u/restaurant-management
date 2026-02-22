@@ -241,7 +241,7 @@ export default function StaffOrderManagement() {
     try {
       // Print bill first (while order still has table number) then complete
       const order = orderData?.order;
-      if (order && restaurant?.settings?.networkPrinter?.host) {
+      if (order) {
         try {
           await requestNetworkPrint({ variables: { orderId: order.id } });
         } catch {

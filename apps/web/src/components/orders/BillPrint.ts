@@ -233,10 +233,9 @@ export function printBill(
   options?: PrintBillOptions
 ): void {
   const encodedBytes = encodeReceiptToEscPos(order, restaurant, menuItems);
-  const hasNetworkPrinter = !!restaurant?.settings?.networkPrinter?.host;
 
-  // 1. Try network print if configured and fn provided
-  if (hasNetworkPrinter && options?.requestNetworkPrint) {
+  // 1. Try network print when fn provided (backend is source of truth for proxy connectivity)
+  if (options?.requestNetworkPrint) {
     options.requestNetworkPrint(order.id).then((ok) => {
       if (ok) return;
       tryLocalOrBrowser();
