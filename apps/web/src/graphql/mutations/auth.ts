@@ -18,6 +18,7 @@ export const LOGIN_RESTAURANT = gql`
           billSize
           itemInstructions
           kitchenBoardClickIncrement
+          networkPrinter { host port }
         }
         isActive
       }
@@ -43,6 +44,7 @@ export const REGISTER_RESTAURANT = gql`
           billSize
           itemInstructions
           kitchenBoardClickIncrement
+          networkPrinter { host port }
         }
         isActive
       }
@@ -93,6 +95,7 @@ export const LOGIN_STAFF = gql`
           billSize
           itemInstructions
           kitchenBoardClickIncrement
+          networkPrinter { host port }
         }
         isActive
       }
