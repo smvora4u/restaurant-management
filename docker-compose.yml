@@ -13,8 +13,8 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     environment:
       - PORT=4000
       - MONGO_URL=mongodb://mongo:27017/RestaurantManagementDB
