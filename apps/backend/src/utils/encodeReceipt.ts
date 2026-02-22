@@ -18,7 +18,7 @@ export interface ReceiptOrderItem {
 
 export interface ReceiptOrder {
   id: string;
-  tableNumber?: number;
+  tableNumber?: string;
   orderType: string;
   items: ReceiptOrderItem[];
   totalAmount: number;
