@@ -1,0 +1,21 @@
+# Render Blueprint - Backend service
+# Use this if you create a new Web Service from the repo, or as reference for build/start commands.
+#
+# For existing services: Update in Render Dashboard:
+#   Root Directory: (empty = repo root)
+#   Build Command: npm install && npm run build -w @restaurant/backend
+#   Start Command: npm start -w @restaurant/backend
+#
+# The backend build includes the printer-proxy bundle (for Download Printer Proxy).
+
+services:
+  - type: web
+    name: restaurant-backend
+    runtime: node
+    region: oregon
+    buildCommand: npm install && npm run build -w @restaurant/backend
+    startCommand: npm start -w @restaurant/backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Add MONGO_URL, JWT_SECRET, BACKEND_PUBLIC_URL, etc. in Render Dashboard

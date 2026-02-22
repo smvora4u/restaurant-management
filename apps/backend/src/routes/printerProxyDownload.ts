@@ -59,7 +59,10 @@ router.get('/', async (req, res) => {
     const wsHost = backendPublicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const backendWsUrl = `${wsProtocol}://${wsHost}/printer-proxy`;
 
-    const bundlePath = path.join(__dirname, '../../..', 'printer-proxy', 'dist', 'bundle.js');
+    // Docker: bundle copied to backend root. Local: monorepo apps/printer-proxy/dist
+    const bundlePathDocker = path.join(__dirname, '../../printer-proxy-bundle.js');
+    const bundlePathMonorepo = path.join(__dirname, '../../..', 'printer-proxy', 'dist', 'bundle.js');
+    const bundlePath = fs.existsSync(bundlePathDocker) ? bundlePathDocker : bundlePathMonorepo;
     if (!fs.existsSync(bundlePath)) {
       res.status(500).json({ error: 'Printer proxy bundle not found. Run: npm run bundle -w @restaurant/printer-proxy' });
       return;
