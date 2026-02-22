@@ -21,6 +21,7 @@ import Layout from '../components/Layout';
 import { GET_RESTAURANT_BY_SLUG } from '../graphql/queries/restaurant';
 import { UPDATE_RESTAURANT_SETTINGS } from '../graphql/mutations/restaurant';
 import { PRINTER_PROXY_STATUS } from '../graphql/queries/printer';
+import { REQUEST_TEST_PRINT } from '../graphql/mutations/printer';
 import {
   isDirectPrintSupported,
   connect,
@@ -43,6 +44,9 @@ export default function RestaurantSettings() {
   const [printerState, setPrinterState] = useState<DirectPrinterState>(getState());
   const [printerConnecting, setPrinterConnecting] = useState(false);
   const [limitsExpanded, setLimitsExpanded] = useState(false);
+  const [setupGuideExpanded, setSetupGuideExpanded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [testPrinting, setTestPrinting] = useState(false);
   const [networkPrinterHost, setNetworkPrinterHost] = useState('');
   const [networkPrinterPort, setNetworkPrinterPort] = useState(9100);
 
@@ -70,6 +74,16 @@ export default function RestaurantSettings() {
   });
   const proxyConnected = proxyData?.printerProxyStatus?.connected ?? false;
 
+  const [requestTestPrint] = useMutation(REQUEST_TEST_PRINT, {
+    onCompleted: () => {
+      setTestPrinting(false);
+      setSnackbar({ open: true, message: 'Test print sent to printer.', severity: 'success' });
+    },
+    onError: (e) => {
+      setTestPrinting(false);
+      setSnackbar({ open: true, message: e.message || 'Test print failed.', severity: 'error' });
+    }
+  });
   const [updateSettings, { loading: saving }] = useMutation(UPDATE_RESTAURANT_SETTINGS, {
     onCompleted: (data) => {
       const updated = data?.updateRestaurantSettings;
@@ -175,6 +189,37 @@ export default function RestaurantSettings() {
   const handleDisconnectPrinter = async () => {
     await disconnect();
     setSnackbar({ open: true, message: 'Printer disconnected.', severity: 'info' });
+  };
+
+  const handleDownloadPrinterProxy = async () => {
+    const token = localStorage.getItem('restaurantToken');
+    if (!token) {
+      setSnackbar({ open: true, message: 'Restaurant login required.', severity: 'error' });
+      return;
+    }
+    setDownloading(true);
+    try {
+      const apiBase = (import.meta as any).env?.VITE_API_URL?.replace('/graphql', '') || 'http://localhost:4000';
+      const res = await fetch(`${apiBase}/api/download-printer-proxy`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'printer-proxy.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: 'Download started.', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: (e as Error).message || 'Download failed', severity: 'error' });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (!restaurant && !loading) {
@@ -322,11 +367,71 @@ export default function RestaurantSettings() {
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Run the proxy: <code style={{ fontSize: 11 }}>npx @restaurant/printer-proxy</code> with env: BACKEND_WS_URL, TOKEN, RESTAURANT_ID, PRINTER_HOST, PRINTER_PORT
+              Download a ready-to-run printer proxy. Token in the zip lasts ~90 days. Re-download only when the proxy stops connecting.
             </Typography>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Settings'}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+              <Button variant="contained" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Settings'}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleDownloadPrinterProxy}
+                disabled={downloading}
+              >
+                {downloading ? 'Preparing...' : 'Download Printer Proxy'}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (!restaurantId) return;
+                  setTestPrinting(true);
+                  requestTestPrint({ variables: { restaurantId } });
+                }}
+                disabled={testPrinting || !proxyConnected}
+              >
+                {testPrinting ? 'Sending...' : 'Test Print'}
+              </Button>
+            </Box>
+            <Button
+              size="small"
+              onClick={() => setSetupGuideExpanded(!setupGuideExpanded)}
+              endIcon={setupGuideExpanded ? <ExpandLess /> : <ExpandMore />}
+              sx={{ textTransform: 'none', p: 0, minWidth: 0 }}
+            >
+              Setup Guide
             </Button>
+            <Collapse in={setupGuideExpanded}>
+              <Box sx={{ mt: 2, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Prerequisites</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  PC/laptop on same Wi-Fi as printer. Node.js installed (nodejs.org). Printer connected to router.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>1. Download</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Click &quot;Download Printer Proxy&quot; above. Save printer-proxy.zip.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>2. Extract</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Right-click zip → Extract All. Remember the folder.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>3. Find printer IP</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  On printer: network settings → IP Address (e.g. 192.168.1.100). Or check router admin.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>4. Edit .env</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Open .env in Notepad. Set PRINTER_HOST to your printer&apos;s IP. Save.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>5. Run</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Windows: double-click start.bat. Mac/Linux: chmod +x start.sh then ./start.sh. Leave the window open.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>6. Verify</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Proxy status above should show Connected. Try Print Bill on an order.
+                </Typography>
+              </Box>
+            </Collapse>
           </CardContent>
         </Card>
 

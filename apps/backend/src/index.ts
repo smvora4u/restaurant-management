@@ -25,6 +25,7 @@ import { Settlement, FeeLedger } from './models/index.js';
 import { useServer } from 'graphql-ws/use/ws';
 import { registerProxy, unregisterByWebSocket } from './services/printerProxy.js';
 import jwt from 'jsonwebtoken';
+import printerProxyDownloadRouter from './routes/printerProxyDownload.js';
 
 async function start() {
   try {
@@ -133,6 +134,7 @@ async function start() {
     
     // Serve uploaded files statically
     app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+    app.use('/api/download-printer-proxy', printerProxyDownloadRouter);
 
     // Create GraphQL schema
     const schema = makeExecutableSchema({ typeDefs, resolvers });

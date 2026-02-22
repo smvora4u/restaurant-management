@@ -274,6 +274,19 @@ export const restaurantAuthResolvers = {
       await restaurant.save();
       await publishRestaurantUpdated(restaurant);
       return restaurant;
+    },
+
+    generatePrinterProxyToken: async (_: any, __: any, context: GraphQLContext) => {
+      if (!context?.restaurant?.id) {
+        throw new Error('Restaurant authentication required');
+      }
+      const restaurantId = context.restaurant.id;
+      const expiry = (process.env.PRINTER_PROXY_TOKEN_EXPIRY || '90d') as string;
+      return jwt.sign(
+        { restaurantId: String(restaurantId), purpose: 'printer-proxy' },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: expiry } as jwt.SignOptions
+      );
     }
   }
 };

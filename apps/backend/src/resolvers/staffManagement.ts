@@ -2,7 +2,7 @@ import { Staff, Order, MenuItem, Restaurant } from '../models/index.js';
 import { ORDER_STATUSES } from '../constants/orderStatuses.js';
 import { publishOrderUpdated } from './subscriptions.js';
 import { isProxyConnected, sendPrintJob } from '../services/printerProxy.js';
-import { encodeReceiptToEscPos } from '../utils/encodeReceipt.js';
+import { encodeReceiptMinimal } from '../utils/encodeReceipt.js';
 import { GraphQLContext } from '../types/index.js';
 
 export const staffManagementResolvers = {
@@ -238,10 +238,32 @@ export const staffManagementResolvers = {
         settings: restaurant.settings
       };
       const receiptMenuItems = menuItems.map((m: any) => ({ id: String(m._id), name: m.name }));
-      const encoded = encodeReceiptToEscPos(receiptOrder, receiptRestaurant, receiptMenuItems);
+      const encoded = encodeReceiptMinimal(receiptOrder, receiptRestaurant, receiptMenuItems);
       const sent = sendPrintJob(restaurantId, encoded);
       if (!sent) {
         throw new Error('Failed to send print job to proxy');
+      }
+      return true;
+    },
+
+    requestTestPrint: async (_: any, { restaurantId }: { restaurantId: string }, context: GraphQLContext) => {
+      if (!context.staff && !context.restaurant) {
+        throw new Error('Authentication required');
+      }
+      const allowedId = context.staff?.restaurantId || context.restaurant?.id;
+      if (allowedId && String(allowedId) !== restaurantId) {
+        throw new Error('Unauthorized to test print for this restaurant');
+      }
+      if (!isProxyConnected(restaurantId)) {
+        throw new Error('Printer proxy not connected for this restaurant');
+      }
+      // Minimal ESC/POS: init, "Test", feed (6 newlines) so text prints before cut, partial cut
+      const testBytes = new Uint8Array([
+        0x1b, 0x40, 0x54, 0x65, 0x73, 0x74, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x01
+      ]);
+      const sent = sendPrintJob(restaurantId, testBytes);
+      if (!sent) {
+        throw new Error('Failed to send test print to proxy');
       }
       return true;
     }

@@ -52,7 +52,7 @@ export default function RestaurantOrderManagement() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
   const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
-  const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT, { onError: () => {} });
+  const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -155,39 +155,7 @@ export default function RestaurantOrderManagement() {
         }
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
-
-        // Auto-print bill when order is completed
-        if (isCompleted && orderBeforeUpdate && restaurant) {
-          const doNetworkPrint = async (orderId: string) => {
-            try {
-              const res = await requestNetworkPrint({ variables: { orderId } });
-              return !!res.data?.requestNetworkPrint;
-            } catch {
-              return false;
-            }
-          };
-          printBill(
-            {
-              id: orderBeforeUpdate.id,
-              tableNumber: orderBeforeUpdate.tableNumber,
-              orderType: orderBeforeUpdate.orderType,
-              items: orderBeforeUpdate.items.map((i: any) => ({
-                menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
-                quantity: i.quantity,
-                price: i.price,
-                specialInstructions: i.specialInstructions
-              })),
-              totalAmount: orderBeforeUpdate.totalAmount,
-              customerName: orderBeforeUpdate.customerName,
-              customerPhone: orderBeforeUpdate.customerPhone,
-              createdAt: orderBeforeUpdate.createdAt
-            },
-            restaurant,
-            menuItems.map((m: any) => ({ id: m.id, name: m.name })),
-            true,
-            { requestNetworkPrint: doNetworkPrint }
-          );
-        }
+        // Print is triggered in Complete Order confirmation before status update
       });
     },
     onError: (error) => {
@@ -832,9 +800,24 @@ export default function RestaurantOrderManagement() {
                             if (o && restaurant) {
                               const doNetworkPrint = async (orderId: string) => {
                                 try {
+                                  setSnackbarMessage('Sending to printer...');
+                                  setSnackbarSeverity('info');
+                                  setSnackbarOpen(true);
                                   const res = await requestNetworkPrint({ variables: { orderId } });
-                                  return !!res.data?.requestNetworkPrint;
-                                } catch {
+                                  const ok = !!res.data?.requestNetworkPrint;
+                                  if (ok) {
+                                    setSnackbarMessage('Print sent to printer');
+                                    setSnackbarSeverity('success');
+                                  } else {
+                                    setSnackbarMessage('Print failed, trying browser...');
+                                    setSnackbarSeverity('warning');
+                                  }
+                                  setSnackbarOpen(true);
+                                  return ok;
+                                } catch (e: any) {
+                                  setSnackbarMessage('Print failed: ' + (e?.message || 'Unknown error'));
+                                  setSnackbarSeverity('error');
+                                  setSnackbarOpen(true);
                                   return false;
                                 }
                               };
@@ -1061,6 +1044,15 @@ export default function RestaurantOrderManagement() {
           onClose={() => setConfirmCompleteOpen(false)}
           onConfirm={async () => {
             setConfirmCompleteOpen(false);
+            // Print bill first (while order still has table number) then complete
+            const order = data?.order;
+            if (order && restaurant?.settings?.networkPrinter?.host) {
+              try {
+                await requestNetworkPrint({ variables: { orderId: order.id } });
+              } catch {
+                // Print failed, continue with complete
+              }
+            }
             await handleCompleteOrder();
           }}
           title="Complete Order"

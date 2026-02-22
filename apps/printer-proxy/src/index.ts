@@ -2,7 +2,7 @@
 /**
  * Printer Proxy - bridges the backend WebSocket to a network thermal printer.
  * Run on a PC on the same LAN as the printer. Connects to backend via WebSocket,
- * receives ESC/POS bytes, and forwards to the printer.
+ * receives ESC/POS bytes, and forwards to the printer via raw TCP socket.
  *
  * Config via env:
  *   BACKEND_WS_URL - e.g. ws://localhost:4000/printer-proxy
@@ -12,9 +12,24 @@
  *   PRINTER_PORT - printer port (default 9100)
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import net from 'net';
+
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection:', reason);
+  process.exit(1);
+});
+
+console.log('Printer proxy starting...');
+
 import WebSocket from 'ws';
-import NetworkReceiptPrinter from '@point-of-sale/network-receipt-printer';
 
 const BACKEND_WS_URL = process.env.BACKEND_WS_URL || 'ws://localhost:4000/printer-proxy';
 const TOKEN = process.env.TOKEN;
@@ -24,26 +39,36 @@ const PRINTER_PORT = parseInt(process.env.PRINTER_PORT || '9100', 10);
 
 if (!TOKEN || !RESTAURANT_ID || !PRINTER_HOST) {
   console.error('Missing required env: TOKEN, RESTAURANT_ID, PRINTER_HOST');
+  console.error('Make sure .env exists in this folder and has TOKEN, RESTAURANT_ID, PRINTER_HOST');
   process.exit(1);
 }
+
+console.log('Env loaded. Connecting to printer at', PRINTER_HOST + ':' + PRINTER_PORT, '...');
 
 const sep = BACKEND_WS_URL.includes('?') ? '&' : '?';
 const wsUrl = `${BACKEND_WS_URL}${sep}token=${encodeURIComponent(TOKEN)}&restaurantId=${encodeURIComponent(RESTAURANT_ID)}`;
 
-let printer: InstanceType<typeof NetworkReceiptPrinter> | null = null;
+let printerSocket: net.Socket | null = null;
 let ws: WebSocket | null = null;
 
 function connectPrinter(): Promise<void> {
   return new Promise((resolve, reject) => {
-    printer = new NetworkReceiptPrinter({
-      host: PRINTER_HOST as string,
-      port: PRINTER_PORT
-    });
-    printer.addEventListener('connected', () => {
+    const socket = new net.Socket();
+    socket.setNoDelay(true);
+    socket.connect(PRINTER_PORT, PRINTER_HOST as string, () => {
       console.log(`Connected to printer at ${PRINTER_HOST}:${PRINTER_PORT}`);
+      printerSocket = socket;
       resolve();
     });
-    printer.connect().catch(reject);
+    socket.on('error', (err) => {
+      console.error('Printer socket error:', err);
+      printerSocket = null;
+      reject(err);
+    });
+    socket.on('close', () => {
+      printerSocket = null;
+      console.log('Printer disconnected');
+    });
   });
 }
 
@@ -56,10 +81,17 @@ function connectBackend(): Promise<void> {
     });
     ws.on('message', (data: Buffer | Buffer[]) => {
       const buf = Buffer.isBuffer(data) ? data : Buffer.concat(data as Buffer[]);
-      if (printer) {
-        printer.print(new Uint8Array(buf)).catch((err: unknown) => {
-          console.error('Print failed:', err);
+      console.log('Received print job, size:', buf.length);
+      if (printerSocket && !printerSocket.destroyed) {
+        printerSocket.write(buf, (err) => {
+          if (err) {
+            console.error('Print failed:', err);
+          } else {
+            console.log('Sent to printer');
+          }
         });
+      } else {
+        console.error('Printer not connected');
       }
     });
     ws.on('close', (code?: number, reason?: Buffer) => {
@@ -81,7 +113,9 @@ async function reconnect() {
 
 async function main() {
   try {
+    console.log('Connecting to printer...');
     await connectPrinter();
+    console.log('Connecting to backend...');
     await connectBackend();
   } catch (err) {
     console.error('Startup failed:', err);
@@ -89,4 +123,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error('Fatal error:', err);
+  process.exit(1);
+});

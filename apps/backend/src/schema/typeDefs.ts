@@ -271,6 +271,8 @@ export const typeDefs = `#graphql
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
     requestNetworkPrint(orderId: ID!): Boolean!
+    requestTestPrint(restaurantId: ID!): Boolean!
+    generatePrinterProxyToken: String!
     
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
