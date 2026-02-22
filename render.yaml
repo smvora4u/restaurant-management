@@ -13,7 +13,7 @@ services:
     name: restaurant-backend
     runtime: node
     region: oregon
-    buildCommand: npm install && npm run build -w @restaurant/backend
+    buildCommand: npm install && npm run build -w @restaurant/backend && npm run bundle -w @restaurant/printer-proxy
     startCommand: npm start -w @restaurant/backend
     envVars:
       - key: NODE_ENV
