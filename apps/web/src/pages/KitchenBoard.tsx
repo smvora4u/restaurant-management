@@ -12,6 +12,7 @@ import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
 import Layout from '../components/Layout';
 import KitchenItemCard from '../components/kitchen/KitchenItemCard';
+import { QuantityInputDialog } from '../components/common';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { GET_ORDERS_FOR_STAFF, GET_MENU_ITEMS } from '../graphql';
 import { GET_ORDER_BY_ID } from '../graphql/queries/orders';
@@ -64,6 +65,12 @@ export default function KitchenBoard() {
   
   // Track which items are currently being updated to prevent duplicate backend updates
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
+
+  // Move quantity dialog: when item qty > clickIncrement, user can enter how many to move
+  const [moveQtyDialog, setMoveQtyDialog] = useState<{
+    open: boolean;
+    item: FlattenedItem | null;
+  }>({ open: false, item: null });
 
   // Derive restaurantId from staff (staff user) or restaurant (restaurant user)
   const restaurantId = staff?.restaurantId || restaurant?.id;
@@ -252,6 +259,127 @@ export default function KitchenBoard() {
     return grouped;
   }, [flattenedItems]);
 
+  const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
+  const getMenuItemId = (obj: any): string => {
+    if (obj == null) return '';
+    if (typeof obj === 'string') return obj;
+    const id = obj?.id ?? obj?._id;
+    return id != null ? String(id) : '';
+  };
+
+  const performStatusUpdate = async (item: FlattenedItem, qtyToMove: number) => {
+    const nextStatus = getNextStatus(item.status);
+    if (!nextStatus) return;
+
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+
+    const { data } = await apolloClient.query({
+      query: GET_ORDER_BY_ID,
+      variables: { id: item.orderId },
+      fetchPolicy: 'network-only'
+    });
+
+    const order = data?.order;
+    if (!order) {
+      setSnackbar({ open: true, message: 'Order not found', severity: 'error' });
+      return;
+    }
+
+    const effectiveRestaurantId = (order as any).restaurantId || restaurantId;
+    if (!effectiveRestaurantId) {
+      setSnackbar({ open: true, message: 'Restaurant context missing. Please refresh and try again.', severity: 'error' });
+      return;
+    }
+
+    if (order.status === 'completed' || order.status === 'cancelled') {
+      setSnackbar({
+        open: true,
+        message: 'Order was completed or cancelled by another user. Refreshing.',
+        severity: 'info'
+      });
+      refetchOrders();
+      return;
+    }
+
+    const rawItemIndex = order.items.findIndex((orderItem: any) => {
+      const orderItemInstructions = normalizeInstructions(orderItem.specialInstructions);
+      return getMenuItemId(orderItem.menuItemId) === getMenuItemId(item.menuItemId) &&
+        orderItem.status === item.status &&
+        orderItemInstructions === itemInstructions;
+    });
+
+    if (rawItemIndex === -1) {
+      setSnackbar({ open: true, message: 'Item not found in order', severity: 'error' });
+      return;
+    }
+
+    const updatedItems = updatePartialQuantityStatus(
+      order.items,
+      rawItemIndex,
+      nextStatus as 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled',
+      qtyToMove
+    );
+    const mergedItems = mergeOrderItemsByStatus(updatedItems);
+    const newOrderStatus = calculateOrderStatus(mergedItems);
+    const totalAmount = mergedItems.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0);
+
+    const cleanItems = mergedItems.map((i: any) => ({
+      menuItemId: getMenuItemId(i.menuItemId),
+      quantity: i.quantity,
+      price: i.price,
+      status: i.status,
+      specialInstructions: i.specialInstructions
+    }));
+
+    await updateOrder({
+      variables: {
+        id: item.orderId,
+        input: {
+          restaurantId: effectiveRestaurantId,
+          tableNumber: order.tableNumber,
+          orderType: order.orderType,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          notes: order.notes,
+          sessionId: order.sessionId,
+          userId: order.userId,
+          items: cleanItems,
+          status: newOrderStatus,
+          totalAmount
+        }
+      }
+    });
+
+    setSnackbar({ open: true, message: `Item moved to ${nextStatus}`, severity: 'success' });
+  };
+
+  const handleMoveQuantityConfirm = async (qty: number) => {
+    const item = moveQtyDialog.item;
+    if (!item) return;
+
+    setMoveQtyDialog({ open: false, item: null });
+
+    const itemInstructions = normalizeInstructions(item.specialInstructions);
+    const itemKey = `${item.orderId}-${item.menuItemId}-${item.status}-${itemInstructions}`;
+
+    setUpdatingItems(prev => new Set(prev).add(itemKey));
+    try {
+      await performStatusUpdate(item, Math.min(qty, item.quantity));
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        severity: 'error'
+      });
+    } finally {
+      setUpdatingItems(prev => {
+        const next = new Set(prev);
+        next.delete(itemKey);
+        return next;
+      });
+    }
+  };
+
   const handleItemClick = async (item: FlattenedItem) => {
     const nextStatus = getNextStatus(item.status);
     if (!nextStatus) {
@@ -263,106 +391,21 @@ export default function KitchenBoard() {
       return;
     }
 
-    const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
     const itemInstructions = normalizeInstructions(item.specialInstructions);
     const itemKey = `${item.orderId}-${item.menuItemId}-${item.status}-${itemInstructions}`;
 
-    // Prevent double-click
     if (updatingItems.has(itemKey)) return;
+
+    const clickIncrement = Math.max(1, restaurant?.settings?.kitchenBoardClickIncrement ?? 1);
+    if (item.quantity > clickIncrement) {
+      setMoveQtyDialog({ open: true, item });
+      return;
+    }
+
     setUpdatingItems(prev => new Set(prev).add(itemKey));
-
     try {
-      // Fetch latest order to avoid stale overwrite
-      const { data } = await apolloClient.query({
-        query: GET_ORDER_BY_ID,
-        variables: { id: item.orderId },
-        fetchPolicy: 'network-only'
-      });
-
-      const order = data?.order;
-      if (!order) {
-        setSnackbar({ open: true, message: 'Order not found', severity: 'error' });
-        return;
-      }
-
-      const effectiveRestaurantId = (order as any).restaurantId || restaurantId;
-      if (!effectiveRestaurantId) {
-        setSnackbar({ open: true, message: 'Restaurant context missing. Please refresh and try again.', severity: 'error' });
-        return;
-      }
-
-      // Block update if order is already completed/cancelled
-      if (order.status === 'completed' || order.status === 'cancelled') {
-        setSnackbar({
-          open: true,
-          message: 'Order was completed or cancelled by another user. Refreshing.',
-          severity: 'info'
-        });
-        refetchOrders();
-        return;
-      }
-
-      // Find first raw item matching the clicked item (handle populated objects with _id or id)
-      const getMenuItemId = (obj: any): string => {
-        if (obj == null) return '';
-        if (typeof obj === 'string') return obj;
-        const id = obj?.id ?? obj?._id;
-        return id != null ? String(id) : '';
-      };
-      const rawItemIndex = order.items.findIndex((orderItem: any) => {
-        const orderItemInstructions = normalizeInstructions(orderItem.specialInstructions);
-        return getMenuItemId(orderItem.menuItemId) === getMenuItemId(item.menuItemId) &&
-          orderItem.status === item.status &&
-          orderItemInstructions === itemInstructions;
-      });
-
-      if (rawItemIndex === -1) {
-        setSnackbar({ open: true, message: 'Item not found in order', severity: 'error' });
-        return;
-      }
-
-      // Update quantity to next status (restaurant setting: kitchenBoardClickIncrement, default 1)
-      const clickIncrement = Math.max(1, restaurant?.settings?.kitchenBoardClickIncrement ?? 1);
       const qtyToMove = Math.min(clickIncrement, item.quantity);
-      const updatedItems = updatePartialQuantityStatus(
-        order.items,
-        rawItemIndex,
-        nextStatus as 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled',
-        qtyToMove
-      );
-      const mergedItems = mergeOrderItemsByStatus(updatedItems);
-      const newOrderStatus = calculateOrderStatus(mergedItems);
-      const totalAmount = mergedItems.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0);
-
-      // Clean items for API (normalize menuItemId, remove __typename)
-      const cleanItems = mergedItems.map((i: any) => ({
-        menuItemId: getMenuItemId(i.menuItemId),
-        quantity: i.quantity,
-        price: i.price,
-        status: i.status,
-        specialInstructions: i.specialInstructions
-      }));
-
-      await updateOrder({
-        variables: {
-          id: item.orderId,
-          input: {
-            restaurantId: effectiveRestaurantId,
-            tableNumber: order.tableNumber,
-            orderType: order.orderType,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            notes: order.notes,
-            sessionId: order.sessionId,
-            userId: order.userId,
-            items: cleanItems,
-            status: newOrderStatus,
-            totalAmount
-          }
-        }
-      });
-
-      setSnackbar({ open: true, message: `Item moved to ${nextStatus}`, severity: 'success' });
+      await performStatusUpdate(item, qtyToMove);
     } catch (error) {
       setSnackbar({
         open: true,
@@ -499,6 +542,19 @@ export default function KitchenBoard() {
           </Typography>
         </Box>
       </Box>
+
+      {/* Move quantity dialog */}
+      <QuantityInputDialog
+        open={moveQtyDialog.open}
+        onClose={() => setMoveQtyDialog({ open: false, item: null })}
+        onConfirm={handleMoveQuantityConfirm}
+        title="Move to next column"
+        label="How many items to move?"
+        minQuantity={1}
+        maxQuantity={moveQtyDialog.item?.quantity ?? 1}
+        defaultValue={moveQtyDialog.item?.quantity ?? 1}
+        confirmText="Move"
+      />
 
       {/* Snackbar for notifications */}
       <Snackbar

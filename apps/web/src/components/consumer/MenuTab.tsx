@@ -45,6 +45,7 @@ import {
 } from '../../graphql/queries/orders';
 import { getStatusChipColor } from '../../utils/statusColors';
 import { formatCurrencyFromContext } from '../../utils/currency';
+import { QuantityInputDialog } from '../common';
 import { useOrderSubscriptions } from '../../hooks/useOrderSubscriptions';
 import { useMenuSubscriptions } from '../../hooks/useMenuSubscriptions';
 
@@ -107,6 +108,12 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
   const [modifiedOrderItems, setModifiedOrderItems] = useState<{ [itemId: string]: number }>({});
   const [modifiedOrderInstructions, setModifiedOrderInstructions] = useState<Record<number, string>>({});
   const [hasOrderModifications, setHasOrderModifications] = useState(false);
+  const [qtyDialog, setQtyDialog] = useState<{
+    open: boolean;
+    itemId: string | null;
+    currentQty: number;
+    context: 'cart' | 'order' | null;
+  }>({ open: false, itemId: null, currentQty: 1, context: null });
 
 
   const { data, loading, error, refetch: refetchMenuItems } = useQuery(GET_MENU_ITEMS, {
@@ -273,6 +280,24 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
       }
       return newCart;
     });
+  };
+
+  const handleSetQuantity = (itemId: string, qty: number) => {
+    if (qty <= 0) {
+      setCart(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
+    } else {
+      setCart(prev => {
+        const current = prev[itemId];
+        if (!current) {
+          return { ...prev, [itemId]: { quantity: qty, specialInstructions: '' } };
+        }
+        return { ...prev, [itemId]: { ...current, quantity: qty } };
+      });
+    }
   };
 
   const handleInstructionsChange = (itemId: string, selected: string[]) => {
@@ -831,7 +856,28 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                           >
                             <RemoveIcon fontSize="small" />
                           </Button>
-                          <Typography variant="body2" sx={{ minWidth: '1.75rem', textAlign: 'center', fontWeight: 'bold', flexShrink: 0 }}>
+                          <Typography
+                            variant="body2"
+                            component="span"
+                            onClick={() =>
+                              setQtyDialog({
+                                open: true,
+                                itemId: item.menuItemId,
+                                currentQty: currentQuantity,
+                                context: 'order'
+                              })
+                            }
+                            sx={{
+                              minWidth: '1.75rem',
+                              textAlign: 'center',
+                              fontWeight: 'bold',
+                              flexShrink: 0,
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              textUnderlineOffset: 2,
+                              '&:hover': { opacity: 0.8 }
+                            }}
+                          >
                             {currentQuantity}
                           </Typography>
                           <Button
@@ -1002,12 +1048,25 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                         <RemoveIcon fontSize="small" />
                       </Button>
                       
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          minWidth: '24px', 
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        onClick={() =>
+                          setQtyDialog({
+                            open: true,
+                            itemId,
+                            currentQty: quantity,
+                            context: 'cart'
+                          })
+                        }
+                        sx={{
+                          minWidth: '24px',
                           textAlign: 'center',
-                          fontWeight: 'bold'
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: 2,
+                          '&:hover': { opacity: 0.8 }
                         }}
                       >
                         {quantity}
@@ -1318,15 +1377,28 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
                     <RemoveIcon fontSize="small" />
                   </Button>
                   
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      minWidth: '2rem', 
+                  <Typography
+                    variant="body2"
+                    component="span"
+                    onClick={() =>
+                      setQtyDialog({
+                        open: true,
+                        itemId: item.id,
+                        currentQty: getCartQuantity(item.id),
+                        context: 'cart'
+                      })
+                    }
+                    sx={{
+                      minWidth: '2rem',
                       textAlign: 'center',
                       fontWeight: 'bold',
                       fontSize: '1rem',
                       color: 'primary.main',
-                      px: 1
+                      px: 1,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 2,
+                      '&:hover': { opacity: 0.8 }
                     }}
                   >
                     {getCartQuantity(item.id)}
@@ -1362,6 +1434,28 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
           </Typography>
         </Box>
       )}
+
+      {/* Quantity input dialog */}
+      <QuantityInputDialog
+        open={qtyDialog.open}
+        onClose={() => setQtyDialog({ open: false, itemId: null, currentQty: 1, context: null })}
+        onConfirm={(qty) => {
+          if (qtyDialog.itemId && qtyDialog.context) {
+            if (qtyDialog.context === 'order') {
+              handleModifyOrderItem(qtyDialog.itemId, qty);
+            } else {
+              handleSetQuantity(qtyDialog.itemId, qty);
+            }
+          }
+          setQtyDialog({ open: false, itemId: null, currentQty: 1, context: null });
+        }}
+        title="Set quantity"
+        label="Quantity"
+        minQuantity={0}
+        maxQuantity={99}
+        defaultValue={qtyDialog.currentQty}
+        confirmText="Save"
+      />
 
       {/* Success and Error Notifications */}
       <Snackbar

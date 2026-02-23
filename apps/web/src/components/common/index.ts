@@ -3,4 +3,5 @@ export { default as AppSnackbar } from './AppSnackbar';
 export { default as DataTable } from './DataTable';
 export { default as FormField } from './FormField';
 export { default as ConfirmationDialog } from './ConfirmationDialog';
+export { default as QuantityInputDialog } from './QuantityInputDialog';
 export { default as TabPanel, a11yProps } from './TabPanel';

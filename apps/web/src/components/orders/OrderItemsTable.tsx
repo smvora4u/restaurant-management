@@ -41,7 +41,7 @@ import {
 } from '@mui/icons-material';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { ItemStatus, getStatusColor } from '../../utils/statusColors';
-import { ConfirmationDialog } from '../common';
+import { ConfirmationDialog, QuantityInputDialog } from '../common';
 
 export interface AddItemEntry {
   menuItemId: string;
@@ -103,6 +103,12 @@ export default function OrderItemsTable({
   const [itemToDeleteIndex, setItemToDeleteIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [qtyDialog, setQtyDialog] = useState<{
+    open: boolean;
+    itemIndex: number | null;
+    menuItemId: string | null;
+    currentQty: number;
+  }>({ open: false, itemIndex: null, menuItemId: null, currentQty: 1 });
   const theme = useTheme();
   // Full screen on mobile, tablets, and small laptops (up to md breakpoint)
   const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
@@ -196,6 +202,22 @@ export default function OrderItemsTable({
       }
       return { ...prev, [menuItemId]: { ...current, quantity: nextQty } };
     });
+  };
+
+  const handleSelectedItemQuantitySet = (menuItemId: string, qty: number) => {
+    if (qty <= 0) {
+      setSelectedItems(prev => {
+        const next = { ...prev };
+        delete next[menuItemId];
+        return next;
+      });
+    } else {
+      setSelectedItems(prev => {
+        const current = prev[menuItemId];
+        if (!current) return prev;
+        return { ...prev, [menuItemId]: { ...current, quantity: qty } };
+      });
+    }
   };
 
   const INSTRUCTIONS_DELIMITER = '; ';
@@ -336,7 +358,22 @@ export default function OrderItemsTable({
                         >
                           <Remove />
                         </IconButton>
-                        <Typography variant="body1" sx={{ minWidth: 30, textAlign: 'center' }}>
+                        <Typography
+                          variant="body1"
+                          component="span"
+                          onClick={() =>
+                            isOrderEditable &&
+                            setQtyDialog({ open: true, itemIndex: index, menuItemId: null, currentQty: item.quantity })
+                          }
+                          sx={{
+                            minWidth: 30,
+                            textAlign: 'center',
+                            cursor: isOrderEditable ? 'pointer' : 'default',
+                            textDecoration: isOrderEditable ? 'underline' : 'none',
+                            textUnderlineOffset: 2,
+                            '&:hover': isOrderEditable ? { opacity: 0.8 } : {}
+                          }}
+                        >
                           {item.quantity}
                         </Typography>
                         <IconButton
@@ -754,7 +791,22 @@ export default function OrderItemsTable({
                                 >
                                   <Remove fontSize="small" />
                                 </IconButton>
-                                <Typography variant="body1" sx={{ minWidth: 24, textAlign: 'center', fontWeight: 600 }}>
+                                <Typography
+                                  variant="body1"
+                                  component="span"
+                                  onClick={() =>
+                                    setQtyDialog({ open: true, itemIndex: null, menuItemId: item.id, currentQty: qty })
+                                  }
+                                  sx={{
+                                    minWidth: 24,
+                                    textAlign: 'center',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                    textUnderlineOffset: 2,
+                                    '&:hover': { opacity: 0.8 }
+                                  }}
+                                >
                                   {qty}
                                 </Typography>
                                 <IconButton
@@ -877,6 +929,26 @@ export default function OrderItemsTable({
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Quantity input dialog */}
+      <QuantityInputDialog
+        open={qtyDialog.open}
+        onClose={() => setQtyDialog({ open: false, itemIndex: null, menuItemId: null, currentQty: 1 })}
+        onConfirm={(qty) => {
+          if (qtyDialog.itemIndex !== null) {
+            handleQuantityChange(qtyDialog.itemIndex, qty);
+          } else if (qtyDialog.menuItemId) {
+            handleSelectedItemQuantitySet(qtyDialog.menuItemId, qty);
+          }
+          setQtyDialog({ open: false, itemIndex: null, menuItemId: null, currentQty: 1 });
+        }}
+        title="Set quantity"
+        label="Quantity"
+        minQuantity={1}
+        maxQuantity={99}
+        defaultValue={qtyDialog.currentQty}
+        confirmText="Save"
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
