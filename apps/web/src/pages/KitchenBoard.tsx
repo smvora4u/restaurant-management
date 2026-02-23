@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -54,6 +54,7 @@ const getNextStatus = (currentStatus: string): string | null => {
 
 export default function KitchenBoard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
   const [snackbar, setSnackbar] = useState({
@@ -387,7 +388,7 @@ export default function KitchenBoard() {
     );
   }
 
-  const isRestaurantUser = !staff && restaurant;
+  const isRestaurantContext = location.pathname.startsWith('/restaurant/');
 
   const content = (
     <>
@@ -517,7 +518,7 @@ export default function KitchenBoard() {
     </>
   );
 
-  return isRestaurantUser ? (
+  return isRestaurantContext ? (
     <Layout>{content}</Layout>
   ) : (
     <StaffLayout staffPermissions={staff?.permissions || []} staff={staff!} restaurant={restaurant}>
