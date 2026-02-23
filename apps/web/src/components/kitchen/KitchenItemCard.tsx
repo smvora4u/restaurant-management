@@ -50,7 +50,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
         onClick={onClick}
         sx={{
           cursor: (isUpdating || itemIsUpdating) ? 'not-allowed' : 'pointer',
-          mb: 2,
+          mb: 1,
           backgroundColor: getStatusBackgroundColor(status),
           border: `2px solid ${status === 'served' ? '#6c757d' : 'transparent'}`,
           transition: 'all 0.2s ease-in-out',
@@ -82,7 +82,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
           </Box>
         )}
         
-        <CardContent sx={{ p: 2 }}>
+        <CardContent sx={{ p: 1.5 }}>
           {/* Table Number / Customer Name - Large and Prominent */}
           <Typography
             variant="h4"
@@ -90,7 +90,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
             sx={{
               fontWeight: 'bold',
               textAlign: 'center',
-              mb: 1,
+              mb: 0.5,
               color: status === 'served' ? '#6c757d' : 'text.primary'
             }}
           >
@@ -104,7 +104,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               component="div"
               sx={{
                 textAlign: 'center',
-                mb: 1,
+                mb: 0.5,
                 color: 'text.secondary',
                 fontStyle: 'italic'
               }}
@@ -119,7 +119,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
             component="div"
             sx={{
               textAlign: 'center',
-              mb: 1,
+              mb: 0.5,
               fontWeight: 'medium',
               color: status === 'served' ? '#6c757d' : 'text.primary'
             }}
@@ -131,8 +131,8 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
           {specialInstructions && (
             <Box
               sx={{
-                mb: 1,
-                py: 0.75,
+                mb: 0.5,
+                py: 0.5,
                 px: 1.5,
                 backgroundColor: 'rgba(0, 0, 0, 0.08)',
                 borderRadius: 1,
@@ -155,7 +155,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
           )}
 
           {/* Quantity - bigger for readability */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0 }}>
             <Chip
               icon={<StatusIcon />}
               label={`Qty: ${quantity}`}

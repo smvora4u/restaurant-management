@@ -6,12 +6,8 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  Snackbar,
-  Chip
+  Snackbar
 } from '@mui/material';
-import {
-  Restaurant as RestaurantIcon
-} from '@mui/icons-material';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
 import Layout from '../components/Layout';
@@ -389,47 +385,17 @@ export default function KitchenBoard() {
     );
   }
 
-  const totalItems = flattenedItems.length;
   const isRestaurantUser = !staff && restaurant;
 
   const content = (
     <>
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          mb: 2,
-          p: 2,
-          backgroundColor: 'background.paper',
-          borderRadius: 1,
-          boxShadow: 1
-        }}>
-          <Box>
-            <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <RestaurantIcon />
-              Kitchen Board
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Real-time order item management
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Chip 
-              label={`${totalItems} Items`} 
-              color="primary" 
-              variant="outlined" 
-            />
-          </Box>
-        </Box>
-
         {/* Kitchen Board Columns */}
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           <Box sx={{ 
             display: 'flex', 
             height: '100%', 
-            gap: 2,
+            gap: 1,
             '& > *': {
               flex: '1 1 25%', // Each column takes exactly 25% width
               minWidth: 0 // Prevent flex items from overflowing
@@ -450,7 +416,7 @@ export default function KitchenBoard() {
                 >
                   {/* Column Header */}
                   <Box sx={{ 
-                    p: 2, 
+                    p: 1, 
                     borderBottom: '2px solid', 
                     borderColor: 'divider',
                     backgroundColor: 'rgba(255, 255, 255, 0.7)'
@@ -466,7 +432,7 @@ export default function KitchenBoard() {
                   {/* Items Container */}
                   <Box sx={{ 
                     flex: 1, 
-                    p: 2, 
+                    p: 1, 
                     overflow: 'auto',
                     '&::-webkit-scrollbar': {
                       width: '8px',
@@ -525,7 +491,7 @@ export default function KitchenBoard() {
         </Box>
 
         {/* Instructions */}
-        <Box sx={{ p: 2, backgroundColor: 'background.paper', mt: 2, borderRadius: 1 }}>
+        <Box sx={{ p: 1, backgroundColor: 'background.paper', mt: 1, borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
             💡 Click on any item card to move it to the next status. Items flow: Pending → Preparing → Ready → Served
           </Typography>
