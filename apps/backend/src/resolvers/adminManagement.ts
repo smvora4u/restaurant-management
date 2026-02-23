@@ -111,15 +111,19 @@ export const adminMutations = {
       if (updateData.settings) {
         const existing = await Restaurant.findById(id).select('settings').lean();
         const existingSettings = (existing?.settings as any) || {};
+        const networkPrinterValue = updateData.settings.networkPrinter ?? existingSettings.networkPrinter;
         updateData.settings = {
           currency: updateData.settings.currency ?? existingSettings.currency ?? 'USD',
           timezone: updateData.settings.timezone ?? existingSettings.timezone ?? 'UTC',
           theme: updateData.settings.theme !== undefined ? updateData.settings.theme : existingSettings.theme,
           itemInstructions: updateData.settings.itemInstructions !== undefined ? updateData.settings.itemInstructions : (existingSettings.itemInstructions ?? []),
           kitchenBoardClickIncrement: updateData.settings.kitchenBoardClickIncrement ?? existingSettings.kitchenBoardClickIncrement ?? 1,
-          billSize: updateData.settings.billSize ?? existingSettings.billSize,
-          networkPrinter: updateData.settings.networkPrinter ?? existingSettings.networkPrinter
+          billSize: updateData.settings.billSize ?? existingSettings.billSize
         };
+        // Only include networkPrinter when it has a valid value - Mongoose fails casting undefined to Object
+        if (networkPrinterValue != null && typeof networkPrinterValue === 'object' && networkPrinterValue.host) {
+          updateData.settings.networkPrinter = networkPrinterValue;
+        }
       }
       
       const updated = await Restaurant.findByIdAndUpdate(id, updateData, { new: true });

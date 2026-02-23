@@ -36,8 +36,8 @@ const RestaurantSchema = new Schema<IRestaurant>({
     theme: Schema.Types.Mixed,
     billSize: { type: String, default: '80mm', enum: ['58mm', '80mm'] },
     networkPrinter: {
-      host: { type: String },
-      port: { type: Number }
+      type: Schema.Types.Mixed,
+      default: undefined
     },
     itemInstructions: { type: [String], default: [] },
     kitchenBoardClickIncrement: { type: Number, default: 1 }

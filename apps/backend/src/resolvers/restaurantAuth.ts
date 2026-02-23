@@ -259,18 +259,25 @@ export const restaurantAuthResolvers = {
         input.kitchenBoardClickIncrement !== undefined
           ? Math.max(1, Math.min(99, Number(input.kitchenBoardClickIncrement) || 1))
           : (currentSettings.kitchenBoardClickIncrement ?? 1);
-      const mergedSettings = {
+      const networkPrinterValue =
+        input.networkPrinter !== undefined
+          ? input.networkPrinter?.host
+            ? { host: input.networkPrinter.host, port: input.networkPrinter.port ?? 9100 }
+            : undefined
+          : currentSettings.networkPrinter;
+      const mergedSettings: Record<string, unknown> = {
         currency: input.currency ?? currentSettings.currency ?? 'USD',
         timezone: input.timezone ?? currentSettings.timezone ?? 'UTC',
         theme: input.theme !== undefined ? input.theme : currentSettings.theme,
         itemInstructions: input.itemInstructions !== undefined ? input.itemInstructions : (currentSettings.itemInstructions ?? []),
         kitchenBoardClickIncrement,
-        billSize: input.billSize !== undefined ? input.billSize : currentSettings.billSize,
-        networkPrinter: input.networkPrinter !== undefined
-          ? (input.networkPrinter?.host ? { host: input.networkPrinter.host, port: input.networkPrinter.port ?? 9100 } : undefined)
-          : currentSettings.networkPrinter
+        billSize: input.billSize !== undefined ? input.billSize : currentSettings.billSize
       };
-      restaurant.settings = mergedSettings;
+      // Only include networkPrinter when it has a valid value - Mongoose fails casting undefined to Object
+      if (networkPrinterValue != null && typeof networkPrinterValue === 'object' && networkPrinterValue.host) {
+        mergedSettings.networkPrinter = networkPrinterValue;
+      }
+      restaurant.settings = mergedSettings as typeof restaurant.settings;
       await restaurant.save();
       await publishRestaurantUpdated(restaurant);
       return restaurant;
