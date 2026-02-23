@@ -19,6 +19,7 @@ import { UPDATE_ORDER } from '../graphql/mutations/orders';
 import { updatePartialQuantityStatus, mergeOrderItemsByStatus } from '../utils/orderItemManagement';
 import { calculateOrderStatus } from '../utils/statusManagement';
 import { getStatusBackgroundColor } from '../utils/statusColors';
+import { isTodayInTimezone } from '../utils/dateFormatting';
 
 interface FlattenedItem {
   orderId: string;
@@ -216,16 +217,9 @@ export default function KitchenBoard() {
     return items;
   }, [ordersData, menuItemsMap, updatingItems]);
 
-  // Group items by status (served column shows only today's items)
+  // Group items by status (served column shows only today's items in restaurant timezone)
   const itemsByStatus = useMemo(() => {
-    const isToday = (date: string | Date | undefined) => {
-      if (!date) return false;
-      const d = new Date(date);
-      const now = new Date();
-      return d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate();
-    };
+    const timezone = restaurant?.settings?.timezone || 'UTC';
 
     const grouped: Record<string, FlattenedItem[]> = {
       pending: [],
@@ -236,9 +230,9 @@ export default function KitchenBoard() {
     
     flattenedItems.forEach(item => {
       if (grouped[item.status]) {
-        // Served column: only show items from orders created today
+        // Served column: only show items from orders created today (restaurant timezone)
         if (item.status === 'served') {
-          if (isToday(item.orderCreatedAt)) {
+          if (isTodayInTimezone(item.orderCreatedAt, timezone)) {
             grouped[item.status].push(item);
           }
         } else {
@@ -248,7 +242,7 @@ export default function KitchenBoard() {
     });
     
     return grouped;
-  }, [flattenedItems]);
+  }, [flattenedItems, restaurant?.settings?.timezone]);
 
   const handleItemClick = async (item: FlattenedItem) => {
     const nextStatus = getNextStatus(item.status);
