@@ -36,6 +36,7 @@ interface FlattenedItem {
   itemName?: string;
   customerName?: string;
   isUpdating?: boolean;
+  orderCreatedAt?: string | Date;
 }
 
 const statusColumns = [
@@ -210,7 +211,8 @@ export default function KitchenBoard() {
           specialInstructions: normalizedInstructions || undefined, // Use normalized value, or undefined if empty
           itemName: menuItemsMap[item.menuItemId]?.name || 'Loading...',
           customerName: order.customerName,
-          isUpdating: isItemUpdating
+          isUpdating: isItemUpdating,
+          orderCreatedAt: order.createdAt
         });
       });
     });
@@ -218,8 +220,17 @@ export default function KitchenBoard() {
     return items;
   }, [ordersData, menuItemsMap, updatingItems]);
 
-  // Group items by status
+  // Group items by status (served column shows only today's items)
   const itemsByStatus = useMemo(() => {
+    const isToday = (date: string | Date | undefined) => {
+      if (!date) return false;
+      const d = new Date(date);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+    };
+
     const grouped: Record<string, FlattenedItem[]> = {
       pending: [],
       preparing: [],
@@ -229,7 +240,14 @@ export default function KitchenBoard() {
     
     flattenedItems.forEach(item => {
       if (grouped[item.status]) {
-        grouped[item.status].push(item);
+        // Served column: only show items from orders created today
+        if (item.status === 'served') {
+          if (isToday(item.orderCreatedAt)) {
+            grouped[item.status].push(item);
+          }
+        } else {
+          grouped[item.status].push(item);
+        }
       }
     });
     
