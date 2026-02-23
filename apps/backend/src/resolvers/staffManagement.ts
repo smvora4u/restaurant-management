@@ -94,8 +94,8 @@ export const staffManagementResolvers = {
             notes: order.notes,
             sessionId: order.sessionId,
             userId: order.userId,
-            createdAt: order.createdAt,
-            updatedAt: order.updatedAt
+            createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : new Date().toISOString()
           };
         });
       } catch (error) {

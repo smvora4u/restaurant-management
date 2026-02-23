@@ -261,6 +261,7 @@ export const isoToLocalDateString = (dateString: string): string => {
  * Checks if a date falls on "today" in a given IANA timezone.
  * Uses the restaurant's timezone so kitchen staff see correct day boundaries
  * regardless of their browser/client timezone.
+ * Falls back to local-time comparison if timezone is invalid.
  * @param date - Date to check (string, Date, or undefined)
  * @param timezone - IANA timezone string (e.g. 'America/New_York', 'UTC')
  * @returns true if the date is today in the given timezone
@@ -272,12 +273,18 @@ export const isTodayInTimezone = (
   if (!date) return false;
   const d = new Date(date);
   if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  const isTodayLocal = () =>
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
   try {
+    if (!timezone || timezone.trim() === '') return isTodayLocal();
     const format = (dt: Date) =>
       new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(dt);
-    return format(d) === format(new Date());
+    return format(d) === format(now);
   } catch {
-    return false;
+    return isTodayLocal();
   }
 };
 
