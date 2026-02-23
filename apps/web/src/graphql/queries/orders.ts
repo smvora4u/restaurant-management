@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_ORDERS = gql`
-  query GetOrders {
-    orders {
+  query GetOrders($fromDate: String, $toDate: String) {
+    orders(fromDate: $fromDate, toDate: $toDate) {
       id
       tableNumber
       orderType

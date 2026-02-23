@@ -25,8 +25,6 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  FilterList as FilterIcon,
   Receipt as ReceiptIcon,
   TableRestaurant as TableIcon,
   LocalShipping as ParcelIcon,
@@ -40,10 +38,11 @@ import {
 } from '@mui/icons-material';
 import { getStatusColor, getStatusIcon } from '../utils/statusColors';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
-import { formatDate, formatTimeAgo } from '../utils/dateFormatting';
+import { formatDate, formatTimeAgo, getLocalDateString } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { GET_ORDERS, GET_MENU_ITEMS } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
+import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 
 interface MenuItem {
   id: string;
@@ -84,11 +83,15 @@ interface MenuItemsData {
   menuItems: MenuItem[];
 }
 
+const ORDER_STATUS_OPTIONS = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'] as const;
+
 interface FilterState {
   search: string;
   tableNumber: string;
   orderType: string;
-  status: string;
+  status: string[];
+  fromDate: string;
+  toDate: string;
 }
 
 export default function OrderListPage() {
@@ -97,26 +100,18 @@ export default function OrderListPage() {
   const navigate = useNavigate();
   
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filters, setFilters] = useState<FilterState>({
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [filters, setFilters] = useState<FilterState>(() => ({
     search: '',
     tableNumber: '',
     orderType: '',
-    status: '',
-  });
-  const [showFilters, setShowFilters] = useState(false);
+    status: [],
+    fromDate: getLocalDateString(),
+    toDate: getLocalDateString(),
+  }));
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
   const [restaurant, setRestaurant] = useState<any>(null);
-
-  const { data, loading, error, refetch } = useQuery<OrdersData>(GET_ORDERS, {
-    errorPolicy: 'all',
-    pollInterval: 30000, // Refresh every 30 seconds
-  });
-
-  const { data: menuData } = useQuery<MenuItemsData>(GET_MENU_ITEMS, {
-    errorPolicy: 'ignore',
-  });
 
   // Get restaurant data
   useEffect(() => {
@@ -126,13 +121,57 @@ export default function OrderListPage() {
     }
   }, []);
 
+  // Normalize filter date to YYYY-MM-DD for API (handles yyyy-mm-dd, dd-mm-yyyy, mm-dd-yyyy)
+  const normalizeFilterDate = (value: string): string => {
+    if (!value?.trim()) return '';
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const parts = trimmed.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+    if (parts) {
+      const a = parseInt(parts[1], 10);
+      const b = parseInt(parts[2], 10);
+      const year = parts[3];
+      if (a > 31 || b > 31) return trimmed;
+      if (b > 12) return `${year}-${String(a).padStart(2, '0')}-${String(b).padStart(2, '0')}`;
+      if (a > 12) return `${year}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+      return `${year}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+    }
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return trimmed;
+  };
+
+  const { data, loading, error, refetch } = useQuery<OrdersData>(GET_ORDERS, {
+    errorPolicy: 'all',
+    variables: {
+      fromDate: normalizeFilterDate(filters.fromDate) || undefined,
+      toDate: normalizeFilterDate(filters.toDate) || undefined,
+    },
+  });
+
+  useOrderSubscriptions({
+    restaurantId: restaurant?.id || '',
+    onOrderUpdated: () => refetch(),
+    onOrderItemStatusUpdated: () => refetch(),
+    onNewOrder: () => refetch(),
+  });
+
+  const { data: menuData } = useQuery<MenuItemsData>(GET_MENU_ITEMS, {
+    errorPolicy: 'ignore',
+  });
+
   const handleOrderCreated = (newOrder: any) => {
     setCreateOrderDialogOpen(false);
     // Navigate to the new order
     navigate(`/restaurant/orders/${newOrder.id}`);
   };
 
-  // Filter orders based on current filter state
+  // Filter orders based on current filter state (date filtering done on server)
   const filteredOrders = useMemo(() => {
     if (!data?.orders) return [];
     
@@ -148,13 +187,13 @@ export default function OrderListPage() {
       
       const matchesOrderType = !filters.orderType || order.orderType === filters.orderType;
       
-      const matchesStatus = !filters.status || order.status === filters.status;
+      const matchesStatus = filters.status.length === 0 || filters.status.includes(order.status);
       
       return matchesSearch && matchesTable && matchesOrderType && matchesStatus;
     });
   }, [data?.orders, filters]);
 
-  const handleFilterChange = (field: keyof FilterState, value: string) => {
+  const handleFilterChange = (field: keyof FilterState, value: string | string[]) => {
     setFilters(prev => ({ ...prev, [field]: value }));
     setPage(0); // Reset to first page when filters change
   };
@@ -164,7 +203,9 @@ export default function OrderListPage() {
       search: '',
       tableNumber: '',
       orderType: '',
-      status: '',
+      status: [],
+      fromDate: '',
+      toDate: '',
     });
     setPage(0);
   };
@@ -567,7 +608,7 @@ export default function OrderListPage() {
         <Card>
           <CardContent sx={{ textAlign: 'center' }}>
             <Typography variant="h4" color="primary">
-              {data?.orders.length || 0}
+              {filteredOrders.length}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Total Orders
@@ -587,7 +628,7 @@ export default function OrderListPage() {
         <Card>
           <CardContent sx={{ textAlign: 'center' }}>
             <Typography variant="h4" color="success.main">
-              {formatCurrencySummary(data?.orders.reduce((sum, order) => sum + order.totalAmount, 0) || 0)}
+              {formatCurrencySummary(filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0))}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Total Revenue
@@ -597,7 +638,7 @@ export default function OrderListPage() {
         <Card>
           <CardContent sx={{ textAlign: 'center' }}>
             <Typography variant="h4" color="warning.main">
-              {data?.orders.filter(order => order.status === 'pending').length || 0}
+              {filteredOrders.filter(order => order.status === 'pending').length}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Pending Orders
@@ -606,123 +647,99 @@ export default function OrderListPage() {
         </Card>
       </Box>
 
-      {/* Controls */}
-      <Card sx={{ mb: 3 }}>
+      {/* Orders List with compact filters */}
+      <Card>
         <CardContent>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 2,
-            mb: showFilters ? 2 : 0
-          }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="h6">
               Orders ({filteredOrders.length})
             </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button
-                variant="outlined"
-                startIcon={<FilterIcon />}
-                onClick={() => setShowFilters(!showFilters)}
-                size="small"
-              >
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => refetch()}
-                size="small"
-              >
-                Refresh
-              </Button>
-            </Box>
+            <Button variant="text" startIcon={<ClearIcon />} onClick={clearFilters} size="small">
+              Clear Filters
+            </Button>
           </Box>
 
-          {/* Filters */}
-          {showFilters && (
-            <Box sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' },
-              gap: 2
-            }}>
-              <TextField
-                fullWidth
-                label="Search"
-                placeholder="Order ID, customer name, phone, notes..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                }}
-              />
-              
-              <TextField
-                fullWidth
-                label="Table Number"
-                placeholder="e.g., 5 or A1"
-                value={filters.tableNumber}
-                onChange={(e) => handleFilterChange('tableNumber', e.target.value)}
-                type="text"
-              />
-              
-              <FormControl fullWidth>
-                <InputLabel>Order Type</InputLabel>
-                <Select
-                  value={filters.orderType}
-                  label="Order Type"
-                  onChange={(e) => handleFilterChange('orderType', e.target.value)}
-                >
-                  <MenuItem value="">All Types</MenuItem>
-                  <MenuItem value="dine-in">Dine-in</MenuItem>
-                  <MenuItem value="takeout">Takeout</MenuItem>
-                  <MenuItem value="delivery">Delivery</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={filters.status}
-                  label="Status"
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  <MenuItem value="">All Statuses</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="confirmed">Confirmed</MenuItem>
-                  <MenuItem value="preparing">Preparing</MenuItem>
-                  <MenuItem value="ready">Ready</MenuItem>
-                  <MenuItem value="delivered">Delivered</MenuItem>
-                  <MenuItem value="cancelled">Cancelled</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          )}
-
-          {/* Clear Filters Button */}
-          {showFilters && (
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="text"
-                startIcon={<ClearIcon />}
-                onClick={clearFilters}
-                size="small"
+          {/* Compact filter row */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{ mb: 2 }}
+            useFlexGap
+            flexWrap="wrap"
+          >
+            <TextField
+              size="small"
+              label="Search"
+              placeholder="Order ID, customer, phone..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              sx={{ minWidth: 140 }}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />,
+              }}
+            />
+            <TextField
+              size="small"
+              label="Table"
+              placeholder="e.g., 5"
+              value={filters.tableNumber}
+              onChange={(e) => handleFilterChange('tableNumber', e.target.value)}
+              sx={{ minWidth: 80 }}
+            />
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={filters.orderType}
+                label="Type"
+                onChange={(e) => handleFilterChange('orderType', e.target.value)}
               >
-                Clear Filters
-              </Button>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Orders List */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Orders ({filteredOrders.length})
-          </Typography>
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="dine-in">Dine-in</MenuItem>
+                <MenuItem value="takeout">Takeout</MenuItem>
+                <MenuItem value="delivery">Delivery</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                multiple
+                value={filters.status}
+                label="Status"
+                onChange={(e) => handleFilterChange('status', e.target.value as string[])}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(selected as string[]).map((s) => (
+                      <Chip key={s} label={s} size="small" sx={{ height: 20 }} />
+                    ))}
+                  </Box>
+                )}
+              >
+                {ORDER_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              size="small"
+              label="From"
+              type="date"
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 130 }}
+            />
+            <TextField
+              size="small"
+              label="To"
+              type="date"
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange('toDate', e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 130 }}
+            />
+          </Stack>
           
           {isMobile ? (
             // Mobile view - Accordion layout
@@ -929,7 +946,7 @@ export default function OrderListPage() {
 
           {/* Pagination */}
           <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
+            rowsPerPageOptions={[50, 100, 150, 200]}
             component="div"
             count={filteredOrders.length}
             rowsPerPage={rowsPerPage}

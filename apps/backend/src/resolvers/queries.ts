@@ -90,14 +90,50 @@ export const queryResolvers = {
   },
   
   // Orders
-  orders: async (_: any, __: any, context: GraphQLContext) => {
+  orders: async (_: any, { fromDate, toDate }: { fromDate?: string; toDate?: string }, context: GraphQLContext) => {
     if (!context.restaurant && !context.staff) {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    // Convert restaurantId string to ObjectId for proper MongoDB comparison
     const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
-    return await Order.find({ restaurantId: restaurantObjectId }).populate('items.menuItemId').sort({ createdAt: -1 });
+    const query: Record<string, unknown> = { restaurantId: restaurantObjectId };
+    const toYmd = (s: string): string => {
+      const t = s.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+      const m = t.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+      if (m) {
+        const [a, b] = [parseInt(m[1] ?? '0', 10), parseInt(m[2] ?? '0', 10)];
+        if (b > 12) return `${m[3]}-${String(a).padStart(2, '0')}-${String(b).padStart(2, '0')}`;
+        if (a > 12) return `${m[3]}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+        return `${m[3]}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+      }
+      return t;
+    };
+    if (fromDate?.trim() || toDate?.trim()) {
+      const dateFilter: Record<string, Date> = {};
+      const fromTrimmed = fromDate?.trim() ?? '';
+      if (fromTrimmed) {
+        try {
+          dateFilter.$gte = parseDateInput(toYmd(fromTrimmed));
+        } catch {
+          // Invalid date, skip filter
+        }
+      }
+      const toTrimmed = toDate?.trim() ?? '';
+      if (toTrimmed) {
+        try {
+          const endOfDay = parseDateInput(toYmd(toTrimmed));
+          endOfDay.setUTCHours(23, 59, 59, 999);
+          dateFilter.$lte = endOfDay;
+        } catch {
+          // Invalid date, skip filter
+        }
+      }
+      if (Object.keys(dateFilter).length > 0) {
+        query.createdAt = dateFilter;
+      }
+    }
+    return await Order.find(query).populate('items.menuItemId').sort({ createdAt: -1 });
   },
   feeLedgers: async (_: any, { restaurantId, limit = 50, offset = 0 }: any, context: GraphQLContext) => {
     if (!context.admin && (!context.restaurant || context.restaurant.id !== restaurantId)) {

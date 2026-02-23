@@ -191,7 +191,7 @@ export const typeDefs = `#graphql
     tables: [Table!]!
     table(id: ID!): Table
     availableTables: [Table!]!
-    orders: [Order!]!
+    orders(fromDate: String, toDate: String): [Order!]!
     order(id: ID!): Order
     orderByTable(tableNumber: String!): Order
     orderById(id: ID!): Order
