@@ -39,6 +39,7 @@ import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
 import { getStatusColor, getStatusMuiIcon } from '../utils/statusColors';
+import { ORDER_STATUSES } from '../constants/orderStatuses';
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
