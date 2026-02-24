@@ -2,17 +2,40 @@
  * Printer proxy connection manager.
  * Proxies connect via WebSocket and register with restaurantId.
  * Backend pushes ESC/POS bytes to the proxy for network printing.
+ * Includes heartbeat (ping/pong) to keep connections alive and detect stale connections.
  */
 
 import { WebSocket } from 'ws';
+
+const PING_INTERVAL_MS = 30000;
 
 export interface ProxyConnection {
   ws: WebSocket;
   restaurantId: string;
   connectedAt: Date;
+  isAlive: boolean;
 }
 
 const connections = new Map<string, ProxyConnection>();
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+function startHeartbeat(): void {
+  if (heartbeatInterval) return;
+  heartbeatInterval = setInterval(() => {
+    for (const conn of connections.values()) {
+      if (!conn.isAlive) {
+        try {
+          conn.ws.terminate();
+        } catch {}
+        continue;
+      }
+      conn.isAlive = false;
+      try {
+        conn.ws.ping();
+      } catch {}
+    }
+  }, PING_INTERVAL_MS);
+}
 
 export function registerProxy(restaurantId: string, ws: WebSocket): void {
   const existing = connections.get(restaurantId);
@@ -21,7 +44,14 @@ export function registerProxy(restaurantId: string, ws: WebSocket): void {
       existing.ws.close();
     } catch {}
   }
-  connections.set(restaurantId, { ws, restaurantId, connectedAt: new Date() });
+  const conn: ProxyConnection = { ws, restaurantId, connectedAt: new Date(), isAlive: true };
+  connections.set(restaurantId, conn);
+
+  ws.on('pong', () => {
+    conn.isAlive = true;
+  });
+
+  startHeartbeat();
 }
 
 export function unregisterProxy(restaurantId: string): void {

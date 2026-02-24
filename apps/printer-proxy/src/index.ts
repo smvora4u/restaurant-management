@@ -50,11 +50,29 @@ const wsUrl = `${BACKEND_WS_URL}${sep}token=${encodeURIComponent(TOKEN)}&restaur
 
 let printerSocket: net.Socket | null = null;
 let ws: WebSocket | null = null;
+let activityTimeout: ReturnType<typeof setTimeout> | null = null;
+let printerReconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const ACTIVITY_TIMEOUT_MS = 60000; // Close and reconnect if no message/ping for 60s
+
+function resetActivityTimeout(): void {
+  if (activityTimeout) {
+    clearTimeout(activityTimeout);
+  }
+  activityTimeout = setTimeout(() => {
+    activityTimeout = null;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('No activity from backend for 60s, reconnecting...');
+      ws.terminate();
+    }
+  }, ACTIVITY_TIMEOUT_MS);
+}
 
 function connectPrinter(): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     socket.setNoDelay(true);
+    socket.setKeepAlive(true, 10000);
     socket.connect(PRINTER_PORT, PRINTER_HOST as string, () => {
       console.log(`Connected to printer at ${PRINTER_HOST}:${PRINTER_PORT}`);
       printerSocket = socket;
@@ -68,6 +86,22 @@ function connectPrinter(): Promise<void> {
     socket.on('close', () => {
       printerSocket = null;
       console.log('Printer disconnected');
+      if (printerReconnectTimeout) {
+        clearTimeout(printerReconnectTimeout);
+      }
+      printerReconnectTimeout = setTimeout(() => {
+        printerReconnectTimeout = null;
+        if (ws) {
+          console.log('Reconnecting to printer...');
+          connectPrinter().catch((err) => {
+            console.error('Printer reconnect failed:', err);
+            printerReconnectTimeout = setTimeout(() => {
+              printerReconnectTimeout = null;
+              connectPrinter().catch(() => {});
+            }, 5000);
+          });
+        }
+      }, 3000);
     });
   });
 }
@@ -77,9 +111,11 @@ function connectBackend(): Promise<void> {
     ws = new WebSocket(wsUrl);
     ws.on('open', () => {
       console.log('Connected to backend');
+      resetActivityTimeout();
       resolve();
     });
     ws.on('message', (data: Buffer | Buffer[]) => {
+      resetActivityTimeout();
       const buf = Buffer.isBuffer(data) ? data : Buffer.concat(data as Buffer[]);
       console.log('Received print job, size:', buf.length);
       if (printerSocket && !printerSocket.destroyed) {
@@ -94,7 +130,14 @@ function connectBackend(): Promise<void> {
         console.error('Printer not connected');
       }
     });
+    ws.on('ping', () => {
+      resetActivityTimeout();
+    });
     ws.on('close', (code?: number, reason?: Buffer) => {
+      if (activityTimeout) {
+        clearTimeout(activityTimeout);
+        activityTimeout = null;
+      }
       console.log('Backend disconnected:', code, reason?.toString());
       reconnect();
     });
