@@ -58,6 +58,7 @@ import { AuditLogsPanel, FeesPanel, PaymentManagementPanel, SettlementsPanel } f
 import { RestaurantDialog, StaffDialog } from './admin/components/dialogs';
 import { RestaurantsTable, OrdersTable, StaffTable } from './admin/components/tables';
 import { isValidEmail, validateForm, validationRules, clearFieldError } from '../utils/validation';
+import { ORDER_STATUSES } from '../constants/orderStatuses';
 
 // Hash password client-side for additional security
 const hashPassword = (password: string): string => {
@@ -74,6 +75,7 @@ export default function AdminDashboard() {
   const [orderRowsPerPage, setOrderRowsPerPage] = useState(10);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   
   // Restaurant management state
   const [restaurantPage, setRestaurantPage] = useState(0);
@@ -735,8 +737,13 @@ export default function AdminDashboard() {
       (order.customerPhone && order.customerPhone.toLowerCase().includes(orderSearchTerm.toLowerCase()));
     
     const matchesStatus = orderStatusFilter === 'all' || order.status === orderStatusFilter;
+
+    const matchesPayment =
+      orderPaymentFilter === 'all' ||
+      (orderPaymentFilter === 'paid' && order.status === 'completed' && order.paid) ||
+      (orderPaymentFilter === 'unpaid' && order.status === 'completed' && !order.paid);
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesPayment;
   });
 
   return (
@@ -904,12 +911,23 @@ export default function AdminDashboard() {
                   onChange={(e: SelectChangeEvent) => setOrderStatusFilter(e.target.value)}
                 >
                   <MenuItem value="all">All Status</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="confirmed">Confirmed</MenuItem>
-                  <MenuItem value="preparing">Preparing</MenuItem>
-                  <MenuItem value="ready">Ready</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
-                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  {ORDER_STATUSES.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl sx={{ minWidth: 120 }}>
+                <InputLabel>Payment</InputLabel>
+                <Select
+                  value={orderPaymentFilter}
+                  label="Payment"
+                  onChange={(e: SelectChangeEvent) => setOrderPaymentFilter(e.target.value as 'all' | 'paid' | 'unpaid')}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="paid">Paid</MenuItem>
+                  <MenuItem value="unpaid">Unpaid</MenuItem>
                 </Select>
               </FormControl>
               <Button

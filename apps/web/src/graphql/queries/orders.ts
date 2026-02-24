@@ -15,6 +15,9 @@ export const GET_ORDERS = gql`
       userId
       createdAt
       updatedAt
+      paid
+      paidAt
+      paymentMethod
       items {
         menuItemId
         quantity

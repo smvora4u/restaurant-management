@@ -36,7 +36,8 @@ import {
   AccessTime as TimeIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import { getStatusColor, getStatusIcon } from '../utils/statusColors';
+import { getStatusColor, getStatusIcon, getPaidStatusLabel } from '../utils/statusColors';
+import { ORDER_STATUSES } from '../constants/orderStatuses';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
 import { formatDate, formatTimeAgo, getLocalDateString } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
@@ -73,6 +74,9 @@ interface Order {
   notes?: string;
   createdAt: string | Date | number;
   updatedAt: string | Date | number;
+  paid?: boolean;
+  paidAt?: string;
+  paymentMethod?: string;
 }
 
 interface OrdersData {
@@ -83,13 +87,12 @@ interface MenuItemsData {
   menuItems: MenuItem[];
 }
 
-const ORDER_STATUS_OPTIONS = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'] as const;
-
 interface FilterState {
   search: string;
   tableNumber: string;
   orderType: string;
   status: string[];
+  paymentFilter: 'all' | 'paid' | 'unpaid';
   fromDate: string;
   toDate: string;
 }
@@ -106,6 +109,7 @@ export default function OrderListPage() {
     tableNumber: '',
     orderType: '',
     status: [],
+    paymentFilter: 'all' as const,
     fromDate: getLocalDateString(),
     toDate: getLocalDateString(),
   }));
@@ -188,8 +192,13 @@ export default function OrderListPage() {
       const matchesOrderType = !filters.orderType || order.orderType === filters.orderType;
       
       const matchesStatus = filters.status.length === 0 || filters.status.includes(order.status);
-      
-      return matchesSearch && matchesTable && matchesOrderType && matchesStatus;
+
+      const matchesPayment =
+        filters.paymentFilter === 'all' ||
+        (filters.paymentFilter === 'paid' && order.status === 'completed' && order.paid) ||
+        (filters.paymentFilter === 'unpaid' && order.status === 'completed' && !order.paid);
+
+      return matchesSearch && matchesTable && matchesOrderType && matchesStatus && matchesPayment;
     });
   }, [data?.orders, filters]);
 
@@ -204,6 +213,7 @@ export default function OrderListPage() {
       tableNumber: '',
       orderType: '',
       status: [],
+      paymentFilter: 'all',
       fromDate: '',
       toDate: '',
     });
@@ -287,9 +297,9 @@ export default function OrderListPage() {
               alignItems: 'center'
             }}>
               <Chip
-                label={order.status}
-                color={getStatusColor(order.status)}
-                icon={<span>{getStatusIcon(order.status)}</span>}
+                label={order.status === 'completed' && order.paid ? getPaidStatusLabel() : order.status}
+                color={(order.status === 'completed' && order.paid ? 'success' : getStatusColor(order.status)) as any}
+                icon={<span>{order.status === 'completed' && order.paid ? '✓' : getStatusIcon(order.status)}</span>}
                 sx={{ fontWeight: 500 }}
               />
               <Chip
@@ -714,11 +724,23 @@ export default function OrderListPage() {
                   </Box>
                 )}
               >
-                {ORDER_STATUS_OPTIONS.map((status) => (
+                {ORDER_STATUSES.map((status) => (
                   <MenuItem key={status} value={status}>
                     {status}
                   </MenuItem>
                 ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Payment</InputLabel>
+              <Select
+                value={filters.paymentFilter}
+                label="Payment"
+                onChange={(e) => handleFilterChange('paymentFilter', e.target.value as 'all' | 'paid' | 'unpaid')}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="paid">Paid</MenuItem>
+                <MenuItem value="unpaid">Unpaid</MenuItem>
               </Select>
             </FormControl>
             <TextField
@@ -767,10 +789,10 @@ export default function OrderListPage() {
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         <Chip
-                          label={order.status}
-                          color={getStatusColor(order.status)}
+                          label={order.status === 'completed' && order.paid ? getPaidStatusLabel() : order.status}
+                          color={(order.status === 'completed' && order.paid ? 'success' : getStatusColor(order.status)) as any}
                           size="small"
-                          icon={<span>{getStatusIcon(order.status)}</span>}
+                          icon={<span>{order.status === 'completed' && order.paid ? '✓' : getStatusIcon(order.status)}</span>}
                         />
                         <Button
                           variant="contained"
@@ -927,10 +949,10 @@ export default function OrderListPage() {
                       </Typography>
                       
                       <Chip
-                        label={order.status}
-                        color={getStatusColor(order.status)}
+                        label={order.status === 'completed' && order.paid ? getPaidStatusLabel() : order.status}
+                        color={(order.status === 'completed' && order.paid ? 'success' : getStatusColor(order.status)) as any}
                         size="small"
-                        icon={<span>{getStatusIcon(order.status)}</span>}
+                        icon={<span>{order.status === 'completed' && order.paid ? '✓' : getStatusIcon(order.status)}</span>}
                       />
                       
                       <Typography variant="body2">

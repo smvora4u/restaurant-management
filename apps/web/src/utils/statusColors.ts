@@ -6,9 +6,13 @@ import {
   LocalDining as LocalDiningIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
+import type { OrderStatus, OrderItemStatus } from '../constants/orderStatuses';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
-export type ItemStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'cancelled';
+export type { OrderStatus };
+export type ItemStatus = OrderItemStatus;
+
+/** Label for Paid badge - used when order.paid is true */
+export const getPaidStatusLabel = () => 'Paid';
 
 export const getStatusColor = (status: string) => {
   switch (status) {

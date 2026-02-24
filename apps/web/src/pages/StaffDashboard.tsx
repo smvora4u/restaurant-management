@@ -17,7 +17,11 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
-  Chip
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   ShoppingCart,
@@ -244,13 +248,21 @@ export default function StaffDashboard() {
                   ),
                 }}
               />
-              <Button
-                variant="outlined"
-                startIcon={<FilterList />}
-                onClick={() => setStatusFilter(statusFilter === 'all' ? 'pending' : 'all')}
-              >
-                {statusFilter === 'all' ? 'Show Pending Only' : 'Show All'}
-              </Button>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  {ORDER_STATUSES.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Box>
           </CardContent>
         </Card>

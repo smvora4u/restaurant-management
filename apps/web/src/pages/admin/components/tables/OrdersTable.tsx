@@ -17,6 +17,7 @@ import {
   Alert
 } from '@mui/material';
 import { Restaurant, Visibility } from '@mui/icons-material';
+import { getStatusColor, getPaidStatusLabel } from '../../../../utils/statusColors';
 
 interface OrdersTableProps {
   ordersLoading: boolean;
@@ -116,13 +117,9 @@ export default function OrdersTable({
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={order.status}
+                        label={order.status === 'completed' && order.paid ? getPaidStatusLabel() : order.status}
                         size="small"
-                        color={
-                          order.status === 'completed' ? 'success' :
-                          order.status === 'pending' ? 'warning' :
-                          order.status === 'cancelled' ? 'error' : 'default'
-                        }
+                        color={(order.status === 'completed' && order.paid ? 'success' : getStatusColor(order.status)) as any}
                       />
                     </TableCell>
                     <TableCell>
