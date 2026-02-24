@@ -83,6 +83,8 @@ export default function UnifiedLogin() {
   // Mutations for each user type
   const [loginRestaurant, { loading: restaurantLoading }] = useMutation(LOGIN_RESTAURANT, {
     onCompleted: async (data) => {
+      localStorage.removeItem('staff');
+      localStorage.removeItem('staffToken');
       localStorage.setItem('restaurantToken', data.loginRestaurant.token);
       localStorage.setItem('restaurant', JSON.stringify(data.loginRestaurant.restaurant));
       
@@ -113,6 +115,7 @@ export default function UnifiedLogin() {
 
   const [loginStaff, { loading: staffLoading }] = useMutation(LOGIN_STAFF, {
     onCompleted: async (data) => {
+      localStorage.removeItem('restaurantToken');
       localStorage.setItem('staffToken', data.loginStaff.token);
       localStorage.setItem('staff', JSON.stringify(data.loginStaff.staff));
       localStorage.setItem('restaurant', JSON.stringify(data.loginStaff.restaurant));
