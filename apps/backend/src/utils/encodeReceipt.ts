@@ -24,6 +24,14 @@ function toAscii(str: string): number[] {
   return bytes;
 }
 
+/** Format order date for receipts - uses order time only, never print time */
+function formatOrderDate(order: ReceiptOrder): string {
+  const val = order?.createdAt ?? (order as any)?.created_at;
+  if (val == null || val === '') return 'Order date unavailable';
+  const d = typeof val === 'string' ? new Date(val) : val;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : 'Order date unavailable';
+}
+
 /**
  * Minimal receipt encoding: only ESC @ (init), text, newlines, cut.
  * Avoids character-mode (0x1c 0x2e) and other commands some printers reject.
@@ -35,9 +43,7 @@ export function encodeReceiptMinimal(
 ): Uint8Array {
   const currency = restaurant?.settings?.currency || 'USD';
   const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
-  const createdAt =
-    typeof order.createdAt === 'string' ? new Date(order.createdAt) : order.createdAt;
-  const dateStr = createdAt.toLocaleString();
+  const dateStr = formatOrderDate(order);
   const orderTypeLabel = order.orderType.charAt(0).toUpperCase() + order.orderType.slice(1);
   const orderIdShort = String(order.id).slice(-8);
 
@@ -87,6 +93,60 @@ export function encodeReceiptMinimal(
   return new Uint8Array(lines);
 }
 
+/**
+ * Minimal KOT encoding: items only, no prices, no total.
+ */
+export function encodeKOTMinimal(
+  order: ReceiptOrder,
+  restaurant: ReceiptRestaurant,
+  menuItems: ReceiptMenuItem[]
+): Uint8Array {
+  const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
+  const dateStr = formatOrderDate(order);
+  const orderTypeLabel = order.orderType.charAt(0).toUpperCase() + order.orderType.slice(1);
+  const orderIdShort = String(order.id).slice(-8);
+
+  const lines: number[] = [];
+  const add = (b: number | number[]) => {
+    if (Array.isArray(b)) lines.push(...b);
+    else lines.push(b);
+  };
+  const line = (s: string) => {
+    add(toAscii(s));
+    add(LF);
+  };
+
+  add([ESC, 0x40]); // init
+  add([ESC, 0x61, 0x01]); // center
+  add([ESC, 0x45, 0x01]); // bold
+  line(restaurant?.name || 'Restaurant');
+  add([ESC, 0x45, 0x00]); // bold off
+  add(LF);
+  add([ESC, 0x61, 0x00]); // left
+  line(`Order #${orderIdShort}  ${orderTypeLabel}`);
+  if (order.orderType === 'dine-in' && order.tableNumber != null) {
+    line(`Table: ${order.tableNumber}`);
+  }
+  line(dateStr);
+  if (order.customerName) line(order.customerName);
+  if (order.customerPhone) line(order.customerPhone);
+  add(LF);
+
+  order.items.forEach((item) => {
+    const name = itemNameMap.get(item.menuItemId) || `Item ${String(item.menuItemId).slice(-6)}`;
+    line(`${item.quantity} x ${name}`);
+    if (item.specialInstructions) line(`   (${item.specialInstructions})`);
+  });
+
+  add(LF);
+  add([ESC, 0x61, 0x01]); // center
+  line('KITCHEN');
+  add([LF, LF, LF, LF, LF, LF]);
+  add([GS, 0x56, 0x01]); // partial cut
+
+  return new Uint8Array(lines);
+}
+
 export interface ReceiptOrderItem {
   menuItemId: string;
   quantity: number;
@@ -102,7 +162,7 @@ export interface ReceiptOrder {
   totalAmount: number;
   customerName?: string;
   customerPhone?: string;
-  createdAt: Date | string;
+  createdAt?: Date | string;
 }
 
 export interface ReceiptRestaurant {
@@ -132,9 +192,7 @@ export function encodeReceiptToEscPos(
 
   const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
 
-  const createdAt =
-    typeof order.createdAt === 'string' ? new Date(order.createdAt) : order.createdAt;
-  const dateStr = createdAt.toLocaleString();
+  const dateStr = formatOrderDate(order);
 
   const tableInfo =
     order.orderType === 'dine-in' && order.tableNumber
@@ -177,6 +235,65 @@ export function encodeReceiptToEscPos(
     .newline()
     .align('center')
     .line('Thank you!')
+    .newline(2)
+    .cut('partial');
+
+  return encoder.encode();
+}
+
+export function encodeKOTToEscPos(
+  order: ReceiptOrder,
+  restaurant: ReceiptRestaurant,
+  menuItems: ReceiptMenuItem[]
+): Uint8Array {
+  const billSize = restaurant?.settings?.billSize || '80mm';
+  const columns = billSize === '58mm' ? 32 : 48;
+
+  const encoder = new ReceiptPrinterEncoder({
+    columns,
+    language: 'esc-pos',
+    codepageMapping: 'epson'
+  });
+
+  const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
+
+  const dateStr = formatOrderDate(order);
+
+  const tableInfo =
+    order.orderType === 'dine-in' && order.tableNumber
+      ? `Table: ${order.tableNumber}`
+      : order.orderType.charAt(0).toUpperCase() + order.orderType.slice(1);
+
+  const orderIdShort = String(order.id).slice(-8);
+
+  encoder
+    .initialize()
+    .align('center')
+    .bold(true)
+    .line(restaurant?.name || 'Restaurant')
+    .bold(false)
+    .newline()
+    .align('left')
+    .line(`Order #${orderIdShort}  ${tableInfo}`)
+    .line(dateStr);
+
+  if (order.customerName) encoder.line(order.customerName);
+  if (order.customerPhone) encoder.line(order.customerPhone);
+
+  encoder.newline();
+
+  order.items.forEach((item) => {
+    const name = itemNameMap.get(item.menuItemId) || `Item ${String(item.menuItemId).slice(-6)}`;
+    encoder.line(`${item.quantity} x ${name}`);
+    if (item.specialInstructions) {
+      encoder.line(`   (${item.specialInstructions})`);
+    }
+  });
+
+  encoder
+    .newline()
+    .align('center')
+    .line('KITCHEN')
     .newline(2)
     .cut('partial');
 

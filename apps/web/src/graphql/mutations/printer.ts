@@ -6,6 +6,12 @@ export const REQUEST_NETWORK_PRINT = gql`
   }
 `;
 
+export const REQUEST_NETWORK_KOT = gql`
+  mutation RequestNetworkKOT($orderId: ID!) {
+    requestNetworkKOT(orderId: $orderId)
+  }
+`;
+
 export const REQUEST_TEST_PRINT = gql`
   mutation RequestTestPrint($restaurantId: ID!) {
     requestTestPrint(restaurantId: $restaurantId)

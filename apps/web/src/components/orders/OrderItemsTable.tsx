@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Table,
@@ -109,6 +109,15 @@ export default function OrderItemsTable({
     menuItemId: string | null;
     currentQty: number;
   }>({ open: false, itemIndex: null, menuItemId: null, currentQty: 1 });
+
+  // Close status dialog when selected item is removed (e.g. after delete)
+  useEffect(() => {
+    if (selectedItemIndex !== null && (selectedItemIndex >= items.length || !items[selectedItemIndex])) {
+      setSelectedItemIndex(null);
+      setItemStatusDialogOpen(false);
+    }
+  }, [items, selectedItemIndex]);
+
   const theme = useTheme();
   // Full screen on mobile, tablets, and small laptops (up to md breakpoint)
   const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
@@ -493,7 +502,7 @@ export default function OrderItemsTable({
                 <MenuItem 
                   value="cancelled" 
                   disabled={
-                    selectedItemIndex !== null 
+                    selectedItemIndex !== null && items[selectedItemIndex]
                       ? !['pending', 'confirmed'].includes(items[selectedItemIndex].status)
                       : true
                   }
@@ -518,7 +527,7 @@ export default function OrderItemsTable({
               onBlur={(e) => {
                 // Ensure minimum value of 1 when field loses focus
                 const numValue = parseInt(e.target.value) || 1;
-                const maxValue = selectedItemIndex !== null ? items[selectedItemIndex].quantity : 1;
+                const maxValue = selectedItemIndex !== null && items[selectedItemIndex] ? items[selectedItemIndex].quantity : 1;
                 const finalValue = Math.max(1, Math.min(numValue, maxValue));
                 setStatusUpdateQuantity(finalValue.toString());
               }}

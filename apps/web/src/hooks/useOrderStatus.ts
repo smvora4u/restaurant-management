@@ -101,7 +101,7 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     }
   }, [orderId, newStatus, order, updateOrderStatus, onError]);
 
-  const handleCompleteOrder = useCallback(async () => {
+  const handleCompleteOrder = useCallback(async (overrideItems?: any[]) => {
     if (!order) {
       onError?.(new Error('Order data not available'));
       return;
@@ -110,31 +110,35 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
     setIsUpdating(true);
     
     try {
-      // Auto-detach table when completing dine-in order
       const shouldDetachTable = order.orderType === 'dine-in' && order.tableNumber;
       const restaurantId = getEffectiveRestaurantId();
-      
+      const itemsToUse = overrideItems ?? order.items;
+      const isTakeoutOrDelivery = order.orderType === 'takeout' || order.orderType === 'delivery';
+      // For takeout/delivery, ensure all items are served when completing
+      const items = itemsToUse.map((item: any) => ({
+        menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
+        quantity: item.quantity,
+        price: item.price,
+        status: isTakeoutOrDelivery ? 'served' : item.status,
+        specialInstructions: item.specialInstructions
+      }));
+      const totalAmount = items.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0);
+
       await updateOrderStatus({
         variables: {
           id: orderId,
           input: {
             restaurantId,
             status: 'completed',
-            tableNumber: shouldDetachTable ? null : (order.tableNumber != null ? String(order.tableNumber) : null), // Detach table if completing dine-in order
+            tableNumber: shouldDetachTable ? null : (order.tableNumber != null ? String(order.tableNumber) : null),
             orderType: order.orderType,
             customerName: order.customerName,
             customerPhone: order.customerPhone,
             notes: order.notes,
             sessionId: order.sessionId,
             userId: order.userId,
-            items: order.items.map((item: any) => ({
-              menuItemId: typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id,
-              quantity: item.quantity,
-              price: item.price,
-              status: item.status,
-              specialInstructions: item.specialInstructions
-            })),
-            totalAmount: order.totalAmount
+            items,
+            totalAmount
           }
         }
       });

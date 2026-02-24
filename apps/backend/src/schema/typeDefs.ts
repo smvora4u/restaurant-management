@@ -271,6 +271,7 @@ export const typeDefs = `#graphql
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
     requestNetworkPrint(orderId: ID!): Boolean!
+    requestNetworkKOT(orderId: ID!): Boolean!
     requestTestPrint(restaurantId: ID!): Boolean!
     generatePrinterProxyToken: String!
     

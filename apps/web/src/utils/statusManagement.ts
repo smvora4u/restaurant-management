@@ -188,10 +188,16 @@ export const getPreviousStatus = (currentStatus: ItemStatus | OrderStatus): Item
 
 /**
  * Checks if an order can be marked as completed
- * Order can only be completed when all items are served (order status is 'served')
+ * Dine-in: all items must be served. Takeout/delivery: only requires at least one item.
  */
-export const canCompleteOrder = (items: Array<{ status: ItemStatus }>): boolean => {
-  return items.length > 0 && items.every(item => item.status === 'served');
+export const canCompleteOrder = (
+  items: Array<{ status: ItemStatus }>,
+  orderType?: string
+): boolean => {
+  if (items.length === 0) return false;
+  const isTakeoutOrDelivery = orderType === 'takeout' || orderType === 'delivery';
+  if (isTakeoutOrDelivery) return true;
+  return items.every(item => item.status === 'served');
 };
 
 /**

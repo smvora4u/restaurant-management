@@ -48,13 +48,14 @@ export const useOrderManagement = ({
   }, []);
 
   const handleQuantityChangeWrapper = useCallback((index: number, newQuantity: number) => {
+    const orderType = originalOrder?.orderType;
     setEditingItems(prev => {
-      const updated = handleQuantityChange(prev, index, newQuantity);
+      const updated = handleQuantityChange(prev, index, newQuantity, orderType);
       const merged = mergeOrderItemsByStatus(updated);
       setHasUnsavedChanges(true);
       return merged;
     });
-  }, []);
+  }, [originalOrder?.orderType]);
 
   const handleRemoveItem = useCallback((index: number) => {
     setEditingItems(prev => {
@@ -71,6 +72,8 @@ export const useOrderManagement = ({
 
   const handleAddItems = useCallback((items: Array<{ menuItemId: string; quantity: number; specialInstructions: string; price: number }>) => {
     if (items.length === 0) return;
+    const isTakeoutOrDelivery = originalOrder?.orderType === 'takeout' || originalOrder?.orderType === 'delivery';
+    const initialStatus = isTakeoutOrDelivery ? ('served' as const) : ('pending' as const);
     setEditingItems(prev => {
       let updated = prev;
       for (const item of items) {
@@ -78,7 +81,7 @@ export const useOrderManagement = ({
           menuItemId: item.menuItemId,
           quantity: item.quantity,
           price: item.price,
-          status: 'pending' as const,
+          status: initialStatus,
           specialInstructions: item.specialInstructions
         };
         updated = addNewOrderItem(updated, newItem);
@@ -87,15 +90,17 @@ export const useOrderManagement = ({
       setHasUnsavedChanges(true);
       return updated;
     });
-  }, []);
+  }, [originalOrder?.orderType]);
 
   const handleAddItem = useCallback((menuItemId: string, quantity: number, specialInstructions: string, price: number) => {
+    const isTakeoutOrDelivery = originalOrder?.orderType === 'takeout' || originalOrder?.orderType === 'delivery';
+    const initialStatus = isTakeoutOrDelivery ? ('served' as const) : ('pending' as const);
     setEditingItems(prev => {
       const newItem = {
         menuItemId,
         quantity,
         price,
-        status: 'pending' as const,
+        status: initialStatus,
         specialInstructions
       };
       let updated = addNewOrderItem(prev, newItem);
@@ -104,7 +109,7 @@ export const useOrderManagement = ({
       setHasUnsavedChanges(true);
       return updated;
     });
-  }, []);
+  }, [originalOrder?.orderType]);
 
   const handleUpdateItemStatus = useCallback((itemIndex: number, status: string, quantity?: number) => {
     setEditingItems(prev => {

@@ -2,7 +2,7 @@ import { Staff, Order, MenuItem, Restaurant } from '../models/index.js';
 import { ORDER_STATUSES } from '../constants/orderStatuses.js';
 import { publishOrderUpdated } from './subscriptions.js';
 import { isProxyConnected, sendPrintJob } from '../services/printerProxy.js';
-import { encodeReceiptMinimal } from '../utils/encodeReceipt.js';
+import { encodeReceiptMinimal, encodeKOTMinimal } from '../utils/encodeReceipt.js';
 import { GraphQLContext } from '../types/index.js';
 
 export const staffManagementResolvers = {
@@ -231,7 +231,7 @@ export const staffManagementResolvers = {
         totalAmount: order.totalAmount,
         ...(order.customerName != null && { customerName: order.customerName }),
         ...(order.customerPhone != null && { customerPhone: order.customerPhone }),
-        createdAt: order.createdAt
+        createdAt: order.createdAt ?? (order as any).created_at
       };
       const receiptRestaurant = {
         name: restaurant.name,
@@ -239,6 +239,59 @@ export const staffManagementResolvers = {
       };
       const receiptMenuItems = menuItems.map((m: any) => ({ id: String(m._id), name: m.name }));
       const encoded = encodeReceiptMinimal(receiptOrder, receiptRestaurant, receiptMenuItems);
+      const sent = sendPrintJob(restaurantId, encoded);
+      if (!sent) {
+        throw new Error('Failed to send print job to proxy');
+      }
+      return true;
+    },
+
+    requestNetworkKOT: async (_: any, { orderId }: { orderId: string }, context: GraphQLContext) => {
+      if (!context.staff && !context.restaurant) {
+        throw new Error('Authentication required');
+      }
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+      const restaurantId = String(order.restaurantId);
+      const allowedId = context.staff?.restaurantId || context.restaurant?.id;
+      if (allowedId && String(allowedId) !== restaurantId) {
+        throw new Error('Unauthorized to print for this order');
+      }
+      if (!isProxyConnected(restaurantId)) {
+        throw new Error('Printer proxy not connected for this restaurant');
+      }
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (!restaurant) {
+        throw new Error('Restaurant not found');
+      }
+      const np = (restaurant.settings as any)?.networkPrinter;
+      if (!np?.host || !np?.port) {
+        throw new Error('Network printer not configured');
+      }
+      const menuItems = await MenuItem.find({ restaurantId });
+      const receiptOrder = {
+        id: String(order._id),
+        ...(order.tableNumber != null && { tableNumber: order.tableNumber }),
+        orderType: order.orderType,
+        items: order.items.map((i: any) => ({
+          menuItemId: String(i.menuItemId),
+          quantity: i.quantity,
+          price: i.price,
+          specialInstructions: i.specialInstructions
+        })),
+        totalAmount: order.totalAmount,
+        ...(order.customerName != null && { customerName: order.customerName }),
+        ...(order.customerPhone != null && { customerPhone: order.customerPhone }),
+        createdAt: order.createdAt ?? (order as any).created_at
+      };
+      const receiptRestaurant = {
+        name: restaurant.name,
+        settings: restaurant.settings
+      };
+      const receiptMenuItems = menuItems.map((m: any) => ({ id: String(m._id), name: m.name }));
+      const encoded = encodeKOTMinimal(receiptOrder, receiptRestaurant, receiptMenuItems);
       const sent = sendPrintJob(restaurantId, encoded);
       if (!sent) {
         throw new Error('Failed to send print job to proxy');

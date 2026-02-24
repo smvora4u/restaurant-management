@@ -15,11 +15,13 @@ export interface OrderItem {
 /**
  * Handles quantity changes with status-aware merging
  * Implements Option 1 with Option A (merge same status, separate different status)
+ * @param orderType - When 'takeout' or 'delivery', adding to served item keeps served status
  */
 export const handleQuantityChange = (
   items: OrderItem[],
   index: number,
-  newQuantity: number
+  newQuantity: number,
+  orderType?: string
 ): OrderItem[] => {
   if (newQuantity < 0) return items;
   
@@ -58,33 +60,35 @@ export const handleQuantityChange = (
       return updatedItems;
     }
     
-    // If current item is NOT pending, create new pending item or merge with existing pending
-    // Normalize specialInstructions for comparison
+    // If current item is NOT pending, create new item or merge with existing same-status item
     const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
     const currentInstructions = normalizeInstructions(currentItem.specialInstructions);
-    const existingPendingIndex = items.findIndex((item, idx) => {
+    // When adding to served item: takeout/delivery keeps served; dine-in uses pending (new order to kitchen)
+    const isTakeoutOrDelivery = orderType === 'takeout' || orderType === 'delivery';
+    const targetStatus = currentItem.status === 'served' && !isTakeoutOrDelivery
+      ? 'pending'
+      : currentItem.status;
+    const existingIndex = items.findIndex((item, idx) => {
       const itemInstructions = normalizeInstructions(item.specialInstructions);
-      return idx !== index && 
+      return idx !== index &&
         (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-        item.status === 'pending' &&
+        item.status === targetStatus &&
         itemInstructions === currentInstructions;
     });
-    
-    if (existingPendingIndex !== -1) {
-      // Merge with existing pending item
+
+    if (existingIndex !== -1) {
       const updatedItems = [...items];
-      updatedItems[existingPendingIndex] = {
-        ...updatedItems[existingPendingIndex],
-        quantity: updatedItems[existingPendingIndex].quantity + quantityDiff
+      updatedItems[existingIndex] = {
+        ...updatedItems[existingIndex],
+        quantity: updatedItems[existingIndex].quantity + quantityDiff
       };
       return updatedItems;
     } else {
-      // Create new item entry with pending status
       const newItem: OrderItem = {
         menuItemId: currentItem.menuItemId,
         quantity: quantityDiff,
         price: currentItem.price,
-        status: 'pending',
+        status: targetStatus,
         specialInstructions: currentItem.specialInstructions
       };
       return [...items, newItem];
@@ -95,7 +99,8 @@ export const handleQuantityChange = (
 };
 
 /**
- * Adds a new item to the order with pending status
+ * Adds a new item to the order, preserving the status from newItem.
+ * For dine-in: typically 'pending'. For takeout/delivery: typically 'served'.
  */
 export const addNewOrderItem = (
   items: OrderItem[],
@@ -104,33 +109,31 @@ export const addNewOrderItem = (
   const menuItemId = typeof newItem.menuItemId === 'string' 
     ? newItem.menuItemId 
     : newItem.menuItemId?.id;
-  
-  // Check if there's already a pending item for the same menuItemId and special instructions
-  // Normalize specialInstructions for comparison
+  const newItemStatus = newItem.status || 'pending';
+
+  // Check if there's already an item for the same menuItemId, status, and special instructions
   const normalizeInstructions = (instructions: any) => (instructions && instructions.trim()) || '';
   const newItemInstructions = normalizeInstructions(newItem.specialInstructions);
-  const existingPendingIndex = items.findIndex((item) => {
+  const existingIndex = items.findIndex((item) => {
     const itemInstructions = normalizeInstructions(item.specialInstructions);
     return (typeof item.menuItemId === 'string' ? item.menuItemId : item.menuItemId?.id) === menuItemId &&
-      item.status === 'pending' &&
+      item.status === newItemStatus &&
       itemInstructions === newItemInstructions;
   });
-  
-  if (existingPendingIndex !== -1) {
-    // Merge with existing pending item (Option A: Merge)
+
+  if (existingIndex !== -1) {
     const updatedItems = [...items];
-    updatedItems[existingPendingIndex] = {
-      ...updatedItems[existingPendingIndex],
-      quantity: updatedItems[existingPendingIndex].quantity + newItem.quantity
+    updatedItems[existingIndex] = {
+      ...updatedItems[existingIndex],
+      quantity: updatedItems[existingIndex].quantity + newItem.quantity
     };
     return updatedItems;
   } else {
-    // Add new item with pending status
-    const itemWithPendingStatus: OrderItem = {
+    const itemToAdd: OrderItem = {
       ...newItem,
-      status: 'pending'
+      status: newItemStatus
     };
-    return [...items, itemWithPendingStatus];
+    return [...items, itemToAdd];
   }
 };
 
