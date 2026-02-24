@@ -843,7 +843,7 @@ export default function OrderListPage() {
               {/* Header row for desktop view */}
               <Box sx={{ 
                 display: 'grid', 
-                gridTemplateColumns: '100px 120px 100px 150px 100px 80px 100px 150px',
+                gridTemplateColumns: '95px 95px 75px 140px 100px 90px 115px 130px',
                 gap: 2,
                 alignItems: 'center',
                 width: '100%',
@@ -899,7 +899,7 @@ export default function OrderListPage() {
                   >
                     <Box sx={{ 
                       display: 'grid', 
-                      gridTemplateColumns: '100px 120px 100px 150px 100px 80px 100px 150px',
+                      gridTemplateColumns: '95px 95px 75px 140px 100px 90px 115px 130px',
                       gap: 2,
                       alignItems: 'center',
                       width: '100%',
