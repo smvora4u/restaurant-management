@@ -116,15 +116,15 @@ export default function KitchenBoard() {
   useOrderSubscriptions({
     restaurantId: restaurantId || '',
     onOrderUpdated: (updatedOrder) => {
-      console.log('Kitchen Board - Order updated received:', updatedOrder);
+      if (import.meta.env.DEV) console.log('Kitchen Board - Order updated received:', updatedOrder);
       refetchOrders();
     },
     onOrderItemStatusUpdated: (updatedOrder) => {
-      console.log('Kitchen Board - Order item status updated received:', updatedOrder);
+      if (import.meta.env.DEV) console.log('Kitchen Board - Order item status updated received:', updatedOrder);
       refetchOrders();
     },
     onNewOrder: (newOrder) => {
-      console.log('Kitchen Board - New order received:', newOrder);
+      if (import.meta.env.DEV) console.log('Kitchen Board - New order received:', newOrder);
       refetchOrders();
     }
   });

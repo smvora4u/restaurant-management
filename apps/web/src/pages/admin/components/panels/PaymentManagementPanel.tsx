@@ -34,11 +34,11 @@ export default function PaymentManagementPanel() {
   // Set up real-time fee subscriptions for payment management
   useFeeSubscriptions({
     onFeeLedgerUpdated: () => {
-      console.log('Fee ledger updated - refetching due fees');
+      if (import.meta.env.DEV) console.log('Fee ledger updated - refetching due fees');
       void refetchDueFees();
     },
     onPaymentStatusUpdated: () => {
-      console.log('Payment status updated - refetching due fees');
+      if (import.meta.env.DEV) console.log('Payment status updated - refetching due fees');
       void refetchDueFees();
     },
     onDueFeesUpdated: () => {
@@ -46,7 +46,7 @@ export default function PaymentManagementPanel() {
       void refetchDueFees();
     },
     fallbackRefetch: () => {
-      console.log('Fallback polling - refetching due fees data');
+      if (import.meta.env.DEV) console.log('Fallback polling - refetching due fees data');
       void refetchDueFees();
     }
   });

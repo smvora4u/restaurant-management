@@ -113,19 +113,19 @@ export default function RestaurantFees() {
   useFeeSubscriptions({
     restaurantId: restaurant?.id,
     onFeeLedgerUpdated: () => {
-      console.log('Restaurant fees - Fee ledger updated - refetching data');
+      if (import.meta.env.DEV) console.log('Restaurant fees - Fee ledger updated - refetching data');
       void refetchLedger();
     },
     onPaymentStatusUpdated: () => {
-      console.log('Restaurant fees - Payment status updated - refetching data');
+      if (import.meta.env.DEV) console.log('Restaurant fees - Payment status updated - refetching data');
       void refetchLedger();
     },
     onDueFeesUpdated: () => {
-      console.log('Restaurant fees - Due fees updated - refetching data');
+      if (import.meta.env.DEV) console.log('Restaurant fees - Due fees updated - refetching data');
       void refetchLedger();
     },
     fallbackRefetch: () => {
-      console.log('Restaurant fees - Fallback polling - refetching data');
+      if (import.meta.env.DEV) console.log('Restaurant fees - Fallback polling - refetching data');
       void refetchLedger();
     }
   });

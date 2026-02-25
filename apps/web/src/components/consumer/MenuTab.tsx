@@ -233,7 +233,7 @@ export default function MenuTab({ tableNumber, orderId, orderType, isParcelOrder
       }
     },
     onNewOrder: (newOrder) => {
-      console.log('New order received:', newOrder);
+      if (import.meta.env.DEV) console.log('New order received:', newOrder);
     }
   });
 

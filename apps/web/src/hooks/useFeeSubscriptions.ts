@@ -17,7 +17,7 @@ export const useFeeSubscriptions = ({
   onDueFeesUpdated,
   fallbackRefetch
 }: UseFeeSubscriptionsProps) => {
-  console.log('Setting up fee subscriptions for restaurantId:', restaurantId);
+  if (import.meta.env.DEV) console.log('Setting up fee subscriptions for restaurantId:', restaurantId);
   
   const [subscriptionErrors, setSubscriptionErrors] = useState<number>(0);
   const [usePolling, setUsePolling] = useState<boolean>(false);
@@ -26,7 +26,7 @@ export const useFeeSubscriptions = ({
   // Only enable polling after multiple errors to avoid unnecessary requests
   useEffect(() => {
     if (usePolling && fallbackRefetch) {
-      console.log('Using fallback polling for fee updates');
+      if (import.meta.env.DEV) console.log('Using fallback polling for fee updates');
       const interval = setInterval(() => {
         fallbackRefetch();
       }, 30000); // Poll every 30 seconds (reduced from 10 seconds to minimize requests)
@@ -46,7 +46,7 @@ export const useFeeSubscriptions = ({
       }
     },
     onComplete: () => {
-      console.log('Fee ledger subscription completed');
+      if (import.meta.env.DEV) console.log('Fee ledger subscription completed');
     }
   });
 
@@ -61,7 +61,7 @@ export const useFeeSubscriptions = ({
       }
     },
     onComplete: () => {
-      console.log('Payment status subscription completed');
+      if (import.meta.env.DEV) console.log('Payment status subscription completed');
     }
   });
 
@@ -77,7 +77,7 @@ export const useFeeSubscriptions = ({
       }
     },
     onComplete: () => {
-      console.log('Due fees subscription completed');
+      if (import.meta.env.DEV) console.log('Due fees subscription completed');
     }
   });
 
@@ -88,21 +88,21 @@ export const useFeeSubscriptions = ({
 
   useEffect(() => {
     if (feeLedgerUpdatedData?.feeLedgerUpdated && onFeeLedgerUpdated) {
-      console.log('Fee ledger updated received:', feeLedgerUpdatedData.feeLedgerUpdated);
+      if (import.meta.env.DEV) console.log('Fee ledger updated received:', feeLedgerUpdatedData.feeLedgerUpdated);
       onFeeLedgerUpdated(feeLedgerUpdatedData.feeLedgerUpdated);
     }
   }, [feeLedgerUpdatedData, onFeeLedgerUpdated]);
 
   useEffect(() => {
     if (paymentStatusUpdatedData?.paymentStatusUpdated && onPaymentStatusUpdated) {
-      console.log('Payment status updated received:', paymentStatusUpdatedData.paymentStatusUpdated);
+      if (import.meta.env.DEV) console.log('Payment status updated received:', paymentStatusUpdatedData.paymentStatusUpdated);
       onPaymentStatusUpdated(paymentStatusUpdatedData.paymentStatusUpdated);
     }
   }, [paymentStatusUpdatedData, onPaymentStatusUpdated]);
 
   useEffect(() => {
     if (dueFeesUpdatedData?.dueFeesUpdated && onDueFeesUpdated) {
-      console.log('Due fees updated received:', dueFeesUpdatedData.dueFeesUpdated);
+      if (import.meta.env.DEV) console.log('Due fees updated received:', dueFeesUpdatedData.dueFeesUpdated);
       onDueFeesUpdated(dueFeesUpdatedData.dueFeesUpdated);
     }
   }, [dueFeesUpdatedData, onDueFeesUpdated]);

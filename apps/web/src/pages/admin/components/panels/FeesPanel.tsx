@@ -95,11 +95,11 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
   useFeeSubscriptions({
     restaurantId: selectedRestaurant?.id,
     onFeeLedgerUpdated: () => {
-      console.log('Fee ledger updated - refetching data');
+      if (import.meta.env.DEV) console.log('Fee ledger updated - refetching data');
       void refetchLedger();
     },
     onPaymentStatusUpdated: () => {
-      console.log('Payment status updated - refetching data');
+      if (import.meta.env.DEV) console.log('Payment status updated - refetching data');
       void refetchLedger();
     },
     onDueFeesUpdated: () => {
@@ -107,7 +107,7 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
       void refetchLedger();
     },
     fallbackRefetch: () => {
-      console.log('Fallback polling - refetching fee ledger data');
+      if (import.meta.env.DEV) console.log('Fallback polling - refetching fee ledger data');
       void refetchLedger();
     }
   });

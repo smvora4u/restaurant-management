@@ -123,6 +123,7 @@ const splitLink = split(
 export const client = new ApolloClient({
   link: splitLink,
   cache: new InMemoryCache(),
+  connectToDevTools: import.meta.env.DEV,
   defaultOptions: {
     watchQuery: {
       errorPolicy: 'all',

@@ -185,7 +185,7 @@ export default function StaffOrderManagement() {
       if (updatedOrder && updatedOrder.items) {
         const calculatedStatus = calculateOrderStatus(updatedOrder.items);
         if (calculatedStatus !== updatedOrder.status) {
-          console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
+          if (import.meta.env.DEV) console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
           // Note: Staff might not have permission to update order status
           // This is just for logging - the restaurant management page will handle the actual update
         }

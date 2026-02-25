@@ -216,7 +216,7 @@ export default function RestaurantOrderManagement() {
     
     // Block if too many updates in the last minute
     if (orderUpdateInfo.count >= maxUpdates) {
-      console.log(`Order ${orderId} is being updated too frequently (${isUserInitiated ? 'user-initiated' : 'automatic'}), blocking update`);
+      if (import.meta.env.DEV) console.log(`Order ${orderId} is being updated too frequently (${isUserInitiated ? 'user-initiated' : 'automatic'}), blocking update`);
       return true;
     }
     
@@ -247,7 +247,7 @@ export default function RestaurantOrderManagement() {
         // Reset emergency brake after 2 minutes
         setTimeout(() => {
           emergencyBrake.current = false;
-          console.log('Emergency brake reset');
+          if (import.meta.env.DEV) console.log('Emergency brake reset');
         }, 120000);
       }
     }
@@ -256,12 +256,12 @@ export default function RestaurantOrderManagement() {
   // Reset circuit breaker for a specific order (useful for manual intervention)
   const resetOrderCircuitBreaker = useCallback((orderId: string) => {
     updateCounts.current.delete(orderId);
-    console.log(`Circuit breaker reset for order: ${orderId}`);
+    if (import.meta.env.DEV) console.log(`Circuit breaker reset for order: ${orderId}`);
   }, []);
   
   // Get restaurant ID for subscriptions
   const restaurantId = data?.order?.restaurantId || '';
-  console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
+  if (import.meta.env.DEV) console.log('Restaurant page - restaurantId for subscriptions:', restaurantId);
 
   // Also try to get restaurant ID from localStorage as fallback
   const getRestaurantIdFromAuth = () => {
@@ -279,21 +279,21 @@ export default function RestaurantOrderManagement() {
 
   const authRestaurantId = getRestaurantIdFromAuth();
   const finalRestaurantId = restaurantId || authRestaurantId;
-  console.log('Restaurant page - final restaurantId:', finalRestaurantId);
+  if (import.meta.env.DEV) console.log('Restaurant page - final restaurantId:', finalRestaurantId);
 
   // Set up real-time subscriptions
   useOrderSubscriptions({
     restaurantId: finalRestaurantId,
     onOrderUpdated: (updatedOrder) => {
-      console.log('Restaurant page - Order updated received:', updatedOrder);
+      if (import.meta.env.DEV) console.log('Restaurant page - Order updated received:', updatedOrder);
       // Only process if this is the order we're currently viewing
       if (updatedOrder.id !== orderId) {
-        console.log('Skipping order updated event - different order:', updatedOrder.id);
+        if (import.meta.env.DEV) console.log('Skipping order updated event - different order:', updatedOrder.id);
         return;
       }
       // If this is an order we recently updated, don't process it to prevent loops
       if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
-        console.log('Skipping order updated event - recently updated by us:', updatedOrder.id);
+        if (import.meta.env.DEV) console.log('Skipping order updated event - recently updated by us:', updatedOrder.id);
         return;
       }
       // Update local state from subscription data instead of refetching
@@ -305,23 +305,23 @@ export default function RestaurantOrderManagement() {
       }
     },
     onOrderItemStatusUpdated: (updatedOrder) => {
-      console.log('Restaurant page - Order item status updated received:', updatedOrder);
+      if (import.meta.env.DEV) console.log('Restaurant page - Order item status updated received:', updatedOrder);
       
       // Only process if this is the order we're currently viewing
       if (updatedOrder.id !== orderId) {
-        console.log('Skipping order item status update - different order:', updatedOrder.id);
+        if (import.meta.env.DEV) console.log('Skipping order item status update - different order:', updatedOrder.id);
         return;
       }
       
       // Emergency brake check - stop all updates if we detect a severe loop
       if (emergencyBrake.current) {
-        console.log('EMERGENCY BRAKE ACTIVE - Skipping all order updates');
+        if (import.meta.env.DEV) console.log('EMERGENCY BRAKE ACTIVE - Skipping all order updates');
         return;
       }
       
       // Skip if we recently updated this order to prevent infinite loops
       if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
-        console.log('Skipping order status update - recently updated:', updatedOrder.id);
+        if (import.meta.env.DEV) console.log('Skipping order status update - recently updated:', updatedOrder.id);
         recentlyUpdatedOrders.current.delete(updatedOrder.id);
         // Don't refetch here to prevent loops
         return;
@@ -330,21 +330,21 @@ export default function RestaurantOrderManagement() {
       // Recalculate order status based on updated item statuses
       if (updatedOrder && updatedOrder.items) {
         const calculatedStatus = calculateOrderStatus(updatedOrder.items);
-        console.log('Current order status:', updatedOrder.status, 'Calculated status:', calculatedStatus);
+        if (import.meta.env.DEV) console.log('Current order status:', updatedOrder.status, 'Calculated status:', calculatedStatus);
         
         // Additional check: if order is already completed, don't try to update it
         if (updatedOrder.status === 'completed' && calculatedStatus === 'completed') {
-          console.log('Order is already completed, skipping update');
+          if (import.meta.env.DEV) console.log('Order is already completed, skipping update');
           // Don't refetch - status is already correct and we don't need to update
           return;
         }
         
         if (calculatedStatus !== updatedOrder.status) {
-          console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
+          if (import.meta.env.DEV) console.log('Order status needs update:', updatedOrder.status, '->', calculatedStatus);
           
           // Check circuit breaker first (automatic update)
           if (isOrderUpdateBlocked(updatedOrder.id, false)) {
-            console.log('Order update blocked by circuit breaker:', updatedOrder.id);
+            if (import.meta.env.DEV) console.log('Order update blocked by circuit breaker:', updatedOrder.id);
             // Don't refetch if blocked - prevents loops
             return;
           }
@@ -362,7 +362,7 @@ export default function RestaurantOrderManagement() {
               status: calculatedStatus
             }
           }).then(() => {
-            console.log('Order status updated successfully to:', calculatedStatus);
+            if (import.meta.env.DEV) console.log('Order status updated successfully to:', calculatedStatus);
             // Don't refetch immediately - the subscription will notify us of the update
             // This prevents loops where update -> subscription -> refetch -> update
           }).catch((error) => {
@@ -377,17 +377,17 @@ export default function RestaurantOrderManagement() {
           const delay = calculatedStatus === 'completed' ? 5000 : 2000;
           setTimeout(() => {
             recentlyUpdatedOrders.current.delete(updatedOrder.id);
-            console.log('Cleared tracking for order:', updatedOrder.id);
+            if (import.meta.env.DEV) console.log('Cleared tracking for order:', updatedOrder.id);
           }, delay);
         } else {
-          console.log('Order status is already correct, no update needed');
+          if (import.meta.env.DEV) console.log('Order status is already correct, no update needed');
           // Don't refetch if status is already correct - prevents unnecessary requests
         }
       }
       // Removed else block that was always refetching - this was causing continuous requests
     },
     onNewOrder: (newOrder) => {
-      console.log('Restaurant page - New order received:', newOrder);
+      if (import.meta.env.DEV) console.log('Restaurant page - New order received:', newOrder);
       // Don't refetch on new orders - we're viewing a specific order, not the list
       // Only refetch if somehow the new order is the one we're viewing (shouldn't happen)
       if (newOrder.id === orderId) {

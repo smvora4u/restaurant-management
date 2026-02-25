@@ -19,7 +19,7 @@ export const useOrderSubscriptions = ({
   onOrderItemStatusUpdated,
   onNewOrder
 }: UseOrderSubscriptionsProps) => {
-  console.log('Setting up subscriptions for restaurantId:', restaurantId);
+  if (import.meta.env.DEV) console.log('Setting up subscriptions for restaurantId:', restaurantId);
 
   // Use refs to store callbacks to avoid recreating effects when callbacks change
   const onOrderUpdatedRef = useRef(onOrderUpdated);
@@ -62,21 +62,21 @@ export const useOrderSubscriptions = ({
   // Use refs in effects to avoid dependency on callback functions
   useEffect(() => {
     if (orderUpdatedData?.orderUpdated && onOrderUpdatedRef.current) {
-      console.log('Order updated received:', orderUpdatedData.orderUpdated);
+      if (import.meta.env.DEV) console.log('Order updated received:', orderUpdatedData.orderUpdated);
       onOrderUpdatedRef.current(orderUpdatedData.orderUpdated);
     }
   }, [orderUpdatedData]); // Only depend on data, not callback
 
   useEffect(() => {
     if (orderItemStatusUpdatedData?.orderItemStatusUpdated && onOrderItemStatusUpdatedRef.current) {
-      console.log('Order item status updated received:', orderItemStatusUpdatedData.orderItemStatusUpdated);
+      if (import.meta.env.DEV) console.log('Order item status updated received:', orderItemStatusUpdatedData.orderItemStatusUpdated);
       onOrderItemStatusUpdatedRef.current(orderItemStatusUpdatedData.orderItemStatusUpdated);
     }
   }, [orderItemStatusUpdatedData]); // Only depend on data, not callback
 
   useEffect(() => {
     if (newOrderData?.newOrder && onNewOrderRef.current) {
-      console.log('New order received:', newOrderData.newOrder);
+      if (import.meta.env.DEV) console.log('New order received:', newOrderData.newOrder);
       onNewOrderRef.current(newOrderData.newOrder);
     }
   }, [newOrderData]); // Only depend on data, not callback
