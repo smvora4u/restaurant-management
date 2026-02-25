@@ -79,7 +79,7 @@ export const queryResolvers = {
     const activeOrders = await Order.find({
       restaurantId: restaurantObjectId,
       orderType: 'dine-in',
-      status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
+      status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
     });
     
     const occupiedTableNumbers = new Set(activeOrders.map(order => order.tableNumber));
