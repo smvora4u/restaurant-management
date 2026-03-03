@@ -38,6 +38,7 @@ import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
+import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { getStatusColor, getStatusMuiIcon } from '../utils/statusColors';
 import { ORDER_STATUSES } from '../constants/orderStatuses';
 
@@ -56,13 +57,19 @@ export default function StaffDashboard() {
   });
   const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
 
-  // Queries
+  // Queries - cache-and-network ensures fresh data when visiting (e.g. after creating order from waitlist)
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_ORDERS_FOR_STAFF, {
     variables: { restaurantId: staff?.restaurantId },
-    skip: !staff?.restaurantId
+    skip: !staff?.restaurantId,
+    fetchPolicy: 'cache-and-network',
   });
 
-  // Simple refetch function (currently unused)
+  useOrderSubscriptions({
+    restaurantId: staff?.restaurantId || '',
+    onNewOrder: () => refetchOrders(),
+    onOrderUpdated: () => refetchOrders(),
+    onOrderItemStatusUpdated: () => refetchOrders(),
+  });
 
   const handleOrderCreated = (order: any) => {
     setCreateOrderDialogOpen(false);
@@ -281,7 +288,7 @@ export default function StaffDashboard() {
                 <TableRow>
                   <TableCell>Order ID</TableCell>
                   <TableCell>Type</TableCell>
-                  <TableCell>Table</TableCell>
+                  <TableCell sx={{ minWidth: 110 }}>Table</TableCell>
                   <TableCell>Customer</TableCell>
                   <TableCell>Amount</TableCell>
                   <TableCell>Status</TableCell>
@@ -315,13 +322,13 @@ export default function StaffDashboard() {
                             color="primary"
                           />
                         </TableCell>
-                        <TableCell>
-                          {order.tableNumber ? `Table ${order.tableNumber}` : 'N/A'}
+                        <TableCell sx={{ overflow: 'visible', whiteSpace: 'nowrap' }}>
+                          {order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">
-                              {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
+                              {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'Walk-in')}
                             </Typography>
                             {order.customerPhone && (
                               <Typography variant="caption" color="text.secondary">

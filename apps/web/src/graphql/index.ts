@@ -7,3 +7,4 @@ export * from './mutations';
 // Export all subscriptions
 export * from './subscriptions/orders';
 export * from './subscriptions/menu';
+export * from './subscriptions/waitlist';

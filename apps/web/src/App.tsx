@@ -7,15 +7,18 @@ import { client } from './apollo/client';
 
 // Import pages
 import ConsumerPage from './pages/ConsumerPage';
+import WaitlistPage from './pages/WaitlistPage';
 import OrderListPage from './pages/OrderListPage';
 import AdminDashboard from './pages/AdminDashboard';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import MenuPage from './pages/MenuPage';
 import TablesPage from './pages/TablesPage';
+import RestaurantWaitlistPage from './pages/RestaurantWaitlistPage';
 import ReservationsPage from './pages/ReservationsPage';
 import QRCodeManagementPage from './pages/QRCodeManagementPage';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffOrderManagement from './pages/StaffOrderManagement';
+import StaffWaitlistPage from './pages/StaffWaitlistPage';
 import RestaurantOrderManagement from './pages/RestaurantOrderManagement';
 import StaffManagement from './pages/StaffManagement';
 import UnifiedLogin from './pages/UnifiedLogin';
@@ -97,6 +100,7 @@ function App() {
             <Route path="/consumer/:restaurantSlug/:tableNumber" element={<ConsumerPage />} />
             <Route path="/consumer/:restaurantSlug/:tableNumber/:orderType" element={<ConsumerPage />} />
             <Route path="/parcel/:restaurantSlug/:orderType" element={<ConsumerPage />} />
+            <Route path="/waitlist/:restaurantSlug" element={<WaitlistPage />} />
             <Route path="/orders" element={<OrderListPage />} />
             
             {/* Unified Login Route */}
@@ -138,7 +142,15 @@ function App() {
                 <ProtectedRestaurantRoute>
                   <TablesPage />
                 </ProtectedRestaurantRoute>
-              } 
+              }
+            />
+            <Route 
+              path="/restaurant/waitlist"
+              element={
+                <ProtectedRestaurantRoute>
+                  <RestaurantWaitlistPage />
+                </ProtectedRestaurantRoute>
+              }
             />
             <Route 
               path="/restaurant/orders" 
@@ -252,7 +264,15 @@ function App() {
                 <ProtectedStaffRoute>
                   <StaffDashboard />
                 </ProtectedStaffRoute>
-              } 
+              }
+            />
+            <Route 
+              path="/staff/waitlist" 
+              element={
+                <ProtectedStaffRoute>
+                  <StaffWaitlistPage />
+                </ProtectedStaffRoute>
+              }
             />
             <Route 
               path="/staff/orders/:orderId" 

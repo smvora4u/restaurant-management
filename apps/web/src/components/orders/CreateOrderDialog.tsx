@@ -25,15 +25,25 @@ import {
   DeliveryDining
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_AVAILABLE_TABLES } from '../../graphql/queries/orders';
+import { GET_AVAILABLE_TABLES, GET_ORDERS } from '../../graphql/queries/orders';
+import { GET_ORDERS_FOR_STAFF } from '../../graphql/queries/staff';
 import { CREATE_ORDER } from '../../graphql/mutations/orders';
 import { validateForm, clearFieldError } from '../../utils/validation';
+import { getLocalDateString } from '../../utils/dateFormatting';
 
 interface CreateOrderDialogProps {
   open: boolean;
   onClose: () => void;
   onOrderCreated: (order: any) => void;
   restaurant: any;
+  /** Pre-fill table when opening (e.g. after seating from waitlist) */
+  initialTableNumber?: string | null;
+  /** Linked tables (e.g. when seating with merged tables from waitlist) */
+  initialLinkedTableNumbers?: string[];
+  /** Pre-fill customer name when opening */
+  initialCustomerName?: string;
+  /** Pre-fill customer phone when opening */
+  initialCustomerPhone?: string;
 }
 
 const ORDER_TYPES = [
@@ -42,7 +52,7 @@ const ORDER_TYPES = [
   { value: 'delivery', label: 'Delivery', icon: <DeliveryDining /> }
 ];
 
-export default function CreateOrderDialog({ open, onClose, onOrderCreated, restaurant }: CreateOrderDialogProps) {
+export default function CreateOrderDialog({ open, onClose, onOrderCreated, restaurant, initialTableNumber, initialLinkedTableNumbers, initialCustomerName, initialCustomerPhone }: CreateOrderDialogProps) {
   const theme = useTheme();
   const isSmallDevice = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -62,15 +72,24 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
     fetchPolicy: 'network-only' // Always fetch fresh data when query runs
   });
 
-  // Mutations
-  const [createOrder] = useMutation(CREATE_ORDER);
+  // Mutations - refetch orders lists so new orders appear without page refresh (e.g. when created from waitlist)
+  // Use today's date for GET_ORDERS to match OrderListPage default filter (Apollo caches by query + variables)
+  const today = getLocalDateString();
+  const [createOrder] = useMutation(CREATE_ORDER, {
+    refetchQueries: [
+      { query: GET_ORDERS, variables: { fromDate: today, toDate: today } },
+      ...(restaurant?.id ? [{ query: GET_ORDERS_FOR_STAFF, variables: { restaurantId: restaurant.id } }] : []),
+    ],
+  });
 
   const availableTables = tablesData?.availableTables || [];
+  const noTablesAvailable = orderType === 'dine-in' && !tablesLoading && availableTables.length === 0;
 
   // Handle orderType changes and dialog opening: 
   // - Clear table when switching away from dine-in
   // - Refetch tables when switching to dine-in (only if dialog is open)
   // - Refetch tables when dialog opens and orderType is already dine-in
+  // - Pre-fill from initialTableNumber, initialCustomerName, initialCustomerPhone when provided
   useEffect(() => {
     if (orderType !== 'dine-in') {
       setTableNumber(null);
@@ -82,6 +101,18 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
       refetchTables();
     }
   }, [orderType, open, refetchTables]);
+
+  useEffect(() => {
+    if (open && initialTableNumber != null) {
+      setTableNumber(initialTableNumber);
+    }
+    if (open && initialCustomerName != null) {
+      setCustomerName(initialCustomerName);
+    }
+    if (open && initialCustomerPhone != null) {
+      setCustomerPhone(initialCustomerPhone);
+    }
+  }, [open, initialTableNumber, initialCustomerName, initialCustomerPhone]);
 
   useEffect(() => {
     if (error) {
@@ -150,6 +181,7 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
         restaurantId: restaurant.id,
         orderType,
         tableNumber: orderType === 'dine-in' ? tableNumber : null,
+        linkedTableNumbers: orderType === 'dine-in' && initialLinkedTableNumbers?.length ? initialLinkedTableNumbers : undefined,
         items: [],
         totalAmount: 0,
         customerName: customerName.trim() || null,
@@ -222,31 +254,39 @@ export default function CreateOrderDialog({ open, onClose, onOrderCreated, resta
           {/* Table Selection (for dine-in) */}
           {orderType === 'dine-in' && (
             <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth margin="normal" error={!!fieldErrors.tableNumber}>
-                <InputLabel>Table</InputLabel>
-                <Select
-                  value={tableNumber || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setTableNumber(val ? val : null);
-                    if (fieldErrors.tableNumber) setFieldErrors(clearFieldError(fieldErrors, 'tableNumber'));
-                  }}
-                  disabled={tablesLoading}
-                  label="Table"
-                >
-                  {availableTables.map((table: any) => (
-                    <MenuItem key={table.id} value={table.number}>
-                      Table {table.number} ({table.capacity} seats) - {table.location || 'Main Area'}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {fieldErrors.tableNumber && (
-                  <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
-                    {fieldErrors.tableNumber}
-                  </Box>
-                )}
-              </FormControl>
-              {tablesLoading && <CircularProgress size={20} />}
+              {noTablesAvailable ? (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  All tables are currently occupied. Go to the Waitlist page to add customers.
+                </Alert>
+              ) : (
+                <>
+                  <FormControl fullWidth margin="normal" error={!!fieldErrors.tableNumber}>
+                    <InputLabel>Table</InputLabel>
+                    <Select
+                      value={tableNumber || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTableNumber(val ? val : null);
+                        if (fieldErrors.tableNumber) setFieldErrors(clearFieldError(fieldErrors, 'tableNumber'));
+                      }}
+                      disabled={tablesLoading}
+                      label="Table"
+                    >
+                      {availableTables.map((table: any) => (
+                        <MenuItem key={table.id} value={table.number}>
+                          Table {table.number} ({table.capacity} seats) - {table.location || 'Main Area'}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {fieldErrors.tableNumber && (
+                      <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5, ml: 1.75 }}>
+                        {fieldErrors.tableNumber}
+                      </Box>
+                    )}
+                  </FormControl>
+                  {tablesLoading && <CircularProgress size={20} />}
+                </>
+              )}
             </Grid>
           )}
 

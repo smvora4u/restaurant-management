@@ -25,6 +25,9 @@ import {
   CircularProgress,
   Snackbar,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import {
   Add,
@@ -32,12 +35,14 @@ import {
   Delete,
   TableRestaurant,
   QrCode,
+  PlaylistAdd,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import QRCodeGenerator from '../components/QRCodeGenerator';
 import { ConfirmationDialog } from '../components/common';
 import { validateForm, validationRules, clearFieldError } from '../utils/validation';
-import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE, GET_ORDERS_FOR_STAFF } from '../graphql';
+import { GET_TABLES, CREATE_TABLE, UPDATE_TABLE, DELETE_TABLE, GET_ORDERS_FOR_STAFF, GET_AVAILABLE_TABLES } from '../graphql';
+import { LINK_TABLE_TO_ORDER } from '../graphql/mutations/waitlist';
 
 const tableStatuses = [
   'available',
@@ -67,7 +72,8 @@ export default function TablesPage() {
     open: boolean;
     id: string | null;
   }>({ open: false, id: null });
-
+  const [addTableDialog, setAddTableDialog] = useState<{ open: boolean; order: any; tableNumber: string } | null>(null);
+  const [addTableSelected, setAddTableSelected] = useState<string>('');
   // Form state
   const [formData, setFormData] = useState({
     number: '',
@@ -84,21 +90,37 @@ export default function TablesPage() {
     skip: !restaurant?.id,
     pollInterval: 5000
   });
+  const { data: availableTablesData } = useQuery(GET_AVAILABLE_TABLES, {
+    skip: !addTableDialog?.open
+  });
   const [createTable] = useMutation(CREATE_TABLE);
   const [updateTable] = useMutation(UPDATE_TABLE);
   const [deleteTable] = useMutation(DELETE_TABLE);
+  const [linkTableToOrder] = useMutation(LINK_TABLE_TO_ORDER, {
+    refetchQueries: ['GetOrdersForStaff']
+  });
 
   const tables = data?.tables || [];
   const orders = ordersData?.ordersForStaff || [];
 
-  // Determine occupancy based on active dine-in orders
+  // Determine occupancy based on active dine-in orders (primary + linked tables)
   const activeStatuses = new Set(['pending', 'confirmed', 'preparing', 'ready', 'served']);
   const occupiedTableNumbers = new Set(
     orders
-      .filter((o: any) => o.orderType === 'dine-in' && o.tableNumber != null && activeStatuses.has(o.status))
-      .map((o: any) => String(o.tableNumber))
+      .filter((o: any) => o.orderType === 'dine-in' && activeStatuses.has(o.status))
+      .flatMap((o: any) => [
+        o.tableNumber,
+        ...(o.linkedTableNumbers || [])
+      ].filter(Boolean).map(String))
   );
   const isTableOccupied = (tableNumber?: string | number) => tableNumber != null && occupiedTableNumbers.has(String(tableNumber));
+  const getOrderForTable = (tableNumber: string) =>
+    orders.find(
+      (o: any) =>
+        o.orderType === 'dine-in' &&
+        activeStatuses.has(o.status) &&
+        (String(o.tableNumber) === tableNumber || (o.linkedTableNumbers || []).includes(tableNumber))
+    );
 
   // Load restaurant data from localStorage
   useEffect(() => {
@@ -270,6 +292,24 @@ export default function TablesPage() {
 
   const cancelDelete = () => {
     setDeleteConfirm({ open: false, id: null });
+  };
+
+  const handleOpenAddTable = (order: any, tableNumber: string) => {
+    setAddTableDialog({ open: true, order, tableNumber });
+    setAddTableSelected('');
+  };
+
+  const handleAddTableConfirm = async () => {
+    if (!addTableDialog || !addTableSelected) return;
+    try {
+      await linkTableToOrder({
+        variables: { orderId: addTableDialog.order.id, tableNumber: addTableSelected }
+      });
+      setSnackbar({ open: true, message: `Table ${addTableSelected} linked to order`, severity: 'success' });
+      setAddTableDialog(null);
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message || 'Failed to link table', severity: 'error' });
+    }
   };
 
   const handleSnackbarClose = () => {
@@ -451,6 +491,21 @@ export default function TablesPage() {
                           <IconButton size="small" onClick={() => handleShowQRCode(table.number)} title="Show QR Code">
                             <QrCode />
                           </IconButton>
+                          {(() => {
+                            const order = getOrderForTable(String(table.number));
+                            if (order && order.tableNumber === String(table.number)) {
+                              return (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenAddTable(order, String(table.number))}
+                                  title="Add table to this order"
+                                >
+                                  <PlaylistAdd />
+                                </IconButton>
+                              );
+                            }
+                            return null;
+                          })()}
                           <IconButton size="small" onClick={() => handleOpenDialog(table)}>
                             <Edit />
                           </IconButton>
@@ -552,6 +607,45 @@ export default function TablesPage() {
             <Button onClick={handleCloseDialog}>Cancel</Button>
             <Button onClick={handleSubmit} variant="contained">
               {editingTable ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Add Table to Order Dialog */}
+        <Dialog
+          open={!!addTableDialog}
+          onClose={() => setAddTableDialog(null)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Add Table to Order</DialogTitle>
+          <DialogContent>
+            {addTableDialog && (
+              <>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Link an available table to the order at Table {addTableDialog.tableNumber}.
+                </Typography>
+                <FormControl fullWidth>
+                  <InputLabel>Table</InputLabel>
+                  <Select
+                    value={addTableSelected}
+                    onChange={(e) => setAddTableSelected(e.target.value)}
+                    label="Table"
+                  >
+                    {(availableTablesData?.availableTables || []).map((t: any) => (
+                      <MenuItem key={t.id} value={t.number}>
+                        Table {t.number} ({t.capacity} seats)
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddTableDialog(null)}>Cancel</Button>
+            <Button onClick={handleAddTableConfirm} variant="contained" disabled={!addTableSelected}>
+              Link Table
             </Button>
           </DialogActions>
         </Dialog>

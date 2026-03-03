@@ -137,7 +137,7 @@ export default function OrderHeader({
             Customer Information
           </Typography>
           <Typography variant="body1">
-            <strong>Name:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in Customer')}
+            <strong>Name:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'Walk-in Customer')}
           </Typography>
           {order.customerPhone && (
             <Typography variant="body1">
@@ -145,8 +145,8 @@ export default function OrderHeader({
             </Typography>
           )}
           {order.tableNumber && (
-            <Typography variant="body1">
-              <strong>Table:</strong> {order.tableNumber}
+            <Typography variant="body1" sx={{ overflow: 'visible', whiteSpace: 'nowrap' }}>
+              <strong>Table:</strong> {[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}
             </Typography>
           )}
         </Box>

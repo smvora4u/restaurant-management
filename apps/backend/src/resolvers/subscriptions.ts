@@ -16,6 +16,7 @@ export const PAYMENT_STATUS_UPDATED = 'PAYMENT_STATUS_UPDATED';
 export const DUE_FEES_UPDATED = 'DUE_FEES_UPDATED';
 export const PLATFORM_ANALYTICS_UPDATED = 'PLATFORM_ANALYTICS_UPDATED';
 export const MENU_ITEMS_UPDATED = 'MENU_ITEMS_UPDATED';
+export const WAITLIST_UPDATED = 'WAITLIST_UPDATED';
 
 export const subscriptionResolvers = {
   Subscription: {
@@ -103,6 +104,17 @@ export const subscriptionResolvers = {
     menuItemsUpdated: {
       subscribe: withFilter(
         () => pubsub.asyncIterator([MENU_ITEMS_UPDATED]),
+        (payload: { restaurantId: string }, variables: { restaurantId: string }) => {
+          const payloadRestaurantId = payload.restaurantId?.toString();
+          const variableRestaurantId = variables.restaurantId?.toString();
+          return payloadRestaurantId === variableRestaurantId;
+        }
+      ),
+      resolve: (payload: { restaurantId: string; updatedAt: string }) => payload,
+    },
+    waitlistUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterator([WAITLIST_UPDATED]),
         (payload: { restaurantId: string }, variables: { restaurantId: string }) => {
           const payloadRestaurantId = payload.restaurantId?.toString();
           const variableRestaurantId = variables.restaurantId?.toString();
@@ -221,6 +233,14 @@ export const publishMenuItemsUpdated = async (restaurantId: string) => {
   const restaurantIdStr = restaurantId?.toString();
   console.log('Publishing menu items updated event for restaurant:', restaurantIdStr);
   await pubsub.publish(MENU_ITEMS_UPDATED, {
+    restaurantId: restaurantIdStr,
+    updatedAt: new Date().toISOString()
+  });
+};
+
+export const publishWaitlistUpdated = async (restaurantId: string) => {
+  const restaurantIdStr = restaurantId?.toString();
+  await pubsub.publish(WAITLIST_UPDATED, {
     restaurantId: restaurantIdStr,
     updatedAt: new Date().toISOString()
   });

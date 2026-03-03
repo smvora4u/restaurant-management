@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
-import { MenuItem, MenuCategory, Table, Order, Reservation, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
+import { MenuItem, MenuCategory, Table, Order, Reservation, WaitlistEntry, User, RestaurantFeeConfig, FeeLedger, Settlement, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
-import { publishOrderUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated, publishMenuItemsUpdated } from './subscriptions.js';
+import { publishOrderUpdated, publishNewOrder, publishFeeLedgerUpdated, publishPaymentStatusUpdated, publishDueFeesUpdated, publishMenuItemsUpdated, publishWaitlistUpdated } from './subscriptions.js';
 import { parseDateInput } from '../utils/dateUtils.js';
+import { normalizePhone } from '../utils/phoneUtils.js';
 
 export const mutationResolvers = {
   // Menu Item mutations
@@ -170,17 +171,34 @@ export const mutationResolvers = {
         throw new Error(`Table ${input.tableNumber} does not exist`);
       }
 
-      // Check if table already has an active order
-      const existingOrder = await Order.findOne({
+      // Check if table already has an active order (primary or linked)
+      const activeOrders = await Order.find({
         restaurantId: restaurantId,
-        tableNumber: input.tableNumber,
         orderType: 'dine-in',
-        status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
+        status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
       });
-
-      if (existingOrder) {
+      const isOccupied = activeOrders.some(
+        (o) => o.tableNumber === input.tableNumber || (o.linkedTableNumbers || []).includes(input.tableNumber)
+      );
+      if (isOccupied) {
         throw new Error(`Table ${input.tableNumber} already has an active order`);
       }
+    }
+
+    // Validate linked tables if provided (dine-in only)
+    const linkedTables = (input.orderType === 'dine-in' && input.linkedTableNumbers) ? input.linkedTableNumbers : [];
+    for (const tn of linkedTables) {
+      const tbl = await Table.findOne({ number: tn, restaurantId });
+      if (!tbl) throw new Error(`Table ${tn} does not exist`);
+      const linkedActiveOrders = await Order.find({
+        restaurantId,
+        orderType: 'dine-in',
+        status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
+      });
+      const isOccupied = linkedActiveOrders.some(
+        (o) => o.tableNumber === tn || (o.linkedTableNumbers || []).includes(tn)
+      );
+      if (isOccupied) throw new Error(`Table ${tn} already has an active order`);
     }
 
     // Validate menu items exist and are available
@@ -204,6 +222,7 @@ export const mutationResolvers = {
       restaurantId: restaurantId, // Always use authenticated restaurantId, never from input
       orderType: input.orderType,
       tableNumber: input.tableNumber || null,
+      linkedTableNumbers: linkedTables.length > 0 ? linkedTables : undefined,
       items: input.items || [],
       totalAmount: input.totalAmount || 0,
       status: input.status || 'pending',
@@ -261,11 +280,15 @@ export const mutationResolvers = {
     }
     
     // Never update restaurantId - always preserve the original from the order
-    const updateData = {
+    const updateData: Record<string, unknown> = {
       ...input,
       restaurantId: currentOrder.restaurantId, // Preserve original restaurantId
       updatedAt: new Date()
     };
+    // When detaching table (tableNumber explicitly null), also clear linkedTableNumbers
+    if (input.tableNumber === null) {
+      updateData.linkedTableNumbers = [];
+    }
     
     const updatedOrder = await Order.findOneAndUpdate(
       { _id: id, restaurantId: restaurantObjectId }, 
@@ -415,6 +438,152 @@ export const mutationResolvers = {
     }
     const result = await Reservation.findOneAndDelete({ _id: id, restaurantId: context.restaurant.id });
     return !!result;
+  },
+  addToWaitlist: async (_: any, { input }: { input: any }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!restaurantId) throw new Error('Authentication required');
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const normalizedPhone = normalizePhone(input.customerPhone || '');
+    if (!normalizedPhone) {
+      throw new Error('Valid phone number is required');
+    }
+    const existingActive = await WaitlistEntry.findOne({
+      restaurantId: restaurantObjectId,
+      status: { $in: ['waiting', 'notified'] },
+      normalizedPhone
+    });
+    if (existingActive) {
+      throw new Error(`You're already on the waitlist. Position #${existingActive.queuePosition}`);
+    }
+    const maxPos = await WaitlistEntry.findOne({ restaurantId: restaurantObjectId })
+      .sort({ queuePosition: -1 })
+      .select('queuePosition')
+      .lean();
+    const queuePosition = (maxPos?.queuePosition ?? 0) + 1;
+    const entry = new WaitlistEntry({
+      restaurantId: restaurantObjectId,
+      customerName: input.customerName?.trim() || '',
+      customerPhone: input.customerPhone?.trim() || '',
+      normalizedPhone,
+      partySize: Math.max(1, parseInt(String(input.partySize), 10) || 1),
+      notes: input.notes?.trim() || null,
+      status: 'waiting',
+      queuePosition
+    });
+    const saved = await entry.save();
+    await publishWaitlistUpdated(restaurantId);
+    return saved;
+  },
+  removeFromWaitlist: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!restaurantId) throw new Error('Authentication required');
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const entry = await WaitlistEntry.findOne({ _id: id, restaurantId: restaurantObjectId });
+    if (!entry) {
+      throw new Error('Waitlist entry not found');
+    }
+    entry.status = 'cancelled';
+    await entry.save();
+    await publishWaitlistUpdated(restaurantId);
+    return true;
+  },
+  notifyWaitlistEntry: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!restaurantId) throw new Error('Authentication required');
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const entry = await WaitlistEntry.findOne({ _id: id, restaurantId: restaurantObjectId });
+    if (!entry) {
+      throw new Error('Waitlist entry not found');
+    }
+    if (entry.status !== 'waiting' && entry.status !== 'notified') {
+      throw new Error(`Cannot notify: entry status is ${entry.status}`);
+    }
+    entry.status = 'notified';
+    entry.notifiedAt = new Date();
+    await entry.save();
+    await publishWaitlistUpdated(restaurantId);
+    return entry;
+  },
+  seatWaitlistEntry: async (_: any, { id, tableNumbers }: { id: string; tableNumbers: string[] }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!restaurantId) throw new Error('Authentication required');
+    if (!tableNumbers || tableNumbers.length === 0) {
+      throw new Error('At least one table must be selected');
+    }
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const entry = await WaitlistEntry.findOne({ _id: id, restaurantId: restaurantObjectId });
+    if (!entry) {
+      throw new Error('Waitlist entry not found');
+    }
+    if (entry.status !== 'waiting' && entry.status !== 'notified') {
+      throw new Error(`Cannot seat: entry status is ${entry.status}`);
+    }
+    const TableModel = (await import('../models/Table.js')).default;
+    for (const tn of tableNumbers) {
+      const tbl = await TableModel.findOne({ restaurantId: restaurantObjectId, number: tn });
+      if (!tbl) throw new Error(`Table ${tn} does not exist`);
+      const activeOrders = await Order.find({
+        restaurantId: restaurantObjectId,
+        orderType: 'dine-in',
+        status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
+      });
+      const isOccupied = activeOrders.some(
+        (o) => o.tableNumber === tn || (o.linkedTableNumbers || []).includes(tn)
+      );
+      if (isOccupied) throw new Error(`Table ${tn} is already occupied`);
+    }
+    // No capacity validation - staff/restaurant manages seating (add chairs, merge physically, etc.)
+    entry.status = 'seated';
+    entry.seatedAt = new Date();
+    entry.assignedTableNumber = tableNumbers.join('+');
+    await entry.save();
+    await publishWaitlistUpdated(restaurantId);
+    return entry;
+  },
+  linkTableToOrder: async (_: any, { orderId, tableNumber }: { orderId: string; tableNumber: string }, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    if (!restaurantId) throw new Error('Authentication required');
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    const order = await Order.findOne({ _id: orderId, restaurantId: restaurantObjectId });
+    if (!order) throw new Error('Order not found');
+    if (order.orderType !== 'dine-in') throw new Error('Can only link tables to dine-in orders');
+    if (!['pending', 'confirmed', 'preparing', 'ready', 'served'].includes(order.status)) {
+      throw new Error('Can only link tables to active orders');
+    }
+    const tbl = await Table.findOne({ restaurantId: restaurantObjectId, number: tableNumber });
+    if (!tbl) throw new Error(`Table ${tableNumber} does not exist`);
+    const linked = order.linkedTableNumbers || [];
+    if (order.tableNumber === tableNumber || linked.includes(tableNumber)) {
+      throw new Error(`Table ${tableNumber} is already linked to this order`);
+    }
+    const activeOrders = await Order.find({
+      restaurantId: restaurantObjectId,
+      orderType: 'dine-in',
+      status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
+    });
+    const isOccupied = activeOrders.some(
+      (o) => o.tableNumber === tableNumber || (o.linkedTableNumbers || []).includes(tableNumber)
+    );
+    if (isOccupied) throw new Error(`Table ${tableNumber} is already occupied`);
+    order.linkedTableNumbers = [...linked, tableNumber];
+    await order.save();
+    await publishOrderUpdated(order);
+    return order;
   },
   updateFeePaymentStatus: async (_: any, { feeLedgerId, paymentStatus, paymentMethod, paymentTransactionId, reason }: any, context: GraphQLContext) => {
     if (!context.admin) {

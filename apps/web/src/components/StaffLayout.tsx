@@ -24,6 +24,7 @@ import {
   Person as PersonIcon,
   Dashboard as DashboardIcon,
   Restaurant as RestaurantIcon,
+  People as PeopleIcon,
   Logout,
 } from '@mui/icons-material';
 
@@ -47,6 +48,8 @@ const getMenuItems = (permissions: string[]) => {
   const baseItems = [
     // Dashboard should be visible to all staff (no permission gate)
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard' },
+    // Waitlist - visible to all staff
+    { text: 'Waitlist', icon: <PeopleIcon />, path: '/staff/waitlist' },
     // Show Kitchen Board only if staff has explicit kitchen view permission
     { text: 'Kitchen Board', icon: <RestaurantIcon />, path: '/staff/kitchen', permission: 'view_kitchen' },
   ];

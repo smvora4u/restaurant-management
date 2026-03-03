@@ -6,6 +6,7 @@ export { default as MenuCategory } from './MenuCategory.js';
 export { default as Table } from './Table.js';
 export { default as Order } from './Order.js';
 export { default as Reservation } from './Reservation.js';
+export { default as WaitlistEntry } from './WaitlistEntry.js';
 export { default as User } from './User.js';
 export { default as Staff } from './Staff.js';
 export { default as AuditLog } from './AuditLog.js';

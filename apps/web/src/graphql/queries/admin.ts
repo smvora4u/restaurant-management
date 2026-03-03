@@ -18,6 +18,7 @@ export const GET_ALL_ORDERS = gql`
       id
       restaurantId
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount

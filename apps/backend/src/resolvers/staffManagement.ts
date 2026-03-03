@@ -85,6 +85,7 @@ export const staffManagementResolvers = {
           return {
             id: order._id,
             tableNumber: order.tableNumber,
+            linkedTableNumbers: order.linkedTableNumbers || [],
             orderType: order.orderType,
             items: mergedItems,
             status: order.status,

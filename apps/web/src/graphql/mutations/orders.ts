@@ -5,6 +5,7 @@ export const CREATE_ORDER = gql`
     createOrder(input: $input) {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount
@@ -31,6 +32,7 @@ export const UPDATE_ORDER = gql`
     updateOrder(id: $id, input: $input) {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount
