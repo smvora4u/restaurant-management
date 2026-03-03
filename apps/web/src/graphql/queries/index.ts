@@ -17,6 +17,9 @@ export * from './orders';
 // Reservations queries
 export * from './reservations';
 
+// Waitlist queries
+export * from './waitlist';
+
 // Admin queries
 export * from './admin';
 

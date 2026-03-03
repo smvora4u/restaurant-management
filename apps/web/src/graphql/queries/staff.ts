@@ -43,6 +43,7 @@ export const GET_ORDERS_FOR_STAFF = gql`
     ordersForStaff(restaurantId: $restaurantId) {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount

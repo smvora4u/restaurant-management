@@ -20,6 +20,9 @@ export * from './orders';
 // Reservations mutations
 export * from './reservations';
 
+// Waitlist mutations
+export * from './waitlist';
+
 // Admin mutations
 export * from './admin';
 

@@ -589,7 +589,7 @@ export default function StaffOrderManagement() {
         <ConfirmationDialog
           open={completeConfirmationOpen}
           title="Complete Order"
-          message={`Are you sure you want to complete this order? ${order.orderType === 'dine-in' && order.tableNumber ? 'This will also detach the table and make it available for new customers.' : 'This action cannot be undone.'}`}
+          message={`Are you sure you want to complete this order? ${order.orderType === 'dine-in' && order.tableNumber ? `This will also release table(s) ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(', ')} and make them available for new customers.` : 'This action cannot be undone.'}`}
           onConfirm={confirmCompleteOrder}
           onClose={() => setCompleteConfirmationOpen(false)}
         />
@@ -597,7 +597,20 @@ export default function StaffOrderManagement() {
         <ConfirmationDialog
           open={cancelConfirmationOpen}
           title="Cancel Order"
-          message="Are you sure you want to cancel this order? This action cannot be undone."
+          message={
+            order.orderType === 'dine-in' && order.tableNumber ? (
+              <Box>
+                <Typography variant="body1" gutterBottom>
+                  Are you sure you want to cancel this order? The order will be marked as cancelled and cannot be reactivated.
+                </Typography>
+                <Typography variant="body2" color="info.main" sx={{ mt: 1, fontWeight: 'medium' }}>
+                  This will also release Table(s) {[order.tableNumber, ...(order.linkedTableNumbers || [])].join(', ')} and make {order.linkedTableNumbers?.length ? 'them' : 'it'} available for new customers.
+                </Typography>
+              </Box>
+            ) : (
+              'Are you sure you want to cancel this order? This action cannot be undone.'
+            )
+          }
           onConfirm={confirmCancelOrder}
           onClose={() => setCancelConfirmationOpen(false)}
         />

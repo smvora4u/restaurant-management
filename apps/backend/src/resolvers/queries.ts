@@ -1,4 +1,4 @@
-import { MenuItem, MenuCategory, Table, Order, Reservation, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
+import { MenuItem, MenuCategory, Table, Order, Reservation, WaitlistEntry, User, FeeLedger, RestaurantFeeConfig, Settlement, Restaurant, PurchaseCategory, Vendor, PurchaseItem, Purchase } from '../models/index.js';
 import { GraphQLContext } from '../types/index.js';
 import { parseDateInput } from '../utils/dateUtils.js';
 import { sortTablesByNumber } from '../utils/sortTablesByNumber.js';
@@ -82,7 +82,12 @@ export const queryResolvers = {
       status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
     });
     
-    const occupiedTableNumbers = new Set(activeOrders.map(order => order.tableNumber));
+    const occupiedTableNumbers = new Set(
+      activeOrders.flatMap((order) => [
+        order.tableNumber,
+        ...(order.linkedTableNumbers || [])
+      ].filter(Boolean))
+    );
     
     // Filter out occupied tables and sort by natural number order
     const availableTables = allTables.filter(table => !occupiedTableNumbers.has(table.number));
@@ -242,12 +247,15 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
-    // Convert restaurantId string to ObjectId for proper MongoDB comparison
     const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
-    return await Order.findOne({ 
-      tableNumber, 
-      orderType: 'dine-in', 
-      restaurantId: restaurantObjectId 
+    return await Order.findOne({
+      $or: [
+        { tableNumber },
+        { linkedTableNumbers: tableNumber }
+      ],
+      orderType: 'dine-in',
+      restaurantId: restaurantObjectId,
+      status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'served'] }
     }).populate('items.menuItemId');
   },
   orderById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
@@ -341,6 +349,17 @@ export const queryResolvers = {
       throw new Error('Authentication required');
     }
     return await Reservation.findOne({ _id: id, restaurantId: context.restaurant.id });
+  },
+  waitlist: async (_: any, __: any, context: GraphQLContext) => {
+    if (!context.restaurant && !context.staff) {
+      throw new Error('Authentication required');
+    }
+    const restaurantId = context.restaurant?.id || context.staff?.restaurantId;
+    const restaurantObjectId = new mongoose.Types.ObjectId(restaurantId);
+    return await WaitlistEntry.find({
+      restaurantId: restaurantObjectId,
+      status: { $in: ['waiting', 'notified'] }
+    }).sort({ queuePosition: 1, createdAt: 1 });
   },
   
   // Purchase Management queries

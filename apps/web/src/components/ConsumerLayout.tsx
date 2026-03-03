@@ -18,9 +18,11 @@ interface ConsumerLayoutProps {
   tableNumber: string | number;
   orderType?: string;
   userName?: string;
+  /** Override the subtitle (e.g. "Join Waitlist") */
+  headerSubtitle?: string;
 }
 
-export default function ConsumerLayout({ children, tableNumber, orderType, userName }: ConsumerLayoutProps) {
+export default function ConsumerLayout({ children, tableNumber, orderType, userName, headerSubtitle }: ConsumerLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -34,9 +36,9 @@ export default function ConsumerLayout({ children, tableNumber, orderType, userN
               Restaurant Menu
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              {orderType === 'takeout' || orderType === 'delivery' 
+              {headerSubtitle ?? (orderType === 'takeout' || orderType === 'delivery' 
                 ? (userName ? `Order for ${userName}` : `${orderType === 'delivery' ? 'Delivery' : 'Takeout'} Order`)
-                : `Table #${tableNumber}`
+                : `Table #${tableNumber}`)
               }
             </Typography>
           </Box>
@@ -67,9 +69,9 @@ export default function ConsumerLayout({ children, tableNumber, orderType, userN
       >
         <Container maxWidth="lg">
           <Typography variant="body2" color="text.secondary" align="center">
-            {orderType === 'takeout' || orderType === 'delivery' 
+            {headerSubtitle ?? (orderType === 'takeout' || orderType === 'delivery' 
               ? (userName ? `Order for ${userName}` : `${orderType === 'delivery' ? 'Delivery' : 'Takeout'} Order`)
-              : `Table #${tableNumber}`
+              : `Table #${tableNumber}`)
             } • Restaurant Management System
           </Typography>
         </Container>

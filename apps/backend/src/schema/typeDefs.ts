@@ -149,6 +149,7 @@ export const typeDefs = `#graphql
     id: ID!
     restaurantId: ID!
     tableNumber: String
+    linkedTableNumbers: [String!]
     orderType: String!
     items: [OrderItem!]!
     status: String!
@@ -180,6 +181,21 @@ export const typeDefs = `#graphql
     createdAt: String!
   }
 
+  type WaitlistEntry {
+    id: ID!
+    restaurantId: ID!
+    customerName: String!
+    customerPhone: String!
+    partySize: Int!
+    notes: String
+    status: String!
+    queuePosition: Int!
+    notifiedAt: String
+    seatedAt: String
+    assignedTableNumber: String
+    createdAt: String!
+  }
+
   type Query {
     health: Health!
     restaurantBySlug(slug: String!): Restaurant
@@ -201,6 +217,7 @@ export const typeDefs = `#graphql
     userByMobile(mobileNumber: String!): User
     reservations: [Reservation!]!
     reservation(id: ID!): Reservation
+    waitlist: [WaitlistEntry!]!
     
     # Admin queries
     allRestaurants: [Restaurant!]!
@@ -297,6 +314,11 @@ export const typeDefs = `#graphql
     createReservation(input: ReservationInput!): Reservation!
     updateReservation(id: ID!, input: ReservationInput!): Reservation!
     deleteReservation(id: ID!): Boolean!
+    addToWaitlist(input: WaitlistInput!): WaitlistEntry!
+    removeFromWaitlist(id: ID!): Boolean!
+    notifyWaitlistEntry(id: ID!): WaitlistEntry!
+    seatWaitlistEntry(id: ID!, tableNumbers: [String!]!): WaitlistEntry!
+    linkTableToOrder(orderId: ID!, tableNumber: String!): Order!
     markOrderPaid(id: ID!, paymentMethod: String!, paymentTransactionId: String): Order!
     setRestaurantFeeConfig(restaurantId: ID!, mode: String!, amount: Float!, freeOrdersRemaining: Int): RestaurantFeeConfig!
     generateWeeklySettlement(restaurantId: ID!, periodStart: String!, periodEnd: String!): Settlement!
@@ -670,6 +692,7 @@ export const typeDefs = `#graphql
   input OrderInput {
     restaurantId: ID!
     tableNumber: String
+    linkedTableNumbers: [String!]
     orderType: String!
     items: [OrderItemInput!]!
     status: String
@@ -692,6 +715,13 @@ export const typeDefs = `#graphql
     partySize: Int!
     status: String
     specialRequests: String
+  }
+
+  input WaitlistInput {
+    customerName: String!
+    customerPhone: String!
+    partySize: Int!
+    notes: String
   }
 
   input SalaryConfigInput {
@@ -880,6 +910,7 @@ export const typeDefs = `#graphql
     paymentStatusUpdated: FeeLedger!
     dueFeesUpdated(restaurantId: ID!): DueFeesUpdate!
     menuItemsUpdated(restaurantId: ID!): MenuItemsUpdate!
+    waitlistUpdated(restaurantId: ID!): MenuItemsUpdate!
   }
 
   type AuditLog {

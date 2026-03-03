@@ -5,6 +5,7 @@ export const GET_ORDERS = gql`
     orders(fromDate: $fromDate, toDate: $toDate) {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount
@@ -35,6 +36,7 @@ export const GET_ORDER_BY_ID = gql`
       id
       restaurantId
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount
@@ -65,6 +67,7 @@ export const GET_ORDER_BY_TABLE = gql`
     orderByTable(tableNumber: $tableNumber) {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       totalAmount
@@ -169,6 +172,7 @@ export const GET_USER_TABLE_ORDERS = gql`
     ordersByMobile(mobileNumber: $mobileNumber, orderType: "dine-in") {
       id
       tableNumber
+      linkedTableNumbers
       orderType
       status
       customerPhone

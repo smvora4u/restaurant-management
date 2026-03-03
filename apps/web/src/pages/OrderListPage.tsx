@@ -23,6 +23,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Divider,
+  Snackbar,
 } from '@mui/material';
 import {
   Receipt as ReceiptIcon,
@@ -65,6 +66,7 @@ interface OrderItem {
 interface Order {
   id: string;
   tableNumber?: string | number;
+  linkedTableNumbers?: string[];
   orderType: string;
   items: OrderItem[];
   status: string;
@@ -116,6 +118,7 @@ export default function OrderListPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
   const [restaurant, setRestaurant] = useState<any>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   // Get restaurant data
   useEffect(() => {
@@ -152,6 +155,7 @@ export default function OrderListPage() {
 
   const { data, loading, error, refetch } = useQuery<OrdersData>(GET_ORDERS, {
     errorPolicy: 'all',
+    fetchPolicy: 'cache-and-network', // Always fetch fresh data when visiting (e.g. after creating order from waitlist)
     variables: {
       fromDate: normalizeFilterDate(filters.fromDate) || undefined,
       toDate: normalizeFilterDate(filters.toDate) || undefined,
@@ -187,7 +191,8 @@ export default function OrderListPage() {
         order.notes?.toLowerCase().includes(filters.search.toLowerCase());
       
       const matchesTable = !filters.tableNumber || 
-        (order.tableNumber && order.tableNumber.toString() === filters.tableNumber);
+        (order.tableNumber && order.tableNumber.toString() === filters.tableNumber) ||
+        (order.linkedTableNumbers || []).includes(filters.tableNumber);
       
       const matchesOrderType = !filters.orderType || order.orderType === filters.orderType;
       
@@ -337,7 +342,7 @@ export default function OrderListPage() {
                     Customer Name
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
+                    {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'Walk-in')}
                   </Typography>
                 </Box>
                 <Box>
@@ -812,12 +817,12 @@ export default function OrderListPage() {
                         {getOrderTypeIcon(order.orderType)}
                         <Typography variant="body2">
                           {getOrderTypeLabel(order.orderType)}
-                          {order.tableNumber && ` - Table ${order.tableNumber}`}
+                          {order.tableNumber && ` - Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}`}
                         </Typography>
                       </Box>
                       
                       <Typography variant="body2">
-                        <strong>Customer:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}
+                        <strong>Customer:</strong> {order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'Walk-in')}
                       </Typography>
                       
                       <Typography variant="body2">
@@ -843,7 +848,7 @@ export default function OrderListPage() {
               {/* Header row for desktop view */}
               <Box sx={{ 
                 display: 'grid', 
-                gridTemplateColumns: '95px 95px 75px 140px 100px 90px 115px 130px',
+                gridTemplateColumns: '95px 95px 120px 140px 100px 90px 115px 130px',
                 gap: 2,
                 alignItems: 'center',
                 width: '100%',
@@ -894,12 +899,14 @@ export default function OrderListPage() {
                         alignItems: 'center',
                         width: '100%',
                         mr: 2,
+                        overflow: 'visible',
+                        minWidth: 0,
                       },
                     }}
                   >
                     <Box sx={{ 
                       display: 'grid', 
-                      gridTemplateColumns: '95px 95px 75px 140px 100px 90px 115px 130px',
+                      gridTemplateColumns: '95px 95px 120px 140px 100px 90px 115px 130px',
                       gap: 2,
                       alignItems: 'center',
                       width: '100%',
@@ -918,7 +925,9 @@ export default function OrderListPage() {
                       
                       <Box>
                         {order.tableNumber ? (
-                          <Chip label={`Table ${order.tableNumber}`} size="small" />
+                          <Typography variant="body2" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                            Table {[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}
+                          </Typography>
                         ) : (
                           <Typography variant="body2" color="text.secondary">
                             -
@@ -927,7 +936,7 @@ export default function OrderListPage() {
                       </Box>
                       
                       <Box>
-                        <Typography variant="body2">{order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-in')}</Typography>
+                        <Typography variant="body2">{order.customerName || (order.orderType === 'dine-in' && order.tableNumber ? `Table ${[order.tableNumber, ...(order.linkedTableNumbers || [])].join(' + ')}` : 'Walk-in')}</Typography>
                         {order.customerPhone && (
                           <Typography variant="caption" color="text.secondary">
                             {order.customerPhone}
@@ -986,6 +995,17 @@ export default function OrderListPage() {
         onOrderCreated={handleOrderCreated}
         restaurant={restaurant}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar((s) => ({ ...s, open: false }))} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </Layout>
   );

@@ -81,6 +81,7 @@ export interface IUser extends Document {
 export interface IOrder extends Document {
   restaurantId: Types.ObjectId;
   tableNumber?: string;
+  linkedTableNumbers?: string[];
   orderType: 'dine-in' | 'takeout' | 'delivery';
   items: IOrderItem[];
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
@@ -109,6 +110,21 @@ export interface IReservation extends Document {
   partySize: number;
   status: 'confirmed' | 'cancelled' | 'completed';
   specialRequests?: string;
+  createdAt: Date;
+}
+
+export interface IWaitlistEntry extends Document {
+  restaurantId: Types.ObjectId;
+  customerName: string;
+  customerPhone: string;
+  partySize: number;
+  notes?: string;
+  status: 'waiting' | 'notified' | 'seated' | 'cancelled' | 'no_show';
+  queuePosition: number;
+  notifiedAt?: Date;
+  seatedAt?: Date;
+  assignedTableNumber?: string;
+  normalizedPhone?: string;
   createdAt: Date;
 }
 

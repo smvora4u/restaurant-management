@@ -138,8 +138,12 @@ export default function ConsumerPage() {
           const existingOrder = incompleteOrders[0];
           const currentTableNumber = tableNumber || '';
           
-          // If user is trying to access a different table than their existing order
-          if (String(existingOrder.tableNumber) !== String(currentTableNumber)) {
+          // If user is trying to access a different table than their existing order (primary or linked)
+          const orderTables = [
+            existingOrder.tableNumber,
+            ...(existingOrder.linkedTableNumbers || [])
+          ].filter(Boolean).map(String);
+          if (!orderTables.includes(String(currentTableNumber))) {
             setExistingTableOrder(existingOrder);
             setShowRedirectMessage(true);
             setRedirectCountdown(5);
