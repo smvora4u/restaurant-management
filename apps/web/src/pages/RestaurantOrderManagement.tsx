@@ -116,7 +116,14 @@ export default function RestaurantOrderManagement() {
     autoSave: true,
     autoSaveDelay: 100,
     onSuccess: () => refetch(),
-    onError: () => {
+    onError: (error) => {
+      if (error?.message?.includes('modified by another user')) {
+        refetch();
+        setSnackbarMessage('Order was updated elsewhere. Refreshing.');
+        setSnackbarSeverity('info');
+        setSnackbarOpen(true);
+        return;
+      }
       setSnackbarMessage('Failed to save order changes. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);

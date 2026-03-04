@@ -43,6 +43,7 @@ export const UPDATE_ORDER = gql`
       userId
       createdAt
       updatedAt
+      version
       items {
         menuItemId
         quantity

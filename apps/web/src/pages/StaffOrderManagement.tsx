@@ -104,7 +104,10 @@ export default function StaffOrderManagement() {
       refetch();
     },
     onError: (error) => {
-      // Only show error for manual saves (auto-save errors are logged but not shown)
+      if (error?.message?.includes('modified by another user')) {
+        refetch();
+        return;
+      }
       console.error('Auto-save error (silent):', error);
     }
   });

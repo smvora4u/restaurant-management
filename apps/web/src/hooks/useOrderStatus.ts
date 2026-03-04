@@ -91,7 +91,8 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
               status: item.status,
               specialInstructions: item.specialInstructions
             })),
-            totalAmount: order.totalAmount
+            totalAmount: order.totalAmount,
+            version: order.version ?? 1
           }
         }
       });
@@ -138,7 +139,8 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
             sessionId: order.sessionId,
             userId: order.userId,
             items,
-            totalAmount
+            totalAmount,
+            version: order.version ?? 1
           }
         }
       });
@@ -180,7 +182,8 @@ export const useOrderStatus = ({ orderId, order, onSuccess, onError }: UseOrderS
               status: item.status,
               specialInstructions: item.specialInstructions
             })),
-            totalAmount: order.totalAmount
+            totalAmount: order.totalAmount,
+            version: order.version ?? 1
           }
         }
       });

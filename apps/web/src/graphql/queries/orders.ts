@@ -51,6 +51,7 @@ export const GET_ORDER_BY_ID = gql`
       paidAt
       paymentMethod
       paymentTransactionId
+      version
       items {
         menuItemId
         quantity

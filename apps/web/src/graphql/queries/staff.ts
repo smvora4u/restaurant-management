@@ -50,6 +50,7 @@ export const GET_ORDERS_FOR_STAFF = gql`
       customerName
       customerPhone
       createdAt
+      version
       items {
         menuItemId
         quantity
