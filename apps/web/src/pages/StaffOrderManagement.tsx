@@ -31,7 +31,7 @@ import { GET_MENU_ITEMS } from '../graphql/queries/menu';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
 import { REQUEST_NETWORK_PRINT, REQUEST_NETWORK_KOT } from '../graphql/mutations/printer';
-import { calculateOrderStatus, canCompleteOrder as canCompleteFromItems } from '../utils/statusManagement';
+import { calculateOrderStatus, canCompleteOrder as canCompleteFromItems, canCancelOrder } from '../utils/statusManagement';
 import { printBill, printKOT } from '../components/orders/BillPrint';
 
 export default function StaffOrderManagement() {
@@ -91,8 +91,7 @@ export default function StaffOrderManagement() {
     handleQuantityChange,
     handleRemoveItem,
     handleAddItems,
-    handleUpdateItemStatus,
-    canCancelOrder
+    handleUpdateItemStatus
   } = useOrderManagement({
     orderId: orderId!,
     originalOrder: orderData?.order,
@@ -355,7 +354,7 @@ export default function StaffOrderManagement() {
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSaving}
           canCompleteOrder={canCompleteFromItems(editingItems, order?.orderType) && order.status !== 'completed'}
-          canCancelOrder={canCancelOrder(order.status)}
+          canCancelOrder={canCancelOrder(order.status, editingItems)}
           onCompleteOrder={handleCompleteOrderClick}
           onCancelOrder={handleCancelOrderClick}
         />
