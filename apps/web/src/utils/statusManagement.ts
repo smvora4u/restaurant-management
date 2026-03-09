@@ -188,16 +188,13 @@ export const getPreviousStatus = (currentStatus: ItemStatus | OrderStatus): Item
 
 /**
  * Checks if an order can be marked as completed
- * Dine-in: all items must be served. Takeout/delivery: only requires at least one item.
+ * All non-cancelled items must be in served status (applies to all order types).
  */
 export const canCompleteOrder = (
   items: Array<{ status: ItemStatus }>,
-  orderType?: string
+  _orderType?: string
 ): boolean => {
   if (items.length === 0) return false;
-  const isTakeoutOrDelivery = orderType === 'takeout' || orderType === 'delivery';
-  if (isTakeoutOrDelivery) return true;
-  // For dine-in: only non-cancelled items must be served
   const nonCancelled = items.filter(i => i.status !== 'cancelled');
   if (nonCancelled.length === 0) return false;
   return nonCancelled.every(item => item.status === 'served');
@@ -215,7 +212,7 @@ export const canCancelOrder = (orderStatus: OrderStatus, items?: Array<{ status:
 
   if (items) {
     const nonCancelled = items.filter(i => i.status !== 'cancelled');
-    if (nonCancelled.length === 0) return false;
+    if (nonCancelled.length === 0) return true;
     // Cannot cancel if any non-cancelled item has progressed beyond confirmed
     if (nonCancelled.some(item => ['preparing', 'ready', 'served'].includes(item.status))) {
       return false;
