@@ -280,8 +280,10 @@ export const mutationResolvers = {
     }
     
     // Never update restaurantId - always preserve the original from the order
+    // Exclude version from updateData - we use $inc for optimistic locking
+    const { version: _inputVersion, ...inputWithoutVersion } = input;
     const updateData: Record<string, unknown> = {
-      ...input,
+      ...inputWithoutVersion,
       restaurantId: currentOrder.restaurantId, // Preserve original restaurantId
       updatedAt: new Date()
     };
@@ -289,12 +291,21 @@ export const mutationResolvers = {
     if (input.tableNumber === null) {
       updateData.linkedTableNumbers = [];
     }
-    
-    const updatedOrder = await Order.findOneAndUpdate(
-      { _id: id, restaurantId: restaurantObjectId }, 
-      updateData, 
-      { new: true }
-    );
+
+    // Optimistic locking: when version is provided, require it to match
+    const filter: Record<string, unknown> = { _id: id, restaurantId: restaurantObjectId };
+    if (input.version != null) {
+      filter.version = input.version;
+    }
+    const update = { $set: updateData, $inc: { version: 1 } };
+    const updatedOrder = await Order.findOneAndUpdate(filter, update, { new: true });
+
+    if (!updatedOrder) {
+      if (input.version != null) {
+        throw new Error('Order was modified by another user. Please refresh and try again.');
+      }
+      throw new Error('Order not found');
+    }
     if (updatedOrder) {
       await publishOrderUpdated(updatedOrder);
     }

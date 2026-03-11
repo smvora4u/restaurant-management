@@ -170,7 +170,8 @@ export const useOrderManagement = ({
             customerPhone: originalOrder?.customerPhone,
             notes: originalOrder?.notes,
             sessionId: originalOrder?.sessionId,
-            userId: originalOrder?.userId
+            userId: originalOrder?.userId,
+            version: originalOrder?.version ?? 1
           }
         }
       });

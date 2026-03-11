@@ -333,26 +333,36 @@ export default function KitchenBoard() {
       specialInstructions: i.specialInstructions
     }));
 
-    await updateOrder({
-      variables: {
-        id: item.orderId,
-        input: {
-          restaurantId: effectiveRestaurantId,
-          tableNumber: order.tableNumber,
-          orderType: order.orderType,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          notes: order.notes,
-          sessionId: order.sessionId,
-          userId: order.userId,
-          items: cleanItems,
-          status: newOrderStatus,
-          totalAmount
+    try {
+      await updateOrder({
+        variables: {
+          id: item.orderId,
+          input: {
+            restaurantId: effectiveRestaurantId,
+            tableNumber: order.tableNumber,
+            orderType: order.orderType,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            notes: order.notes,
+            sessionId: order.sessionId,
+            userId: order.userId,
+            items: cleanItems,
+            status: newOrderStatus,
+            totalAmount,
+            version: order.version ?? 1
+          }
         }
+      });
+      setSnackbar({ open: true, message: `Item moved to ${nextStatus}`, severity: 'success' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      if (msg.includes('modified by another user')) {
+        setSnackbar({ open: true, message: 'Order was updated elsewhere. Refreshing.', severity: 'info' });
+        refetchOrders();
+      } else {
+        throw err;
       }
-    });
-
-    setSnackbar({ open: true, message: `Item moved to ${nextStatus}`, severity: 'success' });
+    }
   };
 
   const handleMoveQuantityConfirm = async (qty: number) => {

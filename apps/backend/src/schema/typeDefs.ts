@@ -165,6 +165,7 @@ export const typeDefs = `#graphql
     paidAt: String
     paymentMethod: String
     paymentTransactionId: String
+    version: Int
   }
 
   type Reservation {
@@ -702,6 +703,7 @@ export const typeDefs = `#graphql
     notes: String
     sessionId: String
     userId: String
+    version: Int
   }
 
   input ReservationInput {

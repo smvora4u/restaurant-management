@@ -19,6 +19,7 @@ import { connectMongo } from './config/database.js';
 import { seedInitialData } from './utils/seedData.js';
 import { fixTableIndexes } from './utils/fixTableIndexes.js';
 import { migrateTableNumberToString } from './utils/migrateTableNumberToString.js';
+import { migrateOrderVersion } from './utils/migrateOrderVersion.js';
 import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
@@ -37,6 +38,9 @@ async function start() {
 
     // Migrate table number / tableNumber from Number to String (idempotent)
     await migrateTableNumberToString();
+
+    // Add version to orders for optimistic locking (idempotent)
+    await migrateOrderVersion();
     
     // Seed initial data
     await seedInitialData();

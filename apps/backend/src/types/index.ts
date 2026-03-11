@@ -95,6 +95,7 @@ export interface IOrder extends Document {
   paidAt?: Date;
   paymentMethod?: 'cash' | 'card' | 'online' | 'bank_transfer';
   paymentTransactionId?: string;
+  version?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -215,6 +216,7 @@ export interface OrderInput {
   notes?: string;
   sessionId?: string;
   userId?: string;
+  version?: number;
 }
 
 export interface ReservationInput {

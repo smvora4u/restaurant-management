@@ -34,17 +34,41 @@ export default function QRCodeGenerator({ tableNumber, value, label, size = 200 
     generateQR();
   }, [tableNumber, value, size]);
 
+  const displayLabel = label || (tableNumber ? `Table #${tableNumber}` : 'QR Code');
+
   const downloadQR = () => {
-    if (canvasRef.current) {
-      const link = document.createElement('a');
-      const filename = tableNumber ? `table-${tableNumber}-qr.png` : 'qr-code.png';
-      link.download = filename;
-      link.href = canvasRef.current.toDataURL();
-      link.click();
+    if (!canvasRef.current) return;
+
+    const qrCanvas = canvasRef.current;
+    const padding = 16;
+    const labelHeight = 24;
+    const compositeWidth = size + padding * 2;
+    const compositeHeight = size + labelHeight + padding * 2;
+
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = compositeWidth;
+    compositeCanvas.height = compositeHeight;
+    const ctx = compositeCanvas.getContext('2d');
+
+    if (ctx) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, compositeWidth, compositeHeight);
+      ctx.drawImage(qrCanvas, padding, padding, size, size);
+      ctx.fillStyle = '#000000';
+      ctx.font = '16px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(displayLabel, compositeWidth / 2, size + padding + 18);
     }
+
+    const slug = displayLabel.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const filename = slug ? `${slug}-qr.png` : 'qr-code.png';
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = compositeCanvas.toDataURL('image/png');
+    link.click();
   };
 
-  const displayLabel = label || (tableNumber ? `Table #${tableNumber}` : 'QR Code');
   const description = tableNumber 
     ? `Scan this QR code to access the menu for Table #${tableNumber}`
     : 'Scan this QR code to access the service';
