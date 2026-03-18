@@ -433,6 +433,8 @@ export default function RestaurantOrderManagement() {
   // Use a ref to track the last order ID to prevent re-initializing on every data change
   const lastOrderIdRef = useRef<string | null>(null);
   const lastItemsHashRef = useRef<string>('');
+  /** Stores menu-not-found count from handleAddItemsWrapper for combining with onItemsSkipped */
+  const pendingAddItemsSkippedRef = useRef<{ menuNotFound: number } | null>(null);
   
   useEffect(() => {
     if (data?.order?.items && data?.order?.id) {
@@ -465,11 +467,11 @@ export default function RestaurantOrderManagement() {
     if (itemsWithPrice.length > 0) {
       handleAddItems(itemsWithPrice);
     }
-    if (entries.length > itemsWithPrice.length) {
-      const filteredCount = entries.length - itemsWithPrice.length;
-      setSnackbarMessage(`${filteredCount} item(s) could not be added (menu may have changed). Please try again.`);
-      setSnackbarSeverity('warning');
-      setSnackbarOpen(true);
+    const menuNotFoundCount = entries.length - itemsWithPrice.length;
+    if (menuNotFoundCount > 0) {
+      pendingAddItemsSkippedRef.current = { menuNotFound: menuNotFoundCount };
+    } else {
+      pendingAddItemsSkippedRef.current = null;
     }
   };
 
@@ -677,10 +679,17 @@ export default function RestaurantOrderManagement() {
                   restrictCancelToPending={true}
                   orderStatus={order.status}
                   hideItemImageInAddDialog={true}
-                  onItemsSkipped={(count) => {
-                    setSnackbarMessage(`${count} item(s) are currently unavailable and were not added.`);
-                    setSnackbarSeverity('warning');
-                    setSnackbarOpen(true);
+                  onItemsSkipped={(unavailableCount) => {
+                    const menuNotFound = pendingAddItemsSkippedRef.current?.menuNotFound ?? 0;
+                    pendingAddItemsSkippedRef.current = null;
+                    const parts: string[] = [];
+                    if (unavailableCount > 0) parts.push(`${unavailableCount} unavailable`);
+                    if (menuNotFound > 0) parts.push(`${menuNotFound} menu may have changed`);
+                    if (parts.length > 0) {
+                      setSnackbarMessage(`${parts.join(', ')} item(s) could not be added. Please try again.`);
+                      setSnackbarSeverity('warning');
+                      setSnackbarOpen(true);
+                    }
                   }}
                 />
 
