@@ -212,12 +212,13 @@ export default function StaffOrderManagement() {
     }
   }, [navigate]);
 
-  // Initialize editing when order data loads
+  // Initialize editing when order data loads - but NOT when user has unsaved changes
   useEffect(() => {
+    if (hasUnsavedChanges) return; // Do not overwrite unsaved edits
     if (orderData?.order?.items) {
       initializeEditing(orderData.order.items);
     }
-  }, [orderData?.order?.items, initializeEditing]);
+  }, [orderData?.order?.items, initializeEditing, hasUnsavedChanges]);
 
   const handleBack = () => {
     navigate('/staff/dashboard');
@@ -298,6 +299,12 @@ export default function StaffOrderManagement() {
       .filter((x): x is NonNullable<typeof x> => x !== null);
     if (itemsWithPrice.length > 0) {
       handleAddItems(itemsWithPrice);
+    }
+    if (entries.length > itemsWithPrice.length) {
+      const filteredCount = entries.length - itemsWithPrice.length;
+      setSnackbarMessage(`${filteredCount} item(s) could not be added (menu may have changed). Please try again.`);
+      setSnackbarSeverity('warning');
+      setSnackbarOpen(true);
     }
   };
 
@@ -521,6 +528,11 @@ export default function StaffOrderManagement() {
               restrictCancelToPending={true}
               orderStatus={order.status}
               hideItemImageInAddDialog={true}
+              onItemsSkipped={(count) => {
+                setSnackbarMessage(`${count} item(s) are currently unavailable and were not added.`);
+                setSnackbarSeverity('warning');
+                setSnackbarOpen(true);
+              }}
             />
           </CardContent>
         </Card>

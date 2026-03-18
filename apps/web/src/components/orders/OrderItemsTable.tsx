@@ -64,6 +64,8 @@ interface OrderItemsTableProps {
   restrictCancelToPending?: boolean;
   orderStatus?: string;
   hideItemImageInAddDialog?: boolean;
+  /** Called when items are skipped (e.g. unavailable). Parent can show snackbar. */
+  onItemsSkipped?: (count: number, reason: string) => void;
 }
 
 
@@ -91,7 +93,8 @@ export default function OrderItemsTable({
   isSaving: _isSaving = false,
   restrictCancelToPending = false,
   orderStatus,
-  hideItemImageInAddDialog = false
+  hideItemImageInAddDialog = false,
+  onItemsSkipped
 }: OrderItemsTableProps) {
   const [itemStatusDialogOpen, setItemStatusDialogOpen] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
@@ -172,10 +175,14 @@ export default function OrderItemsTable({
 
   const handleAddItems = () => {
     const entries: AddItemEntry[] = [];
+    let skippedUnavailable = 0;
     for (const [menuItemId, { quantity, specialInstructions }] of Object.entries(selectedItems)) {
       if (quantity > 0) {
         const menuItem = getMenuItemDetails(menuItemId);
-        if (!menuItem?.available) continue;
+        if (!menuItem?.available) {
+          skippedUnavailable += 1;
+          continue;
+        }
         entries.push({ menuItemId, quantity, specialInstructions });
       }
     }
@@ -185,6 +192,9 @@ export default function OrderItemsTable({
       setSelectedItems({});
       setSearchQuery('');
       setSelectedCategory('all');
+    }
+    if (skippedUnavailable > 0 && onItemsSkipped) {
+      onItemsSkipped(skippedUnavailable, 'unavailable');
     }
   };
 
