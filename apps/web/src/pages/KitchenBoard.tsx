@@ -6,7 +6,9 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  Snackbar
+  Snackbar,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import StaffLayout from '../components/StaffLayout';
@@ -54,6 +56,8 @@ const getNextStatus = (currentStatus: string): string | null => {
 };
 
 export default function KitchenBoard() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
   const [staff, setStaff] = useState<any>(null);
@@ -446,17 +450,19 @@ export default function KitchenBoard() {
 
   const content = (
     <>
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ minHeight: { xs: 'calc(100vh - 96px)', md: 'calc(100vh - 112px)' }, display: 'flex', flexDirection: 'column' }}>
         {/* Kitchen Board Columns */}
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           <Box sx={{ 
-            display: 'flex', 
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, minmax(0, 1fr))',
+              lg: 'repeat(4, minmax(0, 1fr))'
+            },
             height: '100%', 
             gap: 1,
-            '& > *': {
-              flex: '1 1 25%', // Each column takes exactly 25% width
-              minWidth: 0 // Prevent flex items from overflowing
-            }
+            minWidth: 0
           }}>
             {statusColumns.map((column) => (
               <Box key={column.key} sx={{ height: '100%' }}>
@@ -478,10 +484,10 @@ export default function KitchenBoard() {
                     borderColor: 'divider',
                     backgroundColor: 'rgba(255, 255, 255, 0.7)'
                   }}>
-                    <Typography variant="h5" component="h2" sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+                    <Typography variant={isMobile ? 'h6' : 'h5'} component="h2" sx={{ textAlign: 'center', fontWeight: 'bold' }}>
                       {column.label}
                     </Typography>
-                    <Typography variant="h6" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                    <Typography variant={isMobile ? 'body1' : 'h6'} sx={{ textAlign: 'center', color: 'text.secondary' }}>
                       {itemsByStatus[column.key]?.length || 0} items
                     </Typography>
                   </Box>
@@ -550,7 +556,7 @@ export default function KitchenBoard() {
         {/* Instructions */}
         <Box sx={{ p: 1, backgroundColor: 'background.paper', mt: 1, borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-            💡 Click on any item card to move it to the next status. Items flow: Pending → Preparing → Ready → Served
+            Click an item card to move it to the next status: Pending {'->'} Preparing {'->'} Ready {'->'} Served
           </Typography>
         </Box>
       </Box>

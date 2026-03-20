@@ -4,7 +4,9 @@ import {
   Typography,
   Box,
   Chip,
-  CircularProgress
+  CircularProgress,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { getStatusColor, getStatusBackgroundColor, getStatusMuiIcon } from '../../utils/statusColors';
 
@@ -28,6 +30,8 @@ interface KitchenItemCardProps {
 
 
 export default function KitchenItemCard({ item, isUpdating = false, onClick }: KitchenItemCardProps) {
+  const theme = useTheme();
+  const isTabletOrDown = useMediaQuery(theme.breakpoints.down('lg'));
   const { 
     tableNumber, 
     orderType, 
@@ -85,7 +89,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
         <CardContent sx={{ p: 1.5 }}>
           {/* Table Number / Customer Name - Large and Prominent */}
           <Typography
-            variant="h4"
+            variant={isTabletOrDown ? 'h5' : 'h4'}
             component="div"
             sx={{
               fontWeight: 'bold',
@@ -115,7 +119,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
 
           {/* Item Name */}
           <Typography
-            variant="h5"
+            variant={isTabletOrDown ? 'h6' : 'h5'}
             component="div"
             sx={{
               textAlign: 'center',
@@ -140,7 +144,7 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               }}
             >
               <Typography
-                variant="h5"
+                variant={isTabletOrDown ? 'h6' : 'h5'}
                 component="div"
                 sx={{
                   display: 'block',
@@ -162,9 +166,9 @@ export default function KitchenItemCard({ item, isUpdating = false, onClick }: K
               color={getStatusColor(status) as any}
               size="medium"
               sx={{
-                fontSize: '1.25rem',
-                height: 42,
-                px: 2,
+                fontSize: isTabletOrDown ? '1rem' : '1.25rem',
+                height: isTabletOrDown ? 36 : 42,
+                px: isTabletOrDown ? 1.25 : 2,
                 fontWeight: 700
               }}
             />

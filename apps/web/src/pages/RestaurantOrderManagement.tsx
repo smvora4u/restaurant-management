@@ -21,7 +21,7 @@ import {
   ArrowBack,
   Print
 } from '@mui/icons-material';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { formatFullDateTime } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import Layout from '../components/Layout';
@@ -43,6 +43,7 @@ import { printBill, printKOT } from '../components/orders/BillPrint';
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
+  const apolloClient = useApolloClient();
   
   const [restaurant, setRestaurant] = useState<any>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -298,6 +299,11 @@ export default function RestaurantOrderManagement() {
         if (import.meta.env.DEV) console.log('Skipping order updated event - different order:', updatedOrder.id);
         return;
       }
+      apolloClient.writeQuery({
+        query: GET_ORDER_BY_ID,
+        variables: { id: orderId },
+        data: { order: { ...data?.order, ...updatedOrder } }
+      });
       // If this is an order we recently updated, don't process it to prevent loops
       if (recentlyUpdatedOrders.current.has(updatedOrder.id)) {
         if (import.meta.env.DEV) console.log('Skipping order updated event - recently updated by us:', updatedOrder.id);
@@ -319,6 +325,11 @@ export default function RestaurantOrderManagement() {
         if (import.meta.env.DEV) console.log('Skipping order item status update - different order:', updatedOrder.id);
         return;
       }
+      apolloClient.writeQuery({
+        query: GET_ORDER_BY_ID,
+        variables: { id: orderId },
+        data: { order: { ...data?.order, ...updatedOrder } }
+      });
       
       // Emergency brake check - stop all updates if we detect a severe loop
       if (emergencyBrake.current) {

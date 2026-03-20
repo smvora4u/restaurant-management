@@ -4,8 +4,10 @@ export const ORDER_UPDATED_SUBSCRIPTION = gql`
   subscription OrderUpdated($restaurantId: ID!) {
     orderUpdated(restaurantId: $restaurantId) {
       id
+      restaurantId
       status
       totalAmount
+      version
       items {
         menuItemId
         quantity
@@ -22,8 +24,10 @@ export const ORDER_ITEM_STATUS_UPDATED_SUBSCRIPTION = gql`
   subscription OrderItemStatusUpdated($restaurantId: ID!) {
     orderItemStatusUpdated(restaurantId: $restaurantId) {
       id
+      restaurantId
       status
       totalAmount
+      version
       items {
         menuItemId
         quantity
@@ -32,6 +36,7 @@ export const ORDER_ITEM_STATUS_UPDATED_SUBSCRIPTION = gql`
         specialInstructions
       }
       updatedAt
+      version
     }
   }
 `;

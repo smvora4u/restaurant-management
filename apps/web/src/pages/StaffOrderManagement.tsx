@@ -17,7 +17,7 @@ import {
   MenuItem,
   Button
 } from '@mui/material';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { CheckCircle, Print } from '@mui/icons-material';
 import { formatFullDateTime } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
@@ -37,6 +37,7 @@ import { printBill, printKOT } from '../components/orders/BillPrint';
 export default function StaffOrderManagement() {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
+  const apolloClient = useApolloClient();
   
   const [staff, setStaff] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>(null);
@@ -177,6 +178,11 @@ export default function StaffOrderManagement() {
     onOrderUpdated: (updatedOrder) => {
       // Only refetch if this is the order we're currently viewing
       if (updatedOrder.id === orderId) {
+        apolloClient.writeQuery({
+          query: GET_ORDER_BY_ID,
+          variables: { id: orderId },
+          data: { order: { ...orderData?.order, ...updatedOrder } }
+        });
         refetch();
       }
     },
@@ -185,6 +191,11 @@ export default function StaffOrderManagement() {
       if (updatedOrder.id !== orderId) {
         return;
       }
+      apolloClient.writeQuery({
+        query: GET_ORDER_BY_ID,
+        variables: { id: orderId },
+        data: { order: { ...orderData?.order, ...updatedOrder } }
+      });
       // Recalculate order status based on updated item statuses
       if (updatedOrder && updatedOrder.items) {
         const calculatedStatus = calculateOrderStatus(updatedOrder.items);
