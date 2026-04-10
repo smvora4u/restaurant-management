@@ -17,6 +17,41 @@ const TEST_ESC_POS = new Uint8Array([
   0x1b, 0x40, 0x54, 0x65, 0x73, 0x74, 0x20, 0x70, 0x72, 0x69, 0x6e, 0x74, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x01
 ]);
 
+/**
+ * `.lean()` may return `content` as a Node Buffer, BSON Binary, or Uint8Array depending on
+ * Mongoose/driver version; `Buffer.from(unknown)` can yield an empty buffer for BSON Binary.
+ */
+function printJobContentToBuffer(content: unknown): Buffer {
+  if (content == null) return Buffer.alloc(0);
+  if (Buffer.isBuffer(content)) return content;
+  if (content instanceof Uint8Array) {
+    return Buffer.from(content.buffer, content.byteOffset, content.byteLength);
+  }
+  if (typeof content === 'object' && content !== null) {
+    const c = content as Record<string, unknown>;
+    if (Buffer.isBuffer(c.buffer)) return c.buffer;
+    if (c.buffer instanceof Uint8Array) {
+      const u = c.buffer;
+      return Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+    }
+    if (typeof c.value === 'function') {
+      try {
+        const v = (c.value as () => unknown)();
+        if (Buffer.isBuffer(v)) return v;
+        if (v instanceof Uint8Array) {
+          return Buffer.from(v.buffer, v.byteOffset, v.byteLength);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (c.type === 'Buffer' && Array.isArray(c.data)) {
+      return Buffer.from(c.data as number[]);
+    }
+  }
+  return Buffer.alloc(0);
+}
+
 function sha256Hex(s: string): string {
   return crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 }
@@ -151,7 +186,7 @@ export async function listPendingJobsForRestaurant(restaurantId: string) {
   return jobs.map((j) => ({
     id: j._id.toString(),
     kind: j.kind as PrintJobKind,
-    contentBase64: Buffer.from(j.content as unknown as Uint8Array).toString('base64'),
+    contentBase64: printJobContentToBuffer(j.content).toString('base64'),
     createdAt: j.createdAt
   }));
 }
