@@ -13,24 +13,17 @@ import {
   Alert,
   CircularProgress,
   Collapse,
-  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Settings as SettingsIcon, Usb as UsbIcon, ExpandMore, ExpandLess, Print as PrintIcon } from '@mui/icons-material';
+import { Settings as SettingsIcon, ExpandMore, ExpandLess, Print as PrintIcon } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import Layout from '../components/Layout';
 import { GET_RESTAURANT_BY_SLUG } from '../graphql/queries/restaurant';
 import { UPDATE_RESTAURANT_SETTINGS } from '../graphql/mutations/restaurant';
-import { PRINTER_PROXY_STATUS } from '../graphql/queries/printer';
-import { REQUEST_TEST_PRINT } from '../graphql/mutations/printer';
-import {
-  isDirectPrintSupported,
-  connect,
-  disconnect,
-  getState,
-  subscribe,
-  reconnect,
-  type DirectPrinterState
-} from '../services/directPrinter';
+import { getApiBaseUrl, queueTestPrint } from '../services/printQueue';
 
 export default function RestaurantSettings() {
   const navigate = useNavigate();
@@ -41,14 +34,11 @@ export default function RestaurantSettings() {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
-  const [printerState, setPrinterState] = useState<DirectPrinterState>(getState());
-  const [printerConnecting, setPrinterConnecting] = useState(false);
-  const [limitsExpanded, setLimitsExpanded] = useState(false);
   const [setupGuideExpanded, setSetupGuideExpanded] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [testPrinting, setTestPrinting] = useState(false);
-  const [networkPrinterHost, setNetworkPrinterHost] = useState('');
-  const [networkPrinterPort, setNetworkPrinterPort] = useState(9100);
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [newAgentToken, setNewAgentToken] = useState('');
+  const [issuingToken, setIssuingToken] = useState(false);
 
   const slug = (() => {
     if (restaurant?.slug) return restaurant.slug;
@@ -63,39 +53,14 @@ export default function RestaurantSettings() {
 
   const { data, loading } = useQuery(GET_RESTAURANT_BY_SLUG, {
     variables: { slug: slug || '' },
-    skip: !slug,
+    skip: !slug
   });
 
-  const restaurantId = restaurant?.id || data?.restaurantBySlug?.id;
-  const { data: proxyData } = useQuery(PRINTER_PROXY_STATUS, {
-    variables: { restaurantId: restaurantId || '' },
-    skip: !restaurantId,
-    pollInterval: 5000,
-  });
-  const proxyConnected = proxyData?.printerProxyStatus?.connected ?? false;
-
-  const [requestTestPrint] = useMutation(REQUEST_TEST_PRINT, {
-    onCompleted: () => {
-      setTestPrinting(false);
-      setSnackbar({ open: true, message: 'Test print sent to printer.', severity: 'success' });
-    },
-    onError: (e) => {
-      setTestPrinting(false);
-      setSnackbar({ open: true, message: e.message || 'Test print failed.', severity: 'error' });
-    }
-  });
   const [updateSettings, { loading: saving }] = useMutation(UPDATE_RESTAURANT_SETTINGS, {
     onCompleted: (data) => {
       const updated = data?.updateRestaurantSettings;
       if (updated?.settings?.billSize) {
         setBillSize(updated.settings.billSize);
-      }
-      if (updated?.settings?.networkPrinter) {
-        setNetworkPrinterHost(updated.settings.networkPrinter.host || '');
-        setNetworkPrinterPort(updated.settings.networkPrinter.port ?? 9100);
-      } else {
-        setNetworkPrinterHost('');
-        setNetworkPrinterPort(9100);
       }
       setSnackbar({
         open: true,
@@ -140,85 +105,70 @@ export default function RestaurantSettings() {
       if (r.settings?.billSize) {
         setBillSize(r.settings.billSize);
       }
-      if (r.settings?.networkPrinter) {
-        setNetworkPrinterHost(r.settings.networkPrinter.host || '');
-        setNetworkPrinterPort(r.settings.networkPrinter.port ?? 9100);
-      }
     }
   }, [data]);
 
-  useEffect(() => {
-    const unsub = subscribe(setPrinterState);
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (isDirectPrintSupported() && !printerState.isConnected) {
-      reconnect().catch(() => {});
-    }
-  }, []);
-
   const handleSave = () => {
-    const input: Record<string, unknown> = { billSize };
-    if (networkPrinterHost.trim()) {
-      input.networkPrinter = { host: networkPrinterHost.trim(), port: networkPrinterPort };
-    } else {
-      (input as any).networkPrinter = null;
-    }
     updateSettings({
-      variables: { input }
+      variables: { input: { billSize } }
     });
   };
 
-  const handleConnectPrinter = async () => {
-    setPrinterConnecting(true);
-    try {
-      const ok = await connect();
-      if (ok) {
-        setSnackbar({ open: true, message: 'Printer connected.', severity: 'success' });
-      } else {
-        setSnackbar({ open: true, message: 'Could not connect. See limitations below.', severity: 'warning' });
-      }
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to connect printer.', severity: 'error' });
-    } finally {
-      setPrinterConnecting(false);
-    }
-  };
-
-  const handleDisconnectPrinter = async () => {
-    await disconnect();
-    setSnackbar({ open: true, message: 'Printer disconnected.', severity: 'info' });
-  };
-
-  const handleDownloadPrinterProxy = async () => {
+  const authHeaders = () => {
     const token = localStorage.getItem('restaurantToken');
-    if (!token) {
-      setSnackbar({ open: true, message: 'Restaurant login required.', severity: 'error' });
-      return;
-    }
-    setDownloading(true);
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
+  };
+
+  const handleIssueAgentToken = async () => {
+    setIssuingToken(true);
     try {
-      const apiBase = (import.meta as any).env?.VITE_API_URL?.replace('/graphql', '') || 'http://localhost:4000';
-      const res = await fetch(`${apiBase}/api/download-printer-proxy`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${getApiBaseUrl()}/api/print-agent/token`, {
+        method: 'POST',
+        headers: authHeaders()
       });
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Download failed');
+        throw new Error(body.error || 'Failed to issue token');
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'printer-proxy.zip';
-      a.click();
-      URL.revokeObjectURL(url);
-      setSnackbar({ open: true, message: 'Download started.', severity: 'success' });
-    } catch (e) {
-      setSnackbar({ open: true, message: (e as Error).message || 'Download failed', severity: 'error' });
+      setNewAgentToken(body.token || '');
+      setTokenDialogOpen(true);
+      setSnackbar({ open: true, message: 'Token generated. Copy it now — it will not be shown again.', severity: 'warning' });
+    } catch (e: any) {
+      setSnackbar({ open: true, message: e?.message || 'Failed to issue token', severity: 'error' });
     } finally {
-      setDownloading(false);
+      setIssuingToken(false);
+    }
+  };
+
+  const handleRevokeAgentToken = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/print-agent/token`, {
+        method: 'DELETE',
+        headers: authHeaders()
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to revoke');
+      }
+      setSnackbar({ open: true, message: 'Print agent token revoked.', severity: 'info' });
+    } catch (e: any) {
+      setSnackbar({ open: true, message: e?.message || 'Failed to revoke token', severity: 'error' });
+    }
+  };
+
+  const handleTestPrint = async () => {
+    setTestPrinting(true);
+    try {
+      const r = await queueTestPrint();
+      setSnackbar({
+        open: true,
+        message: r.message,
+        severity: r.ok ? 'success' : 'error'
+      });
+    } finally {
+      setTestPrinting(false);
     }
   };
 
@@ -237,34 +187,26 @@ export default function RestaurantSettings() {
           Restaurant Settings
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure printer and billing preferences
+          Configure receipt layout and the local print agent
         </Typography>
 
         <Card sx={{ maxWidth: 600 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
               <SettingsIcon color="primary" sx={{ mr: 2, fontSize: 32 }} />
-              <Typography variant="h6">Bill / Receipt Printer</Typography>
+              <Typography variant="h6">Bill / Receipt</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Set the thermal receipt width for customer bills. Choose the size that matches your printer.
+              Thermal receipt width (matches your printer). ESC/POS encoding uses this for line wrapping.
             </Typography>
             <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>Bill Size</InputLabel>
-              <Select
-                value={billSize}
-                label="Bill Size"
-                onChange={(e) => setBillSize(e.target.value)}
-              >
+              <Select value={billSize} label="Bill Size" onChange={(e) => setBillSize(e.target.value)}>
                 <MenuItem value="58mm">2 inch (58mm)</MenuItem>
                 <MenuItem value="80mm">3 inch (80mm)</MenuItem>
               </Select>
             </FormControl>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <Button variant="contained" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save Settings'}
             </Button>
           </CardContent>
@@ -273,123 +215,23 @@ export default function RestaurantSettings() {
         <Card sx={{ maxWidth: 600, mt: 3 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <UsbIcon color="primary" sx={{ mr: 2, fontSize: 32 }} />
-              <Typography variant="h6">USB/Serial Printer</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Connect an ESC/POS thermal printer directly via USB or Serial (virtual COM port on Windows).
-            </Typography>
-            {isDirectPrintSupported() ? (
-              <>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Status: {printerState.isConnected ? (
-                      <Box component="span" sx={{ color: 'success.main', fontWeight: 600 }}>Connected: {printerState.printerName ?? 'Printer'}</Box>
-                    ) : (
-                      <span>Not connected</span>
-                    )}
-                  </Typography>
-                  {printerState.isConnected ? (
-                    <Button variant="outlined" color="secondary" size="small" onClick={handleDisconnectPrinter}>
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={handleConnectPrinter}
-                      disabled={printerConnecting}
-                    >
-                      {printerConnecting ? 'Connecting...' : 'Connect printer'}
-                    </Button>
-                  )}
-                </Box>
-                <Button
-                  size="small"
-                  onClick={() => setLimitsExpanded(!limitsExpanded)}
-                  endIcon={limitsExpanded ? <ExpandLess /> : <ExpandMore />}
-                  sx={{ textTransform: 'none', p: 0, minWidth: 0 }}
-                >
-                  Limitations
-                </Button>
-                <Collapse in={limitsExpanded}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, pl: 2 }}>
-                    • USB/Serial: Chrome or Edge on HTTPS. Windows needs a driver with virtual serial port.
-                    <br />
-                    • Network: Run the printer proxy on a PC on the same LAN as the printer.
-                    <br />
-                    • Firefox/Safari: Use the standard print dialog.
-                  </Typography>
-                </Collapse>
-              </>
-            ) : (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Direct print is not supported in this browser. Use Chrome or Edge on HTTPS. Firefox/Safari: use the standard print dialog.
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card sx={{ maxWidth: 600, mt: 3 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <PrintIcon color="primary" sx={{ mr: 2, fontSize: 32 }} />
-              <Typography variant="h6">Network Printer</Typography>
+              <Typography variant="h6">Local print agent</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Wi-Fi/network thermal printer. Run the printer proxy on a PC on the same LAN as the printer.
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-              <TextField
-                label="Printer IP"
-                value={networkPrinterHost}
-                onChange={(e) => setNetworkPrinterHost(e.target.value)}
-                placeholder="192.168.1.100"
-                size="small"
-                sx={{ minWidth: 160 }}
-              />
-              <TextField
-                label="Port"
-                type="number"
-                value={networkPrinterPort}
-                onChange={(e) => setNetworkPrinterPort(parseInt(e.target.value, 10) || 9100)}
-                size="small"
-                sx={{ width: 100 }}
-              />
-            </Box>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Proxy status: {proxyConnected ? (
-                  <Box component="span" sx={{ color: 'success.main', fontWeight: 600 }}>Connected</Box>
-                ) : (
-                  <span>Not connected</span>
-                )}
-              </Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Download a ready-to-run printer proxy. Token in the zip lasts ~90 days. Re-download only when the proxy stops connecting.
+              Thermal printing runs on a PC on the same LAN as the printer. Install the <code>print-agent</code> app from
+              this repo, set your API URL, printer IP (port 9100), and the token below. The agent polls for pending jobs and
+              prints silently — no browser popups.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-              <Button variant="contained" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Settings'}
+              <Button variant="contained" onClick={handleIssueAgentToken} disabled={issuingToken}>
+                {issuingToken ? 'Generating…' : 'Generate new agent token'}
               </Button>
-              <Button
-                variant="outlined"
-                onClick={handleDownloadPrinterProxy}
-                disabled={downloading}
-              >
-                {downloading ? 'Preparing...' : 'Download Printer Proxy'}
+              <Button variant="outlined" color="warning" onClick={handleRevokeAgentToken}>
+                Revoke token
               </Button>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  if (!restaurantId) return;
-                  setTestPrinting(true);
-                  requestTestPrint({ variables: { restaurantId } });
-                }}
-                disabled={testPrinting || !proxyConnected}
-              >
-                {testPrinting ? 'Sending...' : 'Test Print'}
+              <Button variant="outlined" onClick={handleTestPrint} disabled={testPrinting}>
+                {testPrinting ? 'Queueing…' : 'Test print'}
               </Button>
             </Box>
             <Button
@@ -398,47 +240,78 @@ export default function RestaurantSettings() {
               endIcon={setupGuideExpanded ? <ExpandLess /> : <ExpandMore />}
               sx={{ textTransform: 'none', p: 0, minWidth: 0 }}
             >
-              Setup Guide
+              Setup guide
             </Button>
             <Collapse in={setupGuideExpanded}>
               <Box sx={{ mt: 2, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Prerequisites</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  PC/laptop on same Wi-Fi as printer. Node.js installed (nodejs.org). Printer connected to router.
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  1. Generate token
                 </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>1. Download</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  Click &quot;Download Printer Proxy&quot; above. Save printer-proxy.zip.
+                  Click &quot;Generate new agent token&quot; and copy the value into the agent&apos;s config (or env).
                 </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>2. Extract</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  2. Printer IP
+                </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  Right-click zip → Extract All. Remember the folder.
+                  Find your TVS / Epson LAN printer IP (often port 9100). Set <code>printerHost</code> in the agent config.
                 </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>3. Find printer IP</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  3. API URL
+                </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  On printer: network settings → IP Address (e.g. 192.168.1.100). Or check router admin.
+                  Set <code>baseUrl</code> to your backend origin (e.g. https://api.example.com) — no <code>/graphql</code>{' '}
+                  suffix.
                 </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>4. Edit .env</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  Open .env in Notepad. Set PRINTER_HOST to your printer&apos;s IP. Save.
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  4. Run agent
                 </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>5. Run</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  Windows: double-click start.bat. Mac/Linux: chmod +x start.sh then ./start.sh. Leave the window open.
-                </Typography>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>6. Verify</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Proxy status above should show Connected. Try Print Bill on an order.
+                  <code>node agent.js</code> (or <code>npm start</code> in <code>apps/print-agent</code>). Leave it running on the
+                  restaurant PC.
                 </Typography>
               </Box>
             </Collapse>
           </CardContent>
         </Card>
 
+        <Dialog open={tokenDialogOpen} onClose={() => setTokenDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Print agent token</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Copy this token into the print agent configuration. Store it securely; it cannot be retrieved again.
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                p: 2,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                overflow: 'auto',
+                fontSize: 12,
+                wordBreak: 'break-all'
+              }}
+            >
+              {newAgentToken}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                void navigator.clipboard.writeText(newAgentToken);
+                setSnackbar({ open: true, message: 'Copied to clipboard', severity: 'success' });
+              }}
+            >
+              Copy
+            </Button>
+            <Button onClick={() => setTokenDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
         {snackbar.open && (
           <Alert
             severity={snackbar.severity}
-            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
             sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999 }}
           >
             {snackbar.message}

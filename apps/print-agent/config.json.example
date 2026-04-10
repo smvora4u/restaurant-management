@@ -1,0 +1,7 @@
+{
+  "baseUrl": "http://localhost:4000",
+  "printAgentToken": "paste-token-from-restaurant-settings",
+  "printerHost": "192.168.1.50",
+  "printerPort": 9100,
+  "pollIntervalMs": 2500
+}

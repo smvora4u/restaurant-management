@@ -18,6 +18,7 @@ import { useQuery as useGqlQuery, useMutation } from '@apollo/client';
 import { GET_SETTLEMENTS } from '../../../../graphql/queries/admin';
 import { GENERATE_WEEKLY_SETTLEMENT } from '../../../../graphql/mutations/admin';
 import { formatDateTime } from '../../../../utils/dateFormatting';
+import { getApiBaseUrl } from '../../../../services/printQueue';
 
 export default function SettlementsPanel({ selectedRestaurant }: { selectedRestaurant: any }) {
   const [page, setPage] = React.useState<number>(0);
@@ -101,7 +102,16 @@ export default function SettlementsPanel({ selectedRestaurant }: { selectedResta
                   <TableCell align="right">{s.currency} {s.totalFees.toFixed(2)}</TableCell>
                   <TableCell>{formatDateTime(s.generatedAt).date} {formatDateTime(s.generatedAt).time}</TableCell>
                   <TableCell>
-                    <Button size="small" variant="outlined" onClick={() => window.open(`/settlements/${s.id}/pdf`, '_blank')}>PDF</Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      component="a"
+                      href={`${getApiBaseUrl()}/settlements/${s.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      PDF
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

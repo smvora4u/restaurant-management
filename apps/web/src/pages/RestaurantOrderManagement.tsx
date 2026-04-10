@@ -33,12 +33,11 @@ import { mergeOrderItemsByStatus } from '../utils/orderItemManagement';
 import { calculateOrderStatus, getItemStatusSummary, canCompleteOrder, canCancelOrder } from '../utils/statusManagement';
 import { ConfirmationDialog, AppSnackbar } from '../components/common';
 import { MARK_ORDER_PAID } from '../graphql/mutations/orders';
-import { REQUEST_NETWORK_PRINT, REQUEST_NETWORK_KOT } from '../graphql/mutations/printer';
 import { useOrderSubscriptions } from '../hooks/useOrderSubscriptions';
 import { useOrderStatus } from '../hooks/useOrderStatus';
 import { useOrderManagement } from '../hooks/useOrderManagement';
 import { getStatusColor } from '../utils/statusColors';
-import { printBill, printKOT } from '../components/orders/BillPrint';
+import { queueBillPrint, queueKotPrint } from '../components/orders/BillPrint';
 
 export default function RestaurantOrderManagement() {
   const navigate = useNavigate();
@@ -53,8 +52,6 @@ export default function RestaurantOrderManagement() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmMarkPaidOpen, setConfirmMarkPaidOpen] = useState(false);
   const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
-  const [requestNetworkPrint] = useMutation(REQUEST_NETWORK_PRINT);
-  const [requestNetworkKOT] = useMutation(REQUEST_NETWORK_KOT);
   const [markPaid, { loading: paying }] = useMutation(MARK_ORDER_PAID, {
     onCompleted: () => {
       setSnackbarMessage('Order marked as paid.');
@@ -836,49 +833,16 @@ export default function RestaurantOrderManagement() {
                             variant="outlined"
                             size="small"
                             startIcon={<Print />}
-                            onClick={() => {
+                            onClick={async () => {
                               const o = data?.order || order;
                               if (o && restaurant) {
-                                const doNetworkKOT = async (orderId: string) => {
-                                  try {
-                                    setSnackbarMessage('Sending KOT to printer...');
-                                    setSnackbarSeverity('info');
-                                    setSnackbarOpen(true);
-                                    const res = await requestNetworkKOT({ variables: { orderId } });
-                                    const ok = !!res.data?.requestNetworkKOT;
-                                    if (ok) {
-                                      setSnackbarMessage('KOT sent to printer');
-                                      setSnackbarSeverity('success');
-                                    } else {
-                                      setSnackbarMessage('KOT print failed, trying browser...');
-                                      setSnackbarSeverity('warning');
-                                    }
-                                    setSnackbarOpen(true);
-                                    return ok;
-                                  } catch (e: any) {
-                                    setSnackbarMessage('KOT print failed: ' + (e?.message || 'Unknown error'));
-                                    setSnackbarSeverity('error');
-                                    setSnackbarOpen(true);
-                                    return false;
-                                  }
-                                };
-                                const orderForPrint = {
-                                  ...o,
-                                  items: editingItems.map((i: any) => ({
-                                    menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
-                                    quantity: i.quantity,
-                                    price: i.price,
-                                    specialInstructions: i.specialInstructions
-                                  })),
-                                  createdAt: o?.createdAt ?? (o as any)?.created_at
-                                };
-                                printKOT(
-                                  orderForPrint,
-                                  restaurant,
-                                  menuItems.map((m: any) => ({ id: m.id, name: m.name })),
-                                  true,
-                                  { requestNetworkKOT: doNetworkKOT }
-                                );
+                                setSnackbarMessage('Printing…');
+                                setSnackbarSeverity('info');
+                                setSnackbarOpen(true);
+                                const r = await queueKotPrint(String(o.id));
+                                setSnackbarMessage(r.message);
+                                setSnackbarSeverity(r.ok ? 'success' : 'error');
+                                setSnackbarOpen(true);
                               }
                             }}
                             sx={{ mt: 1 }}
@@ -890,50 +854,16 @@ export default function RestaurantOrderManagement() {
                           variant="outlined"
                           size="small"
                           startIcon={<Print />}
-                          onClick={() => {
+                          onClick={async () => {
                             const o = data?.order || order;
                             if (o && restaurant) {
-                              const doNetworkPrint = async (orderId: string) => {
-                                try {
-                                  setSnackbarMessage('Sending to printer...');
-                                  setSnackbarSeverity('info');
-                                  setSnackbarOpen(true);
-                                  const res = await requestNetworkPrint({ variables: { orderId } });
-                                  const ok = !!res.data?.requestNetworkPrint;
-                                  if (ok) {
-                                    setSnackbarMessage('Print sent to printer');
-                                    setSnackbarSeverity('success');
-                                  } else {
-                                    setSnackbarMessage('Print failed, trying browser...');
-                                    setSnackbarSeverity('warning');
-                                  }
-                                  setSnackbarOpen(true);
-                                  return ok;
-                                } catch (e: any) {
-                                  setSnackbarMessage('Print failed: ' + (e?.message || 'Unknown error'));
-                                  setSnackbarSeverity('error');
-                                  setSnackbarOpen(true);
-                                  return false;
-                                }
-                              };
-                              const itemsForBill = editingItems.map((i: any) => ({
-                                menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
-                                quantity: i.quantity,
-                                price: i.price,
-                                specialInstructions: i.specialInstructions
-                              }));
-                              const orderForBill = {
-                                ...o,
-                                items: itemsForBill,
-                                totalAmount: itemsForBill.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0)
-                              };
-                              printBill(
-                                orderForBill,
-                                restaurant,
-                                menuItems.map((m: any) => ({ id: m.id, name: m.name })),
-                                true,
-                                { requestNetworkPrint: doNetworkPrint }
-                              );
+                              setSnackbarMessage('Printing…');
+                              setSnackbarSeverity('info');
+                              setSnackbarOpen(true);
+                              const r = await queueBillPrint(String(o.id));
+                              setSnackbarMessage(r.message);
+                              setSnackbarSeverity(r.ok ? 'success' : 'error');
+                              setSnackbarOpen(true);
                             }
                           }}
                           sx={{ mt: 1 }}
@@ -1139,34 +1069,10 @@ export default function RestaurantOrderManagement() {
             const order = data?.order;
             if (order && restaurant) {
               const isTakeoutOrDelivery = order.orderType === 'takeout' || order.orderType === 'delivery';
-              const itemsForPrint = editingItems.map((i: any) => ({
-                menuItemId: typeof i.menuItemId === 'string' ? i.menuItemId : i.menuItemId?.id,
-                quantity: i.quantity,
-                price: i.price,
-                specialInstructions: i.specialInstructions
-              }));
-              const orderForPrint = {
-                ...order,
-                items: itemsForPrint,
-                totalAmount: itemsForPrint.reduce((sum: number, i: any) => sum + (i.price || 0) * (i.quantity || 0), 0)
-              };
-              const menuItemsForPrint = menuItems.map((m: any) => ({ id: m.id, name: m.name }));
               if (isTakeoutOrDelivery) {
-                const doNetworkKOT = async (orderId: string) => {
-                  try {
-                    const res = await requestNetworkKOT({ variables: { orderId } });
-                    return !!res.data?.requestNetworkKOT;
-                  } catch { return false; }
-                };
-                printKOT(orderForPrint, restaurant, menuItemsForPrint, true, { requestNetworkKOT: doNetworkKOT });
+                await queueKotPrint(String(order.id));
               }
-              const doNetworkPrint = async (orderId: string) => {
-                try {
-                  const res = await requestNetworkPrint({ variables: { orderId } });
-                  return !!res.data?.requestNetworkPrint;
-                } catch { return false; }
-              };
-              printBill(orderForPrint, restaurant, menuItemsForPrint, true, { requestNetworkPrint: doNetworkPrint });
+              await queueBillPrint(String(order.id));
             }
             await handleCompleteOrder(editingItems);
           }}

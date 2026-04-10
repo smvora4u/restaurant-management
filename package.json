@@ -5,9 +5,10 @@
     "apps/backend",
     "apps/web",
     "apps/mobile",
-    "apps/printer-proxy"
+    "apps/print-agent"
   ],
   "scripts": {
+    "build:print-agent": "npm run build -w @restaurant/print-agent",
     "build": "npm -ws run build",
     "dev": "npm -ws run dev",
     "start": "npm -ws run start",

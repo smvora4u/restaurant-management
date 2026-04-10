@@ -1,5 +1,4 @@
 import mongoose, { Schema } from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 export interface IRestaurant {
   _id?: string;
@@ -19,6 +18,11 @@ export interface IRestaurant {
     kitchenBoardClickIncrement?: number;
   };
   isActive: boolean;
+  /** bcrypt hash of the raw print-agent token (never store plaintext) */
+  printAgentTokenHash?: string;
+  /** sha256(hex) of raw token for O(1) lookup when agent authenticates */
+  printAgentTokenLookup?: string;
+  printAgentTokenCreatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +47,9 @@ const RestaurantSchema = new Schema<IRestaurant>({
     kitchenBoardClickIncrement: { type: Number, default: 1 }
   },
   isActive: { type: Boolean, default: true },
+  printAgentTokenHash: { type: String, required: false, select: false },
+  printAgentTokenLookup: { type: String, required: false, sparse: true, unique: true, select: false },
+  printAgentTokenCreatedAt: { type: Date, required: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

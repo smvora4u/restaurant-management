@@ -1,0 +1,25 @@
+{
+  "name": "@restaurant/print-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Polls backend print jobs and sends ESC/POS to a LAN thermal printer (port 9100)",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "agent": "node agent.js",
+    "build:bundle": "esbuild agent.js --bundle --platform=node --format=cjs --outfile=dist/agent.bundle.cjs",
+    "build:exe": "pkg dist/agent.bundle.cjs -t node18-win-x64 -o dist/print-agent.exe",
+    "build": "npm run build:bundle && npm run build:exe"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "pkg": "^5.8.1"
+  }
+}

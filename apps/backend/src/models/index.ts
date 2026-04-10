@@ -20,3 +20,4 @@ export { default as PurchaseCategory } from './PurchaseCategory.js';
 export { default as Vendor } from './Vendor.js';
 export { default as PurchaseItem } from './PurchaseItem.js';
 export { default as Purchase } from './Purchase.js';
+export { default as PrintJob } from './PrintJob.js';
