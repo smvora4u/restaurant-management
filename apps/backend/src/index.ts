@@ -24,9 +24,7 @@ import { authenticateUser, AuthContext } from './middleware/auth.js';
 import { pubsub } from './resolvers/subscriptions.js';
 import { Settlement, FeeLedger } from './models/index.js';
 import { useServer } from 'graphql-ws/use/ws';
-import { registerProxy, unregisterByWebSocket } from './services/printerProxy.js';
-import jwt from 'jsonwebtoken';
-import printerProxyDownloadRouter from './routes/printerProxyDownload.js';
+import printRouter from './print/print.routes.js';
 
 async function start() {
   try {
@@ -124,7 +122,7 @@ async function start() {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-restaurant-id', 'x-restaurant-slug'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-restaurant-id', 'x-restaurant-slug', 'x-print-agent-token'],
       exposedHeaders: ['Content-Type'],
     };
 
@@ -138,7 +136,7 @@ async function start() {
     
     // Serve uploaded files statically
     app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-    app.use('/api/download-printer-proxy', printerProxyDownloadRouter);
+    app.use('/api', printRouter);
 
     // Create GraphQL schema
     const schema = makeExecutableSchema({ typeDefs, resolvers });
@@ -160,35 +158,12 @@ async function start() {
     });
     await server.start();
 
-    // Create WebSocket servers - we handle upgrade manually to support multiple paths
+    // WebSocket server for GraphQL subscriptions only
     const wsServer = new WebSocketServer({ noServer: true });
-    const printerProxyWss = new WebSocketServer({ noServer: true });
 
     httpServer.on('upgrade', (request, socket, head) => {
       const url = new URL(request.url || '', `http://${request.headers.host}`);
-      if (url.pathname === '/printer-proxy') {
-        printerProxyWss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-          const token = url.searchParams.get('token');
-          const restaurantId = url.searchParams.get('restaurantId');
-          if (!token || !restaurantId) {
-            ws.close(4000, 'Missing token or restaurantId');
-            return;
-          }
-          try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
-            const id = decoded.restaurantId || decoded.staffId && (decoded as any).restaurantId;
-            if (!id || String(id) !== String(restaurantId)) {
-              ws.close(4001, 'Invalid token for restaurant');
-              return;
-            }
-            registerProxy(restaurantId, ws);
-            ws.on('close', () => unregisterByWebSocket(ws));
-            ws.on('error', () => unregisterByWebSocket(ws));
-          } catch {
-            ws.close(4001, 'Invalid token');
-          }
-        });
-      } else if (url.pathname === '/graphql') {
+      if (url.pathname === '/graphql') {
         wsServer.handleUpgrade(request, socket, head, (ws: WebSocket) => {
           wsServer.emit('connection', ws, request);
         });

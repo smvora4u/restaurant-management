@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import {
   QrCode,
-  Print,
+  Download,
   Share,
   Close,
   Clear,
@@ -218,58 +218,19 @@ export default function QRCodeManagementPage() {
     );
   };
 
-  const printQRCode = (tableNumber: string | number) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>QR Code - Table ${tableNumber}</title>
-            <style>
-              body { 
-                font-family: Arial, sans-serif; 
-                text-align: center; 
-                padding: 20px;
-                margin: 0;
-              }
-              .qr-container { 
-                margin: 20px 0; 
-              }
-              .table-info {
-                margin: 20px 0;
-                font-size: 18px;
-                font-weight: bold;
-              }
-              .instructions {
-                margin: 20px 0;
-                font-size: 14px;
-                color: #666;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>Restaurant QR Code</h1>
-            <div class="table-info">Table ${tableNumber}</div>
-            <div class="qr-container">
-              <canvas id="qr-canvas"></canvas>
-            </div>
-            <div class="instructions">
-              Scan this QR code to access the digital menu and place your order
-            </div>
-            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-            <script>
-                      QRCode.toCanvas(document.getElementById('qr-canvas'), '${baseUrl}/consumer/${restaurant?.slug || 'restaurant'}/${tableNumber}', {
-                width: 300,
-                margin: 2,
-                color: { dark: '#000000', light: '#FFFFFF' }
-              });
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
+  const downloadQRCodePng = async (tableNumber: string | number) => {
+    const QRCode = (await import('qrcode')).default;
+    const payload = `${baseUrl}/consumer/${restaurant?.slug || 'restaurant'}/${tableNumber}`;
+    const dataUrl = await QRCode.toDataURL(payload, {
+      width: 300,
+      margin: 2,
+      color: { dark: '#000000', light: '#FFFFFF' }
+    });
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `qr-table-${tableNumber}.png`;
+    a.rel = 'noopener';
+    a.click();
   };
 
   if (loading) {
@@ -430,10 +391,10 @@ export default function QRCodeManagementPage() {
                 <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
                   <Button
                     variant="outlined"
-                    startIcon={<Print />}
-                    onClick={() => printQRCode(selectedTable)}
+                    startIcon={<Download />}
+                    onClick={() => void downloadQRCodePng(selectedTable)}
                   >
-                    Print QR Code
+                    Download QR Code
                   </Button>
                   <Button
                     variant="outlined"
@@ -527,7 +488,7 @@ export default function QRCodeManagementPage() {
               </li>
               <li>
                 <Typography variant="body2" paragraph>
-                  <strong>Print QR Codes:</strong> Use the print function to create printable versions of QR codes for your tables.
+                  <strong>Download QR Codes:</strong> Save PNG files and open them on your PC to print from your OS if needed.
                 </Typography>
               </li>
               <li>
@@ -537,12 +498,12 @@ export default function QRCodeManagementPage() {
               </li>
               <li>
                 <Typography variant="body2" paragraph>
-                  <strong>Place on Tables:</strong> Print and place QR codes on your restaurant tables for customers to scan.
+                  <strong>Place on Tables:</strong> Print the downloaded PNGs and place them on your tables for customers to scan.
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2" paragraph>
-                  <strong>Test Links:</strong> Use the test links to verify that QR codes work correctly before printing.
+                  <strong>Test Links:</strong> Use the test links to verify that QR codes work correctly before printing labels.
                 </Typography>
               </li>
             </Box>

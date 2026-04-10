@@ -18,6 +18,7 @@ import { useQuery } from '@apollo/client';
 import Layout from '../components/Layout';
 import { GET_SETTLEMENTS } from '../graphql/queries/admin';
 import { formatDateTime } from '../utils/dateFormatting';
+import { getApiBaseUrl } from '../services/printQueue';
 
 export default function RestaurantSettlements() {
   const [restaurant, setRestaurant] = React.useState<any>(null);
@@ -52,10 +53,6 @@ export default function RestaurantSettlements() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadPdf = () => {
-    window.print();
   };
 
   if (!restaurant) {
@@ -105,7 +102,16 @@ export default function RestaurantSettlements() {
                     <TableCell align="right">{s.currency} {s.totalFees.toFixed(2)}</TableCell>
                     <TableCell>{formatDateTime(s.generatedAt).date} {formatDateTime(s.generatedAt).time}</TableCell>
                     <TableCell>
-                      <Button size="small" variant="outlined" onClick={() => window.open(`/settlements/${s.id}/pdf`, '_blank')}>PDF</Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        component="a"
+                        href={`${getApiBaseUrl()}/settlements/${s.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        PDF
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

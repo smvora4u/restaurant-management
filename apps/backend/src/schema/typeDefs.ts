@@ -32,10 +32,6 @@ export const typeDefs = `#graphql
     port: Int!
   }
 
-  type PrinterProxyStatus {
-    connected: Boolean!
-  }
-
   type AuthPayload {
     token: String!
     restaurant: Restaurant!
@@ -231,7 +227,6 @@ export const typeDefs = `#graphql
     staffById(id: ID!): Staff
     ordersForStaff(restaurantId: ID!): [Order!]!
     orderByIdForStaff(id: ID!): Order
-    printerProxyStatus(restaurantId: ID!): PrinterProxyStatus!
     feeLedgers(restaurantId: ID!, limit: Int, offset: Int): FeeLedgerConnection!
     restaurantFeeConfig(restaurantId: ID!): RestaurantFeeConfig
     settlements(restaurantId: ID!, limit: Int, offset: Int): [Settlement!]!
@@ -288,10 +283,6 @@ export const typeDefs = `#graphql
     
     # Staff Order Management
     updateOrderStatusForStaff(id: ID!, status: String!): Order!
-    requestNetworkPrint(orderId: ID!): Boolean!
-    requestNetworkKOT(orderId: ID!): Boolean!
-    requestTestPrint(restaurantId: ID!): Boolean!
-    generatePrinterProxyToken: String!
     
     createMenuItem(input: MenuItemInput!): MenuItem!
     updateMenuItem(id: ID!, input: MenuItemInput!): MenuItem!
