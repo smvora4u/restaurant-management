@@ -30,11 +30,33 @@ import { getLocalDateString, toTimestamp, timestampToInputDate } from '../../uti
 
 interface PurchaseItem {
   itemName: string;
-  quantity: number;
+  quantity: string;
   unit: string;
-  unitPrice: number;
+  unitPrice: string;
   categoryId?: string;
   notes?: string;
+}
+
+/**
+ * Quantity and unit price are stored as strings so the inputs stay fully controlled without
+ * `type="number"` quirks (empty → forced 0, sticky "021"). We only need:
+ * - quantity: digits → integer string (strips junk and leading zeros like "021" → "21")
+ * - unit price: one decimal point, optional "12." while typing, then parseFloat → canonical string
+ */
+function parseQuantityString(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  return digits === '' ? '' : String(parseInt(digits, 10));
+}
+
+function parseUnitPriceString(raw: string): string {
+  if (raw === '') return '';
+  let s = raw.replace(/[^\d.]/g, '');
+  const d = s.indexOf('.');
+  if (d !== -1) s = s.slice(0, d + 1) + s.slice(d + 1).replace(/\./g, '');
+  if (s === '') return '';
+  if (/^\d+\.$/.test(s)) return s;
+  const n = parseFloat(s);
+  return Number.isNaN(n) ? '' : String(n);
 }
 
 interface PurchaseFormProps {
@@ -83,9 +105,9 @@ export default function PurchaseForm({
       });
       setItems(initialData.items?.map((item: any) => ({
         itemName: item.itemName || '',
-        quantity: item.quantity || 0,
+        quantity: item.quantity != null ? String(item.quantity) : '0',
         unit: item.unit || 'piece',
-        unitPrice: item.unitPrice || 0,
+        unitPrice: item.unitPrice != null ? String(item.unitPrice) : '0',
         categoryId: item.categoryId || '',
         notes: item.notes || ''
       })) || []);
@@ -98,17 +120,20 @@ export default function PurchaseForm({
         invoiceNumber: '',
         notes: ''
       });
-      setItems([{ itemName: '', quantity: 0, unit: 'piece', unitPrice: 0, categoryId: '', notes: '' }]);
+      setItems([{ itemName: '', quantity: '0', unit: 'piece', unitPrice: '0', categoryId: '', notes: '' }]);
     }
     setErrors({});
   }, [initialData, mode, open]);
 
-  const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  };
+  const calculateTotal = () =>
+    items.reduce((sum, item) => {
+      const q = parseFloat(item.quantity) || 0;
+      const p = parseFloat(item.unitPrice) || 0;
+      return sum + q * p;
+    }, 0);
 
   const handleAddItem = () => {
-    setItems([...items, { itemName: '', quantity: 0, unit: 'piece', unitPrice: 0, categoryId: '', notes: '' }]);
+    setItems([...items, { itemName: '', quantity: '0', unit: 'piece', unitPrice: '0', categoryId: '', notes: '' }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -150,10 +175,12 @@ export default function PurchaseForm({
       if (!item.itemName.trim()) {
         newErrors[`item_${index}_name`] = 'Item name is required';
       }
-      if (item.quantity <= 0) {
+      const qtyNum = parseFloat(item.quantity);
+      const priceNum = parseFloat(item.unitPrice);
+      if (Number.isNaN(qtyNum) || qtyNum <= 0) {
         newErrors[`item_${index}_quantity`] = 'Quantity must be greater than 0';
       }
-      if (item.unitPrice <= 0) {
+      if (Number.isNaN(priceNum) || priceNum <= 0) {
         newErrors[`item_${index}_unitPrice`] = 'Unit price must be greater than 0';
       }
     });
@@ -182,9 +209,9 @@ export default function PurchaseForm({
         purchaseDate: String(purchaseDateTimestamp),
         items: items.map(item => ({
           itemName: item.itemName,
-          quantity: item.quantity,
+          quantity: parseFloat(item.quantity) || 0,
           unit: item.unit,
-          unitPrice: item.unitPrice,
+          unitPrice: parseFloat(item.unitPrice) || 0,
           categoryId: item.categoryId || null,
           notes: item.notes || null
         })),
@@ -338,9 +365,11 @@ export default function PurchaseForm({
                       <TableCell align="right">
                         <TextField
                           size="small"
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
                           value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handleItemChange(index, 'quantity', parseQuantityString(e.target.value))}
                           error={!!errors[`item_${index}_quantity`]}
                           helperText={errors[`item_${index}_quantity`]}
                           sx={{ width: 100 }}
@@ -357,9 +386,11 @@ export default function PurchaseForm({
                       <TableCell align="right">
                         <TextField
                           size="small"
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
                           value={item.unitPrice}
-                          onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handleItemChange(index, 'unitPrice', parseUnitPriceString(e.target.value))}
                           error={!!errors[`item_${index}_unitPrice`]}
                           helperText={errors[`item_${index}_unitPrice`]}
                           InputProps={{
@@ -369,7 +400,8 @@ export default function PurchaseForm({
                         />
                       </TableCell>
                       <TableCell align="right">
-                        {currencySymbol} {(item.quantity * item.unitPrice).toFixed(2)}
+                        {currencySymbol}{' '}
+                        {((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0)).toFixed(2)}
                       </TableCell>
                       <TableCell>
                         <FormControl size="small" sx={{ minWidth: 200 }}>

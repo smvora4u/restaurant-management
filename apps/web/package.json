@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "prepreview": "npm run build",
     "preview": "vite preview",
+    "prestart": "npm run build",
     "start": "vite preview",
     "lint": "echo 'no linter configured'"
   },
