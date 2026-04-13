@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { CheckCircle, Print } from '@mui/icons-material';
-import { formatFullDateTime } from '../utils/dateFormatting';
+import { formatFullDateTime, getRestaurantTimeZone } from '../utils/dateFormatting';
 import StaffLayout from '../components/StaffLayout';
 import OrderHeader from '../components/orders/OrderHeader';
 import OrderItemsTable from '../components/orders/OrderItemsTable';
@@ -334,6 +334,7 @@ export default function StaffOrderManagement() {
 
   const order = orderData.order;
   const menuItems = menuData?.menuItems || [];
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   return (
     <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
@@ -377,7 +378,7 @@ export default function StaffOrderManagement() {
                     <Typography variant="caption" color="text.secondary">Transaction</Typography>
                     <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
                     <Typography variant="caption" color="text.secondary">Paid at</Typography>
-                    <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
+                    <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt, dateOpts) : '-'}</Typography>
                   </Box>
                 </Box>
               ) : (

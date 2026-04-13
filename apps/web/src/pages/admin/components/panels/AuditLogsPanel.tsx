@@ -25,8 +25,9 @@ import {
 import { ContentCopy } from '@mui/icons-material';
 import { useQuery as useGqlQuery, useSubscription, useLazyQuery } from '@apollo/client';
 import { GET_AUDIT_LOGS } from '../../../../graphql/queries/admin';
+import { GET_ALL_RESTAURANTS } from '../../../../graphql/queries/restaurant';
 import { AUDIT_LOG_CREATED_SUBSCRIPTION } from '../../../../graphql/subscriptions/admin';
-import { formatDateTime } from '../../../../utils/dateFormatting';
+import { formatDateTime, getRestaurantTimeZone } from '../../../../utils/dateFormatting';
 import { GET_STAFF_BY_ID } from '../../../../graphql/queries/staff';
 import { GET_RESTAURANT_BY_ID } from '../../../../graphql/queries/restaurant';
 import { GET_ORDER_BY_ID } from '../../../../graphql/queries/orders';
@@ -45,6 +46,16 @@ export default function AuditLogsPanel() {
     variables: { limit: rowsPerPage, offset: page * rowsPerPage, action: action || undefined, entityType: entityType || undefined, restaurantId: restaurantIdFilter || undefined },
     fetchPolicy: 'cache-and-network'
   });
+
+  const { data: allRestaurantsData } = useGqlQuery(GET_ALL_RESTAURANTS, { fetchPolicy: 'cache-first' });
+
+  const tzByRestaurantId = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of allRestaurantsData?.allRestaurants || []) {
+      m[(r as { id: string }).id] = getRestaurantTimeZone(r);
+    }
+    return m;
+  }, [allRestaurantsData?.allRestaurants]);
 
   // Lightweight name caches for actors, restaurants, orders
   const [actorNameById, setActorNameById] = React.useState<Record<string, string>>({});
@@ -212,7 +223,19 @@ export default function AuditLogsPanel() {
             ) : (
               refinedLogs.map((log: any) => (
                 <TableRow key={log.id}>
-                  <TableCell>{formatDateTime(log.createdAt).date} {formatDateTime(log.createdAt).time}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const opts = {
+                        timeZone: log.restaurantId ? tzByRestaurantId[String(log.restaurantId)] : undefined
+                      };
+                      const { date, time } = formatDateTime(log.createdAt, opts);
+                      return (
+                        <>
+                          {date} {time}
+                        </>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <Chip label={log.actorRole || 'SYSTEM'} size="small" sx={{ mr: 1 }} />
                     {(() => {

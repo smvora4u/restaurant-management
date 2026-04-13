@@ -22,7 +22,7 @@ import {
   Print
 } from '@mui/icons-material';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
-import { formatFullDateTime } from '../utils/dateFormatting';
+import { formatFullDateTime, getRestaurantTimeZone } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import Layout from '../components/Layout';
 import OrderItemsTable from '../components/orders/OrderItemsTable';
@@ -547,6 +547,7 @@ export default function RestaurantOrderManagement() {
   }
 
   const order = data?.order;
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   if (!order) {
     return (
@@ -641,7 +642,7 @@ export default function RestaurantOrderManagement() {
                         )}
                       </Box>
                       <Typography variant="body2" color="text.secondary">
-                        🕒 {formatFullDateTime(order.createdAt)}
+                        🕒 {formatFullDateTime(order.createdAt, dateOpts)}
                       </Typography>
                     </Box>
                   </Box>
@@ -717,7 +718,7 @@ export default function RestaurantOrderManagement() {
                     )}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Created: {formatFullDateTime(order.createdAt)}
+                    Created: {formatFullDateTime(order.createdAt, dateOpts)}
                   </Typography>
                 </Box>
               </CardContent>
@@ -813,7 +814,7 @@ export default function RestaurantOrderManagement() {
                               <Typography variant="caption" color="text.secondary">Transaction</Typography>
                               <Typography variant="caption" fontFamily="monospace">{order.paymentTransactionId || '-'}</Typography>
                               <Typography variant="caption" color="text.secondary">Paid at</Typography>
-                              <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt) : '-'}</Typography>
+                              <Typography variant="caption">{order.paidAt ? formatFullDateTime(order.paidAt, dateOpts) : '-'}</Typography>
                             </Box>
                           </Box>
                         ) : (
@@ -997,7 +998,7 @@ export default function RestaurantOrderManagement() {
                       Created:
                     </Typography>
                     <Typography variant="body2" fontWeight="medium">
-                      {formatFullDateTime(order.createdAt)}
+                      {formatFullDateTime(order.createdAt, dateOpts)}
                 </Typography>
                   </Box>
                   
@@ -1007,7 +1008,7 @@ export default function RestaurantOrderManagement() {
                         Updated:
                       </Typography>
                       <Typography variant="body2" fontWeight="medium">
-                        {formatFullDateTime(order.updatedAt)}
+                        {formatFullDateTime(order.updatedAt, dateOpts)}
                       </Typography>
                     </Box>
                   )}

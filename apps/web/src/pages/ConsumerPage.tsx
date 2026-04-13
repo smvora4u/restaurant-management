@@ -659,6 +659,7 @@ export default function ConsumerPage() {
                   currentUser={currentUser}
                   isActive={activeTab === 1}
                   refreshTrigger={orderRefreshTrigger}
+                  restaurant={restaurant}
                 />
               </TabPanel>
             </Box>

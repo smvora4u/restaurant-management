@@ -120,6 +120,7 @@ function buildEscPosForOrder(
   const settings: ReceiptRestaurant['settings'] = {};
   if (rs?.billSize != null) settings.billSize = rs.billSize;
   if (rs?.currency != null) settings.currency = rs.currency;
+  if (rs?.timezone != null) settings.timezone = rs.timezone;
   const receiptRestaurant: ReceiptRestaurant = {
     name: restaurant.name,
     ...(Object.keys(settings).length > 0 ? { settings } : {})

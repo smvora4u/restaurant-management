@@ -43,7 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
 import CryptoJS from 'crypto-js';
-import { formatDate, formatDateTime } from '../utils/dateFormatting';
+import { formatDate } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import { GET_PLATFORM_ANALYTICS, GET_ALL_ORDERS } from '../graphql/queries/admin';
 import { GET_ALL_RESTAURANTS } from '../graphql/queries/restaurant';
@@ -947,7 +947,6 @@ export default function AdminDashboard() {
             orderRowsPerPage={orderRowsPerPage}
             onPageChange={handleOrderPageChange}
             onRowsPerPageChange={handleOrderRowsPerPageChange}
-            formatDateTime={formatDateTime}
             formatCurrencyFromRestaurant={formatCurrencyFromRestaurant}
           />
           </TabPanel>

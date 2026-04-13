@@ -33,7 +33,7 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 import { useQuery } from '@apollo/client';
-import { formatDate } from '../utils/dateFormatting';
+import { formatDate, getRestaurantTimeZone } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import StaffLayout from '../components/StaffLayout';
 import { GET_ORDERS_FOR_STAFF } from '../graphql';
@@ -134,6 +134,8 @@ export default function StaffDashboard() {
   const preparingOrders = orders.filter((order: any) => order.status === 'preparing').length;
   const readyOrders = orders.filter((order: any) => order.status === 'ready').length;
   // const totalRevenue = orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
+
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   return (
     <StaffLayout staffPermissions={staff.permissions} staff={staff} restaurant={restaurant}>
@@ -352,7 +354,7 @@ export default function StaffDashboard() {
                           })()}
                         </TableCell>
                         <TableCell>
-                          {formatDate(order.createdAt)}
+                          {formatDate(order.createdAt, dateOpts)}
                         </TableCell>
                         <TableCell>
                           {Array.isArray(staff?.permissions) && staff.permissions.includes('manage_orders') ? (

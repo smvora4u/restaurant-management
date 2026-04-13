@@ -3,22 +3,67 @@
  * Handles ISO strings, timestamps, Date objects, and other formats
  */
 
+/** Optional IANA timezone (e.g. Asia/Kolkata) for restaurant-local wall times */
+export type DateFormatOptions = { timeZone?: string };
+
+/** Effective IANA timezone for a restaurant document; defaults to UTC */
+export function getRestaurantTimeZone(
+  restaurant: { settings?: { timezone?: string } } | null | undefined
+): string {
+  return restaurant?.settings?.timezone?.trim() || 'UTC';
+}
+
+function timeZoneFromOptions(options?: DateFormatOptions): string | undefined {
+  const t = options?.timeZone?.trim();
+  return t || undefined;
+}
+
+function safeLocaleDateString(date: Date, base: Intl.DateTimeFormatOptions): string {
+  try {
+    return date.toLocaleDateString('en-US', base);
+  } catch {
+    return date.toLocaleDateString('en-US', { ...base, timeZone: 'UTC' });
+  }
+}
+
+function safeLocaleTimeString(date: Date, base: Intl.DateTimeFormatOptions): string {
+  try {
+    return date.toLocaleTimeString('en-US', base);
+  } catch {
+    return date.toLocaleTimeString('en-US', { ...base, timeZone: 'UTC' });
+  }
+}
+
+function safeLocaleString(date: Date, base: Intl.DateTimeFormatOptions): string {
+  try {
+    return date.toLocaleString('en-US', base);
+  } catch {
+    return date.toLocaleString('en-US', { ...base, timeZone: 'UTC' });
+  }
+}
+
 /**
  * Safely formats a date string/object into a readable date format
  * @param dateString - Date in various formats (string, Date, number, null, undefined)
+ * @param options - Optional `timeZone` (IANA); when omitted, uses browser local (except date-only strings use UTC)
  * @returns Formatted date string or fallback text
  */
-export const formatDate = (dateString: string | Date | number | undefined | null): string => {
+export const formatDate = (
+  dateString: string | Date | number | undefined | null,
+  options?: DateFormatOptions
+): string => {
   if (!dateString) return 'N/A';
-  
+
+  const tz = timeZoneFromOptions(options);
+
   try {
     // Handle different date formats that might come from GraphQL
     let date: Date;
-    
+
     // If it's already a Date object
     if (dateString instanceof Date) {
       date = dateString;
-    } 
+    }
     // If it's a number (Unix timestamp in milliseconds)
     else if (typeof dateString === 'number') {
       date = new Date(dateString);
@@ -42,29 +87,30 @@ export const formatDate = (dateString: string | Date | number | undefined | null
         }
       }
     }
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date received:', dateString, 'Type:', typeof dateString);
       return 'Invalid Date';
     }
-    
-    // For date-only strings, use UTC methods to ensure consistent display
-    // For other dates, use local methods as before
+
+    // For date-only strings, default to UTC when no timeZone (avoids off-by-one); explicit TZ when provided
     if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return date.toLocaleDateString('en-US', {
+      return safeLocaleDateString(date, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        timeZone: 'UTC'
+        timeZone: tz ?? 'UTC'
       });
     }
-    
-    return date.toLocaleDateString('en-US', {
+
+    const base: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
-    });
+      day: 'numeric',
+      ...(tz ? { timeZone: tz } : {})
+    };
+    return safeLocaleDateString(date, base);
   } catch (error) {
     console.warn('Error formatting date:', dateString, error);
     return 'Invalid Date';
@@ -74,19 +120,25 @@ export const formatDate = (dateString: string | Date | number | undefined | null
 /**
  * Safely formats a date string/object into both date and time components
  * @param dateString - Date in various formats (string, Date, number, null, undefined)
+ * @param options - Optional `timeZone` (IANA); when omitted, uses browser local
  * @returns Object with formatted date and time strings
  */
-export const formatDateTime = (dateString: string | Date | number | undefined | null): { date: string; time: string } => {
+export const formatDateTime = (
+  dateString: string | Date | number | undefined | null,
+  options?: DateFormatOptions
+): { date: string; time: string } => {
   if (!dateString) return { date: 'N/A', time: 'N/A' };
-  
+
+  const tz = timeZoneFromOptions(options);
+
   try {
     // Handle different date formats that might come from GraphQL
     let date: Date;
-    
+
     // If it's already a Date object
     if (dateString instanceof Date) {
       date = dateString;
-    } 
+    }
     // If it's a number (Unix timestamp in milliseconds)
     else if (typeof dateString === 'number') {
       date = new Date(dateString);
@@ -103,24 +155,29 @@ export const formatDateTime = (dateString: string | Date | number | undefined | 
         date = new Date(dateString);
       }
     }
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date received:', dateString, 'Type:', typeof dateString);
       return { date: 'Invalid Date', time: 'Invalid Time' };
     }
-    
+
+    const dateOpts: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      ...(tz ? { timeZone: tz } : {})
+    };
+    const timeOpts: Intl.DateTimeFormatOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      ...(tz ? { timeZone: tz } : {})
+    };
+
     return {
-      date: date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }),
-      time: date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
+      date: safeLocaleDateString(date, dateOpts),
+      time: safeLocaleTimeString(date, timeOpts)
     };
   } catch (error) {
     console.warn('Error formatting date:', dateString, error);
@@ -131,19 +188,25 @@ export const formatDateTime = (dateString: string | Date | number | undefined | 
 /**
  * Formats a date with full date and time in a single string
  * @param dateString - Date in various formats (string, Date, number, null, undefined)
+ * @param options - Optional `timeZone` (IANA); when omitted, uses browser local
  * @returns Formatted date and time string
  */
-export const formatFullDateTime = (dateString: string | Date | number | undefined | null): string => {
+export const formatFullDateTime = (
+  dateString: string | Date | number | undefined | null,
+  options?: DateFormatOptions
+): string => {
   if (!dateString) return 'N/A';
-  
+
+  const tz = timeZoneFromOptions(options);
+
   try {
     // Handle different date formats that might come from GraphQL
     let date: Date;
-    
+
     // If it's already a Date object
     if (dateString instanceof Date) {
       date = dateString;
-    } 
+    }
     // If it's a number (Unix timestamp in milliseconds)
     else if (typeof dateString === 'number') {
       date = new Date(dateString);
@@ -160,21 +223,23 @@ export const formatFullDateTime = (dateString: string | Date | number | undefine
         date = new Date(dateString);
       }
     }
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('Invalid date received:', dateString, 'Type:', typeof dateString);
       return 'Invalid Date';
     }
-    
-    return date.toLocaleString('en-US', {
+
+    const base: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
-    });
+      hour12: true,
+      ...(tz ? { timeZone: tz } : {})
+    };
+    return safeLocaleString(date, base);
   } catch (error) {
     console.warn('Error formatting date:', dateString, error);
     return 'Invalid Date';

@@ -8,6 +8,11 @@ interface Restaurant {
   address?: string;
   phone?: string;
   isActive: boolean;
+  settings?: {
+    timezone?: string;
+    currency?: string;
+    billSize?: string;
+  };
 }
 
 export function useRestaurant() {

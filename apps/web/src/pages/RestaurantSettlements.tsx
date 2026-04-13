@@ -17,7 +17,7 @@ import {
 import { useQuery } from '@apollo/client';
 import Layout from '../components/Layout';
 import { GET_SETTLEMENTS } from '../graphql/queries/admin';
-import { formatDateTime } from '../utils/dateFormatting';
+import { formatDateTime, getRestaurantTimeZone } from '../utils/dateFormatting';
 import { getApiBaseUrl } from '../services/printQueue';
 
 export default function RestaurantSettlements() {
@@ -39,6 +39,7 @@ export default function RestaurantSettlements() {
   });
 
   const settlements = data?.settlements || [];
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   const handleExportCsv = () => {
     const headers = ['periodStart', 'periodEnd', 'currency', 'totalOrders', 'totalOrderAmount', 'totalFees', 'generatedAt'];
@@ -96,11 +97,11 @@ export default function RestaurantSettlements() {
               ) : (
                 settlements.map((s: any) => (
                   <TableRow key={s.id}>
-                    <TableCell>{formatDateTime(s.periodStart).date} - {formatDateTime(s.periodEnd).date}</TableCell>
+                    <TableCell>{formatDateTime(s.periodStart, dateOpts).date} - {formatDateTime(s.periodEnd, dateOpts).date}</TableCell>
                     <TableCell align="right">{s.totalOrders}</TableCell>
                     <TableCell align="right">{s.currency} {s.totalOrderAmount.toFixed(2)}</TableCell>
                     <TableCell align="right">{s.currency} {s.totalFees.toFixed(2)}</TableCell>
-                    <TableCell>{formatDateTime(s.generatedAt).date} {formatDateTime(s.generatedAt).time}</TableCell>
+                    <TableCell>{formatDateTime(s.generatedAt, dateOpts).date} {formatDateTime(s.generatedAt, dateOpts).time}</TableCell>
                     <TableCell>
                       <Button
                         size="small"

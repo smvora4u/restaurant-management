@@ -20,7 +20,8 @@ import {
 import { Payment, TrendingUp, Restaurant, Assessment } from '@mui/icons-material';
 import { useQuery as useGqlQuery } from '@apollo/client';
 import { GET_DUE_FEES_SUMMARY } from '../../../../graphql/queries/admin';
-import { formatDateTime } from '../../../../utils/dateFormatting';
+import { GET_ALL_RESTAURANTS } from '../../../../graphql/queries/restaurant';
+import { formatDateTime, getRestaurantTimeZone } from '../../../../utils/dateFormatting';
 import { formatCurrency } from '../../../../utils/currency';
 import { useFeeSubscriptions } from '../../../../hooks/useFeeSubscriptions';
 
@@ -29,7 +30,17 @@ export default function PaymentManagementPanel() {
     fetchPolicy: 'cache-and-network'
   });
 
+  const { data: allRestaurantsData } = useGqlQuery(GET_ALL_RESTAURANTS, { fetchPolicy: 'cache-first' });
+
   const dueFeesSummary = dueFeesData?.dueFeesSummary || [];
+
+  const tzByRestaurantId = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of allRestaurantsData?.allRestaurants || []) {
+      m[(r as { id: string }).id] = getRestaurantTimeZone(r);
+    }
+    return m;
+  }, [allRestaurantsData?.allRestaurants]);
 
   // Set up real-time fee subscriptions for payment management
   useFeeSubscriptions({
@@ -194,7 +205,9 @@ export default function PaymentManagementPanel() {
                       <TableCell>
                         {summary.lastPaymentDate ? (
                           <Typography variant="caption">
-                            {formatDateTime(summary.lastPaymentDate).date}
+                            {formatDateTime(summary.lastPaymentDate, {
+                              timeZone: tzByRestaurantId[summary.restaurantId]
+                            }).date}
                           </Typography>
                         ) : (
                           <Typography variant="caption" color="text.secondary">
@@ -205,7 +218,9 @@ export default function PaymentManagementPanel() {
                       <TableCell>
                         {summary.oldestDueDate ? (
                           <Typography variant="caption" color="error.main">
-                            {formatDateTime(summary.oldestDueDate).date}
+                            {formatDateTime(summary.oldestDueDate, {
+                              timeZone: tzByRestaurantId[summary.restaurantId]
+                            }).date}
                           </Typography>
                         ) : (
                           <Typography variant="caption" color="text.secondary">

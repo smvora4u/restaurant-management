@@ -33,7 +33,7 @@ import {
   Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@apollo/client';
-import { formatFullDateTime } from '../../utils/dateFormatting';
+import { formatFullDateTime, getRestaurantTimeZone } from '../../utils/dateFormatting';
 import { formatCurrencyFromContext } from '../../utils/currency';
 import { getStatusColor } from '../../utils/statusColors';
 import { 
@@ -72,9 +72,11 @@ interface InvoiceTabProps {
   currentUser?: any;
   isActive?: boolean;
   refreshTrigger?: number;
+  /** Loaded restaurant (e.g. from GET_RESTAURANT_BY_SLUG) for timezone-aligned timestamps */
+  restaurant?: { settings?: { timezone?: string } } | null;
 }
 
-function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId, currentUser, isActive, refreshTrigger }: InvoiceTabProps) {
+function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId, currentUser, isActive, refreshTrigger, restaurant }: InvoiceTabProps) {
   // Invoice tab component for consumer interface
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [tipAmount, setTipAmount] = useState(0);
@@ -200,6 +202,8 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
     );
   }
 
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
+
   if (!invoice) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -245,11 +249,11 @@ function InvoiceTab({ tableNumber, orderId, orderType, isParcelOrder, sessionId,
             Type: {invoice.orderType} {invoice.tableNumber && `• Table ${invoice.tableNumber}`}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Date: {formatFullDateTime(invoice.createdAt)}
+            Date: {formatFullDateTime(invoice.createdAt, dateOpts)}
           </Typography>
           {isPaid && invoice.paidAt && (
             <Typography variant="body2" color="text.secondary">
-              Paid: {formatFullDateTime(invoice.paidAt)}
+              Paid: {formatFullDateTime(invoice.paidAt, dateOpts)}
             </Typography>
           )}
         </CardContent>

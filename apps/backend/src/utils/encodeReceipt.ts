@@ -16,12 +16,27 @@ function formatCurrency(amount: number, currency: string = 'USD'): string {
   return `${currency} ${amount.toFixed(2)}`;
 }
 
+const RECEIPT_DATE_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true
+};
+
 /** Format order date for receipts - uses order time only, never print time */
-function formatOrderDate(order: ReceiptOrder): string {
+function formatOrderDate(order: ReceiptOrder, timeZone?: string): string {
   const val = order?.createdAt ?? (order as any)?.created_at;
   if (val == null || val === '') return 'Order date unavailable';
   const d = typeof val === 'string' ? new Date(val) : val;
-  return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : 'Order date unavailable';
+  if (!d || Number.isNaN(d.getTime())) return 'Order date unavailable';
+  const tz = timeZone?.trim() || 'UTC';
+  try {
+    return d.toLocaleString('en-US', { ...RECEIPT_DATE_OPTS, timeZone: tz });
+  } catch {
+    return d.toLocaleString('en-US', { ...RECEIPT_DATE_OPTS, timeZone: 'UTC' });
+  }
 }
 
 export interface ReceiptOrderItem {
@@ -44,7 +59,7 @@ export interface ReceiptOrder {
 
 export interface ReceiptRestaurant {
   name: string;
-  settings?: { billSize?: string; currency?: string };
+  settings?: { billSize?: string; currency?: string; timezone?: string };
 }
 
 export interface ReceiptMenuItem {
@@ -69,7 +84,7 @@ export function encodeReceiptToEscPos(
 
   const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
 
-  const dateStr = formatOrderDate(order);
+  const dateStr = formatOrderDate(order, restaurant?.settings?.timezone);
 
   const tableInfo =
     order.orderType === 'dine-in' && order.tableNumber
@@ -149,7 +164,7 @@ export function encodeKOTToEscPos(
 
   const itemNameMap = new Map(menuItems.map((m) => [m.id, m.name]));
 
-  const dateStr = formatOrderDate(order);
+  const dateStr = formatOrderDate(order, restaurant?.settings?.timezone);
 
   const tableInfo =
     order.orderType === 'dine-in' && order.tableNumber

@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { Restaurant, Visibility } from '@mui/icons-material';
 import { getStatusColor, getPaidStatusLabel } from '../../../../utils/statusColors';
+import { formatDateTime, getRestaurantTimeZone } from '../../../../utils/dateFormatting';
 
 interface OrdersTableProps {
   ordersLoading: boolean;
@@ -27,7 +28,6 @@ interface OrdersTableProps {
   orderRowsPerPage: number;
   onPageChange: (event: unknown, newPage: number) => void;
   onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  formatDateTime: (iso: string) => { date: string; time: string };
   formatCurrencyFromRestaurant: (amount: number, restaurant: any) => string;
 }
 
@@ -39,7 +39,6 @@ export default function OrdersTable({
   orderRowsPerPage,
   onPageChange,
   onRowsPerPageChange,
-  formatDateTime,
   formatCurrencyFromRestaurant
 }: OrdersTableProps) {
   return (
@@ -124,7 +123,10 @@ export default function OrdersTable({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const { date, time } = formatDateTime(order.createdAt);
+                        const rowRestaurant = restaurants.find((r: any) => r.id === order.restaurantId);
+                        const { date, time } = formatDateTime(order.createdAt, {
+                          timeZone: getRestaurantTimeZone(rowRestaurant)
+                        });
                         return (
                           <>
                             <Typography variant="body2">{date}</Typography>

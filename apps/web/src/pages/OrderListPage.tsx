@@ -40,7 +40,7 @@ import {
 import { getStatusColor, getStatusIcon, getPaidStatusLabel } from '../utils/statusColors';
 import { ORDER_STATUSES } from '../constants/orderStatuses';
 import { formatCurrency, formatCurrencySummary } from '../utils/currency';
-import { formatDate, formatTimeAgo, getLocalDateString } from '../utils/dateFormatting';
+import { formatDate, formatTimeAgo, getLocalDateString, getRestaurantTimeZone } from '../utils/dateFormatting';
 import Layout from '../components/Layout';
 import { GET_ORDERS, GET_MENU_ITEMS } from '../graphql';
 import CreateOrderDialog from '../components/orders/CreateOrderDialog';
@@ -172,6 +172,8 @@ export default function OrderListPage() {
   const { data: menuData } = useQuery<MenuItemsData>(GET_MENU_ITEMS, {
     errorPolicy: 'ignore',
   });
+
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   const handleOrderCreated = (newOrder: any) => {
     setCreateOrderDialogOpen(false);
@@ -506,7 +508,7 @@ export default function OrderListPage() {
                         Order Created
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {formatDate(order.createdAt)}
+                        {formatDate(order.createdAt, dateOpts)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatTimeAgo(order.createdAt)}
@@ -518,7 +520,7 @@ export default function OrderListPage() {
                         Last Updated
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {formatDate(order.updatedAt)}
+                        {formatDate(order.updatedAt, dateOpts)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatTimeAgo(order.updatedAt)}
@@ -834,7 +836,7 @@ export default function OrderListPage() {
                       </Typography>
                       
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Created:</strong> {formatDate(order.createdAt)}
+                        <strong>Created:</strong> {formatDate(order.createdAt, dateOpts)}
                       </Typography>
                     </Stack>
                   </AccordionSummary>
@@ -965,7 +967,7 @@ export default function OrderListPage() {
                       />
                       
                       <Typography variant="body2">
-                        {formatDate(order.createdAt)}
+                        {formatDate(order.createdAt, dateOpts)}
                       </Typography>
                     </Box>
                   </AccordionSummary>

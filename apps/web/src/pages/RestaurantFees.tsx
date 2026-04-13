@@ -43,7 +43,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import Layout from '../components/Layout';
 import { GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS } from '../graphql/queries/admin';
 import { PAY_PLATFORM_FEES } from '../graphql/mutations/admin';
-import { formatDateTime } from '../utils/dateFormatting';
+import { formatDateTime, getRestaurantTimeZone } from '../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../utils/currency';
 import { useFeeSubscriptions } from '../hooks/useFeeSubscriptions';
 
@@ -133,6 +133,7 @@ export default function RestaurantFees() {
   const feeConfig = feeConfigData?.restaurantFeeConfig;
   const ledgers = ledgerData?.feeLedgers?.data || [];
   const totalCount = ledgerData?.feeLedgers?.totalCount || 0;
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   // Calculate due fees (unpaid fees)
   const calculateDueFees = () => {
@@ -200,7 +201,7 @@ export default function RestaurantFees() {
   const handleExportLedger = () => {
     const headers = ['Date', 'Order ID', 'Order Total', 'Fee Amount', 'Mode', 'Rate', 'Discount Applied'];
     const rows = ledgers.map((l: any) => [
-      formatDateTime(l.createdAt).date + ' ' + formatDateTime(l.createdAt).time,
+      formatDateTime(l.createdAt, dateOpts).date + ' ' + formatDateTime(l.createdAt, dateOpts).time,
       '#' + String(l.orderId).slice(-6),
       `${l.currency} ${l.orderTotal.toFixed(2)}`,
       `${l.currency} ${l.feeAmount.toFixed(2)}`,
@@ -458,10 +459,10 @@ export default function RestaurantFees() {
                     ledgers.map((ledger: any) => (
                       <TableRow key={ledger.id}>
                         <TableCell>
-                          {formatDateTime(ledger.createdAt).date}
+                          {formatDateTime(ledger.createdAt, dateOpts).date}
                           <br />
                           <Typography variant="caption" color="text.secondary">
-                            {formatDateTime(ledger.createdAt).time}
+                            {formatDateTime(ledger.createdAt, dateOpts).time}
                           </Typography>
                         </TableCell>
                         <TableCell>

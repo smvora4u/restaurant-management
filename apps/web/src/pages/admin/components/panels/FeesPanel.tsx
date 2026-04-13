@@ -28,7 +28,7 @@ import {
 import { useQuery as useGqlQuery, useMutation } from '@apollo/client';
 import { GET_RESTAURANT_FEE_CONFIG, GET_FEE_LEDGERS } from '../../../../graphql/queries/admin';
 import { SET_RESTAURANT_FEE_CONFIG, UPDATE_FEE_PAYMENT_STATUS } from '../../../../graphql/mutations/admin';
-import { formatDateTime } from '../../../../utils/dateFormatting';
+import { formatDateTime, getRestaurantTimeZone } from '../../../../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../../../../utils/currency';
 import { useFeeSubscriptions } from '../../../../hooks/useFeeSubscriptions';
 
@@ -204,6 +204,7 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
 
   const ledgers = ledgerData?.feeLedgers?.data || [];
   const totalCount = ledgerData?.feeLedgers?.totalCount || 0;
+  const dateOpts = { timeZone: getRestaurantTimeZone(selectedRestaurant) };
 
   return (
     <Box>
@@ -306,7 +307,7 @@ export default function FeesPanel({ selectedRestaurant }: { selectedRestaurant: 
                 ) : (
                   ledgers.map((l: any) => (
                     <TableRow key={l.id}>
-                      <TableCell>{formatDateTime(l.createdAt).date} {formatDateTime(l.createdAt).time}</TableCell>
+                      <TableCell>{formatDateTime(l.createdAt, dateOpts).date} {formatDateTime(l.createdAt, dateOpts).time}</TableCell>
                       <TableCell>#{String(l.orderId).slice(-6)}</TableCell>
                       <TableCell align="right">{formatCurrencyFromRestaurant(l.orderTotal, selectedRestaurant)}</TableCell>
                       <TableCell>{formatCurrencyFromRestaurant(l.feeAmount, selectedRestaurant)}</TableCell>

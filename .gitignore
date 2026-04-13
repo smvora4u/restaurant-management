@@ -8,5 +8,6 @@ coverage/
 .env
 .env.local
 apps/**/.env
+.cursor/plans
 
 

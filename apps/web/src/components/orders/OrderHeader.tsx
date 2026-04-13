@@ -15,7 +15,7 @@ import {
   Cancel,
   Update
 } from '@mui/icons-material';
-import { formatFullDateTime } from '../../utils/dateFormatting';
+import { formatFullDateTime, getRestaurantTimeZone } from '../../utils/dateFormatting';
 import { formatCurrencyFromRestaurant } from '../../utils/currency';
 import { OrderStatus, getStatusColor } from '../../utils/statusColors';
 
@@ -66,6 +66,8 @@ export default function OrderHeader({
   onCancelOrder
 }: OrderHeaderProps) {
   if (!order) return null;
+
+  const dateOpts = { timeZone: getRestaurantTimeZone(restaurant) };
 
   return (
     <Box>
@@ -163,11 +165,11 @@ export default function OrderHeader({
             <strong>Items:</strong> {order.items?.length || 0}
           </Typography>
           <Typography variant="body1">
-            <strong>Created:</strong> {formatFullDateTime(order.createdAt)}
+            <strong>Created:</strong> {formatFullDateTime(order.createdAt, dateOpts)}
           </Typography>
           {order.updatedAt && order.updatedAt !== order.createdAt && (
             <Typography variant="body1">
-              <strong>Last Updated:</strong> {formatFullDateTime(order.updatedAt)}
+              <strong>Last Updated:</strong> {formatFullDateTime(order.updatedAt, dateOpts)}
             </Typography>
           )}
         </Box>
